@@ -16,7 +16,7 @@ export default async function TeamsPage() {
             <ul className="mt-3 text-sm">
               {team.members.map((m) => (
                 <li key={m.id}>
-                  {m.name} — {m.roleStream} / {m.resourceLevel}
+                  {m.name} — {m.roleStream} / {m.resourceLevel} / {m.location}
                 </li>
               ))}
             </ul>

@@ -1,5 +1,5 @@
 {
-  "source": "PRD v1.0 defaults. Excel workbook was not attached; expected values are generated from the governed domain engine and locked for regression.",
+  "source": "Excel v7.1 Issue/Epic mapping tables drive Dev/QA SP. Expected values regenerated after that governed rule change.",
   "cases": [
     {
       "id": "issue-xs-no-ai-resource",
@@ -32,8 +32,8 @@
       "expected": {
         "assessedTshirt": "S",
         "selectedSp": 3,
-        "devSp": 2.42,
-        "qaSp": 0.58,
+        "devSp": 2.1,
+        "qaSp": 0.9,
         "requiredDev": 1,
         "requiredQa": 1,
         "finalSprints": 1,
@@ -73,8 +73,8 @@
       "expected": {
         "assessedTshirt": "L",
         "selectedSp": 8,
-        "devSp": 5.31,
-        "qaSp": 2.69,
+        "devSp": 5.6,
+        "qaSp": 2.4,
         "requiredDev": 1,
         "requiredQa": 1,
         "finalSprints": 2,
@@ -114,8 +114,8 @@
       "expected": {
         "assessedTshirt": "XXL",
         "selectedSp": 21,
-        "devSp": 10.92,
-        "qaSp": 10.08,
+        "devSp": 14.7,
+        "qaSp": 6.3,
         "requiredDev": 1,
         "requiredQa": 1,
         "finalSprints": 3,
@@ -155,14 +155,14 @@
       "expected": {
         "assessedTshirt": "L",
         "selectedSp": 8,
-        "devSp": 5.31,
-        "qaSp": 2.69,
+        "devSp": 5.6,
+        "qaSp": 2.4,
         "requiredDev": 1,
         "requiredQa": 1,
-        "finalSprints": 1,
+        "finalSprints": 2,
         "baselineDeliveryCost": 16000,
-        "aiAdjustedDeliveryCost": 8000,
-        "governanceDecision": "READY"
+        "aiAdjustedDeliveryCost": 16000,
+        "governanceDecision": "REVIEW"
       }
     },
     {
@@ -196,8 +196,8 @@
       "expected": {
         "assessedTshirt": "L",
         "selectedSp": 8,
-        "devSp": 5.31,
-        "qaSp": 2.69,
+        "devSp": 5.6,
+        "qaSp": 2.4,
         "requiredDev": 2,
         "requiredQa": 1,
         "finalSprints": 1,
@@ -237,13 +237,13 @@
       "expected": {
         "assessedTshirt": "XL",
         "selectedSp": 120,
-        "devSp": 71.04,
-        "qaSp": 48.96,
+        "devSp": 84,
+        "qaSp": 36,
         "requiredDev": 1,
         "requiredQa": 1,
-        "finalSprints": 15,
-        "baselineDeliveryCost": 120000,
-        "aiAdjustedDeliveryCost": 120000,
+        "finalSprints": 17,
+        "baselineDeliveryCost": 136000,
+        "aiAdjustedDeliveryCost": 136000,
         "governanceDecision": "DECOMPOSE"
       }
     },
@@ -278,8 +278,8 @@
       "expected": {
         "assessedTshirt": "L",
         "selectedSp": 8,
-        "devSp": 5.31,
-        "qaSp": 2.69,
+        "devSp": 5.6,
+        "qaSp": 2.4,
         "requiredDev": 1,
         "requiredQa": 1,
         "finalSprints": 2,
@@ -319,8 +319,8 @@
       "expected": {
         "assessedTshirt": "L",
         "selectedSp": 8,
-        "devSp": 5.31,
-        "qaSp": 2.69,
+        "devSp": 5.6,
+        "qaSp": 2.4,
         "requiredDev": 1,
         "requiredQa": 1,
         "finalSprints": 2,

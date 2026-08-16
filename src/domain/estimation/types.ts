@@ -56,11 +56,22 @@ export type ComplexityBandConfig = {
   maxExclusive: number;
 };
 
+export type ComplexityMappingConfig = {
+  lower: number;
+  upper: number;
+  tshirt: TShirt;
+  complexity: string;
+  governance: GovernanceDecision;
+  interpretation: string;
+};
+
 export type ResourceLevelConfig = {
   id: string;
   name: string;
   capacitySpPerSprint: number;
   daysPerPoint: number;
+  definition?: string;
+  rule?: string;
 };
 
 export type StoryPointMappingConfig = {
@@ -69,9 +80,59 @@ export type StoryPointMappingConfig = {
   governance: GovernanceDecision;
 };
 
+export type IssueMappingConfig = {
+  tshirt: TShirt;
+  totalSp: number;
+  devSp: number;
+  qaSp: number;
+  devPd: number;
+  qaPd: number;
+  totalPd: number;
+  sprintRule: string;
+  governance: GovernanceDecision;
+  notes: string;
+};
+
 export type EpicRomMappingConfig = {
   tshirt: TShirt;
   romSp: number;
+};
+
+export type EpicMappingConfig = {
+  tshirt: TShirt;
+  romSp: number;
+  expectedStories: number;
+  devSp: number;
+  qaSp: number;
+  devPd: number;
+  qaPd: number;
+  totalPd: number;
+  governance: GovernanceDecision;
+  notes: string;
+};
+
+export type AllowedIssueSpConfig = {
+  sp: number;
+  tshirt: TShirt;
+  autoOutput: boolean;
+  notes: string;
+};
+
+export type CostMappingConfig = {
+  location: string;
+  costMethod: string;
+  cost: number;
+  standardTeamSize: number;
+  currency: string;
+};
+
+export type TeamCostMappingConfig = {
+  teamLocation: string;
+  teamName: string;
+  costMethod: string;
+  cost: number;
+  standardTeamSize: number;
+  currency: string;
 };
 
 export type LocationAllocation = {
@@ -87,16 +148,25 @@ export type EstimationConfig = {
   rateVersionId: string;
   complexityDimensions: ComplexityDimensionConfig[];
   complexityBands: ComplexityBandConfig[];
+  complexityMappings: ComplexityMappingConfig[];
   issueStoryPointMappings: StoryPointMappingConfig[];
+  issueMappings: IssueMappingConfig[];
   epicRomMappings: EpicRomMappingConfig[];
+  epicMappings: EpicMappingConfig[];
+  allowedIssueStoryPoints: AllowedIssueSpConfig[];
   resourceLevels: ResourceLevelConfig[];
   complexityMultipliers: Record<TShirt, number>;
+  costMappings: CostMappingConfig[];
+  teamCostMappings: TeamCostMappingConfig[];
   sprintWorkingDays: number;
   aiMinPct: number;
   aiMaxPct: number;
   issueMaxRecommendedSprints: number;
+  issueReviewSp: number;
+  issueSplitSp: number;
   epicDecomposeSp: number;
   epicSplitSp: number;
+  fullTeamRateUtilisationWarning: number;
   readinessDiscoveryMax: number;
   readinessSpikeMax: number;
   confidenceHighReadinessMin: number;

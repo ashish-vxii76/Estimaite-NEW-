@@ -30,28 +30,31 @@ export function decideGovernance(input: {
   }
 
   if (input.workItemType === "EPIC") {
-    if (input.selectedSp >= input.config.epicSplitSp) {
-      steps.push(`Epic ROM SP ${input.selectedSp} ≥ ${input.config.epicSplitSp} → SPLIT EPIC`);
+    const splitThreshold = input.config.epicSplitSp;
+    const decomposeThreshold = input.config.epicDecomposeSp;
+    const mapped = input.config.epicMappings?.find((m) => m.tshirt === input.assessedTshirt);
+    if (input.selectedSp >= splitThreshold || mapped?.governance === "SPLIT EPIC") {
+      steps.push(`Epic ROM SP ${input.selectedSp} ≥ ${splitThreshold} (or mapping SPLIT EPIC)`);
       return done("SPLIT EPIC", steps);
     }
-    if (input.selectedSp >= input.config.epicDecomposeSp) {
-      steps.push(
-        `Epic ROM SP ${input.selectedSp} ≥ ${input.config.epicDecomposeSp} → DECOMPOSE`,
-      );
+    if (input.selectedSp >= decomposeThreshold || mapped?.governance === "DECOMPOSE") {
+      steps.push(`Epic ROM SP ${input.selectedSp} ≥ ${decomposeThreshold} (or mapping DECOMPOSE)`);
       return done("DECOMPOSE", steps);
     }
     steps.push("Epic is below decompose threshold → PLAN");
-    return done("PLAN", steps);
+    return done(mapped?.governance ?? "PLAN", steps);
   }
 
-  const mapping = input.config.issueStoryPointMappings.find(
-    (m) => m.tshirt === input.assessedTshirt,
-  );
-  if (mapping && (mapping.governance === "SPLIT" || mapping.governance === "REVIEW")) {
+  const mapping =
+    input.config.issueMappings?.find((m) => m.tshirt === input.assessedTshirt) ??
+    input.config.issueStoryPointMappings.find((m) => m.tshirt === input.assessedTshirt);
+  const splitSp = input.config.issueSplitSp ?? 21;
+  const reviewSp = input.config.issueReviewSp ?? 13;
+  if (mapping && (mapping.governance === "SPLIT" || input.selectedSp >= splitSp)) {
     steps.push(
-      `Issue ${input.assessedTshirt} mapping governance = ${mapping.governance}`,
+      `Issue ${input.assessedTshirt} mapping/threshold governance = SPLIT (split SP ${splitSp})`,
     );
-    if (mapping.governance === "SPLIT") return done("SPLIT", steps);
+    return done("SPLIT", steps);
   }
 
   if (input.finalSprints > input.config.issueMaxRecommendedSprints) {
@@ -61,7 +64,7 @@ export function decideGovernance(input: {
     return done("REVIEW", steps);
   }
 
-  if (mapping?.governance === "REVIEW") return done("REVIEW", steps);
+  if (mapping?.governance === "REVIEW" || input.selectedSp >= reviewSp) return done("REVIEW", steps);
 
   steps.push("Issue is within size and duration thresholds → READY");
   return done("READY", steps);

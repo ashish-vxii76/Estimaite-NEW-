@@ -70,7 +70,7 @@ export function EstimateWizard({
     stance: (initial?.stance as string) ?? "NEUTRAL",
     planningMode: (initial?.planningMode as string) ?? "RESOURCE_CONSTRAINED",
     costingModel: (initial?.costingModel as string) ?? "RESOURCE_SPRINT",
-    currency: (initial?.currency as string) ?? teams[0]?.currency ?? "GBP",
+    currency: (initial?.currency as string) ?? teams[0]?.currency ?? "CHF",
     devResourceLevel: (initial?.devResourceLevel as string) ?? "intermediate",
     qaResourceLevel: (initial?.qaResourceLevel as string) ?? "experienced",
     devAiProductivity: Number(initial?.devAiProductivity ?? 0),

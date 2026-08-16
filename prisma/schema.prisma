@@ -26,6 +26,8 @@ model Team {
   currency         String
   teamSprintRate   Float
   resourceSprintRate Float
+  costMethod       String    @default("Team Sprint Rate")
+  locationMixJson  String    @default("[]")
   effectiveFrom    DateTime
   effectiveTo      DateTime?
   active           Boolean      @default(true)
@@ -40,6 +42,7 @@ model TeamMember {
   name         String
   roleStream   String
   resourceLevel String
+  location      String @default("India")
 }
 
 model Location {
@@ -47,6 +50,8 @@ model Location {
   name      String  @unique
   dailyRate Float
   currency  String
+  costMethod String @default("Daily Rate (CHF / resource-day)")
+  standardTeamSize Int @default(6)
   active    Boolean @default(true)
 }
 

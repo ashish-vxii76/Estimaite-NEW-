@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import {
   calculateEstimate,
   calculateVariance,
+  hydrateConfig,
   type EstimateCalculationInput,
 } from "@/domain/estimation";
 import { getActiveConfig } from "@/services/configService";
@@ -142,7 +143,36 @@ export async function calculateAndPersist(id: string, userId: string) {
   const configRow = await prisma.configurationVersion.findUnique({
     where: { id: estimate.configurationVersionId },
   });
-  const config = configRow ? JSON.parse(configRow.payload) : await getActiveConfig();
+  const config = hydrateConfig(
+    configRow ? JSON.parse(configRow.payload) : await getActiveConfig(),
+  );
+
+  const teamCost = config.teamCostMappings?.find((t) => t.teamName === estimate.team.name);
+  const costingModel = (
+    teamCost?.costMethod?.toLowerCase().includes("resource")
+      ? "RESOURCE_SPRINT"
+      : teamCost
+        ? "TEAM_SPRINT"
+        : estimate.costingModel
+  ) as EstimateCalculationInput["costingModel"];
+  const storedMix = JSON.parse(estimate.locationMixJson) as EstimateCalculationInput["locationAllocations"];
+  const teamMix = JSON.parse(estimate.team.locationMixJson || "[]") as {
+    location: string;
+    allocationPct: number;
+  }[];
+  const locationAllocations =
+    storedMix.length > 0
+      ? storedMix
+      : teamMix.map((m) => {
+          const rate = config.costMappings?.find((c) => c.location === m.location);
+          return {
+            locationId: m.location,
+            locationName: m.location,
+            allocationPct: m.allocationPct,
+            dailyRate: rate?.cost ?? 0,
+            currency: rate?.currency ?? estimate.team.currency,
+          };
+        });
 
   const input: EstimateCalculationInput = {
     workItemType: estimate.workItemType as EstimateCalculationInput["workItemType"],
@@ -159,12 +189,12 @@ export async function calculateAndPersist(id: string, userId: string) {
     availableDev: estimate.availableDev,
     availableQa: estimate.availableQa,
     targetSprints: estimate.targetSprints,
-    costingModel: estimate.costingModel as EstimateCalculationInput["costingModel"],
+    costingModel,
     resourceSprintRate: estimate.team.resourceSprintRate,
-    teamSprintRate: estimate.team.teamSprintRate,
+    teamSprintRate: teamCost?.cost ?? estimate.team.teamSprintRate,
     otherFixedCost: estimate.otherFixedCost,
-    locationAllocations: JSON.parse(estimate.locationMixJson),
-    currency: estimate.currency,
+    locationAllocations,
+    currency: teamCost?.currency ?? estimate.currency,
   };
 
   const result = calculateEstimate(input, config);

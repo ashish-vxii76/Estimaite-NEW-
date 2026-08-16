@@ -53,7 +53,7 @@ export function calculateEstimate(
     };
   }
 
-  const split = splitDevQa(selectedSp, input.complexityScores, config);
+  const split = splitDevQa(selectedSp, effectiveTshirt, input.workItemType, config);
   explanations.devQa = split.explanation;
 
   const devLevel = getResourceLevel(input.devResourceLevelId, config);

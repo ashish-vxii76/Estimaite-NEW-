@@ -4,9 +4,47 @@ import { DEFAULT_CONFIG } from "../src/domain/estimation/defaultConfig";
 
 const prisma = new PrismaClient();
 
+const TEAM_MEMBERS: Record<
+  string,
+  { name: string; roleStream: string; resourceLevel: string; location: string }[]
+> = {
+  Vikings: [
+    { name: "Aarav Patel", roleStream: "DEV", resourceLevel: "senior", location: "India" },
+    { name: "Diya Shah", roleStream: "DEV", resourceLevel: "intermediate", location: "India" },
+    { name: "Kabir Rao", roleStream: "DEV", resourceLevel: "experienced", location: "India" },
+    { name: "Meera Iyer", roleStream: "QA", resourceLevel: "experienced", location: "India" },
+    { name: "Rohan Gupta", roleStream: "QA", resourceLevel: "intermediate", location: "India" },
+  ],
+  Spartans: [
+    { name: "Neha Verma", roleStream: "DEV", resourceLevel: "experienced", location: "India" },
+    { name: "Arjun Nair", roleStream: "DEV", resourceLevel: "beginner", location: "India" },
+    { name: "Ishita Bose", roleStream: "QA", resourceLevel: "intermediate", location: "India" },
+  ],
+  Centurions: [
+    { name: "Luca Meier", roleStream: "DEV", resourceLevel: "senior", location: "Switzerland" },
+    { name: "Priya Kulkarni", roleStream: "DEV", resourceLevel: "experienced", location: "India" },
+    { name: "Elena Rossi", roleStream: "QA", resourceLevel: "experienced", location: "Switzerland" },
+    { name: "Anika Das", roleStream: "QA", resourceLevel: "intermediate", location: "India" },
+  ],
+  Praetorians: [
+    { name: "Jonas Keller", roleStream: "DEV", resourceLevel: "senior", location: "Switzerland" },
+    { name: "Sophie Brunner", roleStream: "DEV", resourceLevel: "experienced", location: "Switzerland" },
+    { name: "Nina Graf", roleStream: "QA", resourceLevel: "senior", location: "Switzerland" },
+  ],
+};
+
+const MIX: Record<string, { location: string; allocationPct: number }[]> = {
+  Vikings: [{ location: "India", allocationPct: 100 }],
+  Spartans: [{ location: "India", allocationPct: 100 }],
+  Centurions: [
+    { location: "India", allocationPct: 50 },
+    { location: "Switzerland", allocationPct: 50 },
+  ],
+  Praetorians: [{ location: "Switzerland", allocationPct: 100 }],
+};
+
 async function main() {
   const passwordHash = await bcrypt.hash("demo1234", 10);
-
   const users = [
     ["admin@estimaite.local", "Platform Admin", "ADMINISTRATOR"],
     ["ba@estimaite.local", "Alex Requester", "REQUESTER"],
@@ -27,66 +65,68 @@ async function main() {
     });
   }
 
-  const platforms = await prisma.team.upsert({
-    where: { name: "Platform Engineering" },
-    update: {},
-    create: {
-      name: "Platform Engineering",
-      mappedLocation: "United Kingdom",
-      standardTeamSize: 6,
-      currency: "GBP",
-      teamSprintRate: 18000,
-      resourceSprintRate: 4000,
-      effectiveFrom: new Date("2026-01-01"),
-      active: true,
-      members: {
-        create: [
-          { name: "Dev A", roleStream: "DEV", resourceLevel: "senior" },
-          { name: "Dev B", roleStream: "DEV", resourceLevel: "intermediate" },
-          { name: "QA A", roleStream: "QA", resourceLevel: "experienced" },
-        ],
-      },
-    },
-  });
-
-  await prisma.team.upsert({
-    where: { name: "Payments" },
-    update: {},
-    create: {
-      name: "Payments",
-      mappedLocation: "India",
-      standardTeamSize: 8,
-      currency: "USD",
-      teamSprintRate: 9000,
-      resourceSprintRate: 1800,
-      effectiveFrom: new Date("2026-01-01"),
-      active: true,
-      members: {
-        create: [
-          { name: "Dev C", roleStream: "DEV", resourceLevel: "experienced" },
-          { name: "Dev D", roleStream: "DEV", resourceLevel: "beginner" },
-          { name: "QA B", roleStream: "QA", resourceLevel: "intermediate" },
-        ],
-      },
-    },
-  });
-
-  const locations = [
-    ["India", 220, "USD"],
-    ["United Kingdom", 650, "GBP"],
-    ["United States", 780, "USD"],
-    ["Switzerland", 900, "CHF"],
-    ["Poland", 320, "EUR"],
-    ["Singapore", 540, "SGD"],
-  ] as const;
-  for (const [name, dailyRate, currency] of locations) {
+  for (const row of DEFAULT_CONFIG.costMappings) {
     await prisma.location.upsert({
-      where: { name },
-      update: { dailyRate, currency, active: true },
-      create: { name, dailyRate, currency, active: true },
+      where: { name: row.location },
+      update: {
+        dailyRate: row.cost,
+        currency: row.currency,
+        costMethod: row.costMethod,
+        standardTeamSize: row.standardTeamSize,
+        active: true,
+      },
+      create: {
+        name: row.location,
+        dailyRate: row.cost,
+        currency: row.currency,
+        costMethod: row.costMethod,
+        standardTeamSize: row.standardTeamSize,
+        active: true,
+      },
     });
   }
 
+  for (const row of DEFAULT_CONFIG.teamCostMappings) {
+    const resourceSprintRate = row.cost / row.standardTeamSize;
+    const members = TEAM_MEMBERS[row.teamName] ?? [];
+    const mix = MIX[row.teamName] ?? [];
+    const existing = await prisma.team.findUnique({ where: { name: row.teamName } });
+    if (existing) {
+      await prisma.teamMember.deleteMany({ where: { teamId: existing.id } });
+      await prisma.team.update({
+        where: { id: existing.id },
+        data: {
+          mappedLocation: row.teamLocation,
+          standardTeamSize: row.standardTeamSize,
+          currency: row.currency,
+          teamSprintRate: row.cost,
+          resourceSprintRate,
+          costMethod: row.costMethod,
+          locationMixJson: JSON.stringify(mix),
+          active: true,
+          members: { create: members },
+        },
+      });
+    } else {
+      await prisma.team.create({
+        data: {
+          name: row.teamName,
+          mappedLocation: row.teamLocation,
+          standardTeamSize: row.standardTeamSize,
+          currency: row.currency,
+          teamSprintRate: row.cost,
+          resourceSprintRate,
+          costMethod: row.costMethod,
+          locationMixJson: JSON.stringify(mix),
+          effectiveFrom: new Date("2026-01-01"),
+          active: true,
+          members: { create: members },
+        },
+      });
+    }
+  }
+
+  await prisma.configurationVersion.updateMany({ data: { active: false } });
   await prisma.configurationVersion.upsert({
     where: { id: DEFAULT_CONFIG.versionId },
     update: { payload: JSON.stringify(DEFAULT_CONFIG), active: true },
@@ -97,8 +137,7 @@ async function main() {
     },
   });
 
-  console.log("Seeded demo users (password: demo1234), teams, locations, config.");
-  console.log("Primary team:", platforms.name);
+  console.log("Seeded Excel v7.1 admin mappings, Vikings/Spartans/Centurions/Praetorians.");
 }
 
 main()

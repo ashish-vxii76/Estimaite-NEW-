@@ -11,27 +11,33 @@ export function mapStoryPoints(
   config: EstimationConfig,
 ): { sp: number; explanation: Explanation } {
   if (workItemType === "EPIC") {
-    const mapping = config.epicRomMappings.find((m) => m.tshirt === tshirt);
+    const mapping =
+      config.epicMappings?.find((m) => m.tshirt === tshirt) ??
+      config.epicRomMappings.find((m) => m.tshirt === tshirt);
     if (!mapping) throw new Error(`No Epic ROM mapping for ${tshirt}`);
+    const romSp = mapping.romSp;
     return {
-      sp: mapping.romSp,
+      sp: romSp,
       explanation: {
         title: "Epic ROM Story Points",
-        summary: `Epic ${tshirt} maps to ${mapping.romSp} ROM SP`,
-        steps: [`Configured Epic ROM mapping: ${tshirt} → ${mapping.romSp}`],
+        summary: `Epic ${tshirt} maps to ${romSp} ROM SP`,
+        steps: [`Configured Epic Mapping: ${tshirt} → ${romSp} ROM SP`],
       },
     };
   }
 
-  const mapping = config.issueStoryPointMappings.find((m) => m.tshirt === tshirt);
+  const mapping =
+    config.issueMappings?.find((m) => m.tshirt === tshirt) ??
+    config.issueStoryPointMappings.find((m) => m.tshirt === tshirt);
   if (!mapping) throw new Error(`No Issue SP mapping for ${tshirt}`);
+  const sp = "totalSp" in mapping ? mapping.totalSp : mapping.canonicalSp;
   return {
-    sp: mapping.canonicalSp,
+    sp,
     explanation: {
       title: "Issue Canonical Story Points",
-      summary: `Issue ${tshirt} maps to ${mapping.canonicalSp} SP`,
+      summary: `Issue ${tshirt} maps to ${sp} SP`,
       steps: [
-        `Configured Issue mapping: ${tshirt} → ${mapping.canonicalSp}`,
+        `Configured Issue Mapping: ${tshirt} → ${sp}`,
         "Automated S maps to 3. Two SP remains valid only for manual/team calibration.",
       ],
     },

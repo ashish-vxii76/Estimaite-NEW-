@@ -8,7 +8,7 @@ const NAV = [
   ["/what-if", "What-If"],
   ["/teams", "Teams"],
   ["/analytics", "Analytics"],
-  ["/configuration", "Configuration"],
+  ["/admin", "Administration"],
 ];
 
 export function AppShell({

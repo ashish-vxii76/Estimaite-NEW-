@@ -57,11 +57,17 @@ export function mapIndexToTshirt(
   index: number,
   config: EstimationConfig,
 ): TShirt {
-  const band = config.complexityBands.find(
-    (b) => index >= b.minInclusive && index < b.maxExclusive,
-  );
+  const pct = index * 100;
+  const mappings = config.complexityMappings?.length
+    ? config.complexityMappings
+    : config.complexityBands.map((b) => ({
+        lower: b.minInclusive * 100,
+        upper: b.maxExclusive * 100,
+        tshirt: b.tshirt,
+      }));
+  const band = mappings.find((b) => pct >= b.lower && pct < b.upper);
   if (!band) {
-    throw new Error(`No complexity band configured for index ${index}`);
+    throw new Error(`No complexity band configured for index ${index} (${pct}%)`);
   }
   return band.tshirt;
 }
