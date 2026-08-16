@@ -1,64 +1,32 @@
-import { StatusBadge } from "@/components/ui";
+import Link from "next/link";
 
-async function loadAnalytics() {
-  const { prisma } = await import("@/lib/prisma");
-  const estimates = await prisma.estimate.findMany({
-    where: { resultJson: { not: null } },
-    include: { team: true, actuals: true },
-  });
-  const governance: Record<string, number> = {};
-  const byTeam: Record<string, number> = {};
-  let ratio = 0;
-  let ratioCount = 0;
-  for (const estimate of estimates) {
-    const result = JSON.parse(estimate.resultJson ?? "{}");
-    governance[result.governanceDecision ?? "UNKNOWN"] =
-      (governance[result.governanceDecision ?? "UNKNOWN"] ?? 0) + 1;
-    byTeam[estimate.team.name] = (byTeam[estimate.team.name] ?? 0) + 1;
-    if (estimate.actuals) {
-      const v = JSON.parse(estimate.actuals.varianceJson);
-      if (v.actualEstimatedEffortRatio) {
-        ratio += v.actualEstimatedEffortRatio;
-        ratioCount += 1;
-      }
-    }
-  }
-  return { total: estimates.length, governance, byTeam, avgRatio: ratioCount ? ratio / ratioCount : null };
-}
-
-export default async function AnalyticsPage() {
-  const data = await loadAnalytics();
+export default function AnalyticsPage() {
   return (
-    <div className="space-y-5">
-      <h1 className="text-2xl font-semibold">Analytics</h1>
-      <p className="text-sm text-[var(--muted)]">
-        Calibration is observational. Automatic parameter changes require governance approval.
-      </p>
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="card p-4">
-          <p className="text-xs uppercase text-[var(--muted)]">Calculated estimates</p>
-          <p className="text-2xl font-semibold">{data.total}</p>
-        </div>
-        <div className="card p-4">
-          <p className="text-xs uppercase text-[var(--muted)]">Avg actual/estimated ratio</p>
-          <p className="text-2xl font-semibold">{data.avgRatio ? data.avgRatio.toFixed(2) : "—"}</p>
-        </div>
-        <div className="card p-4">
-          <p className="text-xs uppercase text-[var(--muted)]">Teams with estimates</p>
-          <p className="text-2xl font-semibold">{Object.keys(data.byTeam).length}</p>
-        </div>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold">Analytics</h1>
+        <p className="text-sm text-[var(--muted)]">
+          Portfolio aggregates the CR register. Calibration learns from actuals without silently
+          changing parameters.
+        </p>
       </div>
-      <section className="card p-5">
-        <h2 className="font-medium">Governance outcomes</h2>
-        <ul className="mt-3 space-y-2">
-          {Object.entries(data.governance).map(([k, v]) => (
-            <li key={k} className="flex items-center justify-between text-sm">
-              <StatusBadge status={k} />
-              <span>{v}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Link href="/portfolio" className="card p-6 hover:border-teal-400">
+          <p className="text-xs uppercase tracking-[0.2em] text-teal-300">Deliver</p>
+          <h2 className="mt-2 text-xl font-semibold">Portfolio Roll-Up</h2>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            Totals, budget RAG, count by delivery flag, cost by T-shirt, and the CR register.
+          </p>
+        </Link>
+        <Link href="/calibration" className="card p-6 hover:border-teal-400">
+          <p className="text-xs uppercase tracking-[0.2em] text-teal-300">Measure → Learn</p>
+          <h2 className="mt-2 text-xl font-semibold">Calibration</h2>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            Actual vs estimate ratios by Dev seniority, with suggested Days/Point for governed
+            approval.
+          </p>
+        </Link>
+      </div>
     </div>
   );
 }

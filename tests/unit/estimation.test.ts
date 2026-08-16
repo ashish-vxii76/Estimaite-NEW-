@@ -147,6 +147,66 @@ describe("calculateEstimate principles", () => {
   });
 });
 
+describe("portfolio roll-up", () => {
+  it("aggregates register cost, effort, flags and T-shirt cost", async () => {
+    const { rollupPortfolio } = await import("@/domain/estimation/portfolio");
+    const result = rollupPortfolio(
+      [
+        {
+          governanceDecision: "READY",
+          effectiveTshirt: "M",
+          aiAdjustedDeliveryCost: 9361,
+          baselineDeliveryCost: 10000,
+          adjustedTotalEffortPd: 100,
+        },
+        {
+          governanceDecision: "SPLIT",
+          effectiveTshirt: "XL",
+          aiAdjustedDeliveryCost: 5000,
+          baselineDeliveryCost: 5000,
+          adjustedTotalEffortPd: 200,
+        },
+        {
+          governanceDecision: "DECOMPOSE",
+          effectiveTshirt: "XL",
+          aiAdjustedDeliveryCost: 0,
+          baselineDeliveryCost: 0,
+          adjustedTotalEffortPd: 67.2,
+        },
+      ],
+      20000,
+    );
+    expect(result.totalEstimates).toBe(3);
+    expect(result.totalAiAdjustedCost).toBe(14361);
+    expect(result.totalBaselineCost).toBe(15000);
+    expect(result.totalEffortPd).toBe(367.2);
+    expect(result.countByFlag.READY).toBe(1);
+    expect(result.countByFlag.SPLIT).toBe(1);
+    expect(result.countByFlag.DECOMPOSE).toBe(1);
+    expect(result.costByTshirt.M).toBe(9361);
+    expect(result.costByTshirt.XL).toBe(5000);
+    expect(result.budgetRag).toBe("GREEN");
+  });
+});
+
+describe("days/point calibration", () => {
+  it("suggests current days/point times average actual/est ratio", async () => {
+    const { calibrateDaysPerPoint } = await import("@/domain/estimation/calibration");
+    const result = calibrateDaysPerPoint({
+      levels: [
+        { id: "beginner", name: "Beginner", daysPerPoint: 3.33 },
+        { id: "intermediate", name: "Intermediate", daysPerPoint: 2 },
+      ],
+      samples: [{ resourceLevelId: "beginner", actualEstimatedEffortRatio: 2.14 }],
+    });
+    expect(result.rows[0]?.suggestedDaysPerPoint).toBe(7.13);
+    expect(result.rows[0]?.samples).toBe(1);
+    expect(result.rows[1]?.samples).toBe(0);
+    expect(result.rows[1]?.suggestedDaysPerPoint).toBeNull();
+    expect(result.overallAvgRatio).toBe(2.14);
+  });
+});
+
 describe("variance", () => {
   it("interprets actual/estimated ratio", () => {
     const under = calculateVariance({

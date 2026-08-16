@@ -6,6 +6,8 @@ const NAV = [
   ["/estimates", "Estimates"],
   ["/estimates/new", "New estimate"],
   ["/what-if", "What-If"],
+  ["/portfolio", "Portfolio"],
+  ["/calibration", "Calibration"],
   ["/teams", "Teams"],
   ["/analytics", "Analytics"],
   ["/admin", "Administration"],

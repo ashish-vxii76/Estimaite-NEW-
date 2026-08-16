@@ -144,6 +144,13 @@ model ActualDelivery {
   createdAt        DateTime @default(now())
 }
 
+model PortfolioSettings {
+  id        String   @id @default("default")
+  budget    Float?
+  currency  String   @default("CHF")
+  updatedAt DateTime @updatedAt
+}
+
 model AuditEvent {
   id         String    @id @default(cuid())
   estimateId String?

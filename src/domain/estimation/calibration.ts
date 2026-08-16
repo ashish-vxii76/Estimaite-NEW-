@@ -1,5 +1,5 @@
-import { round4 } from "./math";
-import type { Explanation } from "./types";
+import { round2, round4 } from "./math";
+import type { Explanation, ResourceLevelConfig } from "./types";
 
 export function calculateVariance(input: {
   actualDevPd: number;
@@ -52,6 +52,69 @@ export function calculateVariance(input: {
         `Dev Effort Variance = (Actual Dev PD − Estimated Dev PD) / Estimated Dev PD`,
         `QA, duration and cost variances use the same form.`,
         `Actual / Estimated Effort Ratio = ${actualTotal} / ${ratioDenom} = ${actualEstimatedEffortRatio}`,
+      ],
+    },
+  };
+}
+
+export type CalibrationSample = {
+  resourceLevelId: string;
+  actualEstimatedEffortRatio: number;
+};
+
+export type CalibrationRow = {
+  id: string;
+  name: string;
+  currentDaysPerPoint: number;
+  avgActualEstRatio: number | null;
+  suggestedDaysPerPoint: number | null;
+  samples: number;
+};
+
+export function calibrateDaysPerPoint(input: {
+  levels: Pick<ResourceLevelConfig, "id" | "name" | "daysPerPoint">[];
+  samples: CalibrationSample[];
+}): { rows: CalibrationRow[]; overallAvgRatio: number | null; explanation: Explanation } {
+  const grouped = new Map<string, number[]>();
+  for (const sample of input.samples) {
+    const list = grouped.get(sample.resourceLevelId) ?? [];
+    list.push(sample.actualEstimatedEffortRatio);
+    grouped.set(sample.resourceLevelId, list);
+  }
+
+  const rows: CalibrationRow[] = input.levels.map((level) => {
+    const ratios = grouped.get(level.id) ?? [];
+    const samples = ratios.length;
+    const avgActualEstRatio =
+      samples === 0 ? null : round2(ratios.reduce((sum, n) => sum + n, 0) / samples);
+    const suggestedDaysPerPoint =
+      avgActualEstRatio == null ? null : round2(level.daysPerPoint * avgActualEstRatio);
+    return {
+      id: level.id,
+      name: level.name,
+      currentDaysPerPoint: level.daysPerPoint,
+      avgActualEstRatio,
+      suggestedDaysPerPoint,
+      samples,
+    };
+  });
+
+  const allRatios = input.samples.map((s) => s.actualEstimatedEffortRatio);
+  const overallAvgRatio =
+    allRatios.length === 0
+      ? null
+      : round2(allRatios.reduce((sum, n) => sum + n, 0) / allRatios.length);
+
+  return {
+    rows,
+    overallAvgRatio,
+    explanation: {
+      title: "Suggested Days/Point",
+      summary: overallAvgRatio == null ? "No actuals yet" : `Overall avg ratio ${overallAvgRatio}`,
+      steps: [
+        "Derived from the Register Actual/Est ratios by Dev resource level (CRs with actuals).",
+        "Suggested Days/Point = Current Days/Point × Avg Actual/Est Ratio.",
+        "Automatic parameter changes require governance approval; suggestions are not applied silently.",
       ],
     },
   };
