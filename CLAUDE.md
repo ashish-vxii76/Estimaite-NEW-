@@ -1,0 +1,1 @@
+The estimation engine is a governed domain model. Never change formulas, thresholds, mappings, rounding behaviour, commercial costing semantics or governance rules merely to make tests pass. When implementation and the PRD disagree, stop and document the discrepancy. All calculation changes require corresponding unit tests and Golden Dataset regression tests.

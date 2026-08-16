@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #0f1419;
+  --panel: #171e27;
+  --panel-2: #1e2733;
+  --line: #2a3544;
+  --text: #e8eef6;
+  --muted: #93a4b8;
+  --accent: #2dd4bf;
+  --accent-2: #14b8a6;
+  --warn: #f59e0b;
+  --danger: #f87171;
+  --ok: #34d399;
+}
+
+body {
+  background: radial-gradient(1200px 600px at 10% -10%, #163044 0%, transparent 55%),
+    var(--bg);
+  color: var(--text);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+input, select, textarea, button {
+  font: inherit;
+}
+
+.card {
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+
+.sticky-summary {
+  backdrop-filter: blur(12px);
+  background: color-mix(in srgb, var(--panel) 80%, transparent);
+}
