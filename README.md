@@ -13,7 +13,7 @@ npm install
 npm run dev
 ```
 
-`npm run dev` creates `.env` from `.env.example` if needed, syncs the SQLite schema, and seeds demo users when the database is empty.
+Open **http://localhost:3456**. `npm run dev` binds port **3456**, creates `.env` from `.env.example` if needed, syncs the SQLite schema, and seeds demo users when the database is empty.
 
 Sign in with `admin@estimaite.local` / `demo1234`.
 
