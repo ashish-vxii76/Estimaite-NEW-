@@ -1,22 +1,21 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireRole, requireUser } from "@/lib/api-auth";
+import { requireFeature, requireUser } from "@/lib/api-auth";
+import { fromSession, teamsForUser } from "@/lib/scope";
 
 export async function GET() {
-  const { error } = await requireUser();
+  const { session, error } = await requireUser();
   if (error) return error;
-  const teams = await prisma.team.findMany({
-    where: { active: true },
-    include: { members: true },
-    orderBy: { name: "asc" },
-  });
+  const forbidden = requireFeature(session!.user.role, "config.teams");
+  if (forbidden) return forbidden;
+  const teams = await teamsForUser(fromSession(session!.user));
   return NextResponse.json({ teams });
 }
 
 export async function POST(request: Request) {
   const { session, error } = await requireUser();
   if (error) return error;
-  const forbidden = requireRole(session!.user.role, ["ADMINISTRATOR"]);
+  const forbidden = requireFeature(session!.user.role, "config.teams", "RW");
   if (forbidden) return forbidden;
   const body = await request.json();
   const name = String(body.name ?? "").trim();
@@ -38,4 +37,3 @@ export async function POST(request: Request) {
   });
   return NextResponse.json({ team }, { status: 201 });
 }
-

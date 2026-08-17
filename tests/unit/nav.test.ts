@@ -50,9 +50,15 @@ describe("left navigation tree", () => {
     expect(canSeeNav(admin, "ADMINISTRATOR")).toBe(true);
   });
 
-  it("hides login credentials from finance", () => {
+  it("puts RBAC under Access and hides it from Approver", () => {
+    expect(find("admin-rbac")?.href).toBe("/admin/rbac");
+    expect(canSeeNav(find("admin-rbac")!, "ADMINISTRATOR")).toBe(true);
+    expect(canSeeNav(find("admin-rbac")!, "APPROVER")).toBe(false);
+    expect(canSeeNav(find("portfolio")!, "APPROVER")).toBe(true);
+    expect(canSeeNav(find("portfolio")!, "REQUESTER")).toBe(false);
     expect(canSeeNav(find("admin-users")!, "FINANCE")).toBe(false);
     expect(canSeeNav(find("admin-users")!, "ADMINISTRATOR")).toBe(true);
+    expect(canCreate(find("estimates")!, "APPROVER")).toBe(false);
   });
 
   it("treats estimate status filters as distinct from all estimates", () => {

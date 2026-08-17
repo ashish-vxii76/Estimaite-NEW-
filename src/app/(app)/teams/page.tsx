@@ -1,17 +1,13 @@
-import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { formatMoney } from "@/lib/utils";
+import { can } from "@/lib/rbac";
+import { fromSession, teamsForUser } from "@/lib/scope";
 
 export default async function TeamsPage() {
-  const [teams, session] = await Promise.all([
-    prisma.team.findMany({
-      include: { members: true, _count: { select: { estimates: true } } },
-      orderBy: { name: "asc" },
-    }),
-    auth(),
-  ]);
-  const canCreate = session?.user.role === "ADMINISTRATOR";
+  const session = await auth();
+  const teams = await teamsForUser(fromSession(session!.user));
+  const canCreate = can(session?.user.role, "config.teams", "RW");
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-3">

@@ -9,9 +9,16 @@ type UserRow = {
   name: string;
   role: string;
   active: boolean;
+  teamId?: string | null;
 };
 
-export function UsersAdmin({ initial }: { initial: UserRow[] }) {
+export function UsersAdmin({
+  initial,
+  teams,
+}: {
+  initial: UserRow[];
+  teams: { id: string; name: string }[];
+}) {
   const [rows, setRows] = useState(initial);
   const [message, setMessage] = useState("");
   const [form, setForm] = useState({
@@ -19,6 +26,7 @@ export function UsersAdmin({ initial }: { initial: UserRow[] }) {
     email: "",
     password: "demo1234",
     role: "REQUESTER",
+    teamId: "",
   });
 
   async function createUser() {
@@ -34,7 +42,7 @@ export function UsersAdmin({ initial }: { initial: UserRow[] }) {
       return;
     }
     setRows((current) => [...current, data.user].sort((a, b) => a.name.localeCompare(b.name)));
-    setForm({ name: "", email: "", password: "demo1234", role: "REQUESTER" });
+    setForm({ name: "", email: "", password: "demo1234", role: "REQUESTER", teamId: "" });
     setMessage("Login created. The person can sign in with that profile.");
   }
 
@@ -58,8 +66,8 @@ export function UsersAdmin({ initial }: { initial: UserRow[] }) {
       <div>
         <h1 className="text-2xl font-semibold">Login credentials</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Each login is a profile. Role decides which menus, creates, reviews and admin tables they
-          can use.
+          Each login is a profile. Role decides functions (RW / R / none). Team decides which
+          records they see. Admin should have no team — they see every team.
         </p>
       </div>
 
@@ -91,6 +99,16 @@ export function UsersAdmin({ initial }: { initial: UserRow[] }) {
             ))}
           </select>
         </Field>
+        <Field label="Team">
+          <select value={form.teamId} onChange={(e) => setForm({ ...form, teamId: e.target.value })}>
+            <option value="">None (Admin / all teams)</option>
+            {teams.map((team) => (
+              <option key={team.id} value={team.id}>
+                {team.name}
+              </option>
+            ))}
+          </select>
+        </Field>
         <div className="md:col-span-2">
           <button className="btn-primary" onClick={createUser}>
             Create login
@@ -107,6 +125,7 @@ export function UsersAdmin({ initial }: { initial: UserRow[] }) {
               <th className="px-4 py-3">Name</th>
               <th>Email</th>
               <th>Role</th>
+              <th>Team</th>
               <th>Active</th>
               <th>Reset password</th>
             </tr>
@@ -125,6 +144,20 @@ export function UsersAdmin({ initial }: { initial: UserRow[] }) {
                     {ROLES.map((role) => (
                       <option key={role} value={role}>
                         {roleLabel(role)}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td>
+                  <select
+                    className="rounded border border-[var(--line)] bg-[var(--panel-2)] px-2 py-1"
+                    value={row.teamId ?? ""}
+                    onChange={(e) => updateUser(row.id, { teamId: e.target.value || null })}
+                  >
+                    <option value="">All teams</option>
+                    {teams.map((team) => (
+                      <option key={team.id} value={team.id}>
+                        {team.name}
                       </option>
                     ))}
                   </select>

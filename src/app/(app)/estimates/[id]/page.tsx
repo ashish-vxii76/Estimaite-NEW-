@@ -1,14 +1,18 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
+import { auth } from "@/auth";
 import { EstimateWizard } from "@/components/EstimateWizard";
 import { ActualsForm } from "@/components/ActualsForm";
 import { StatusBadge } from "@/components/ui";
+import { can, writesOwnRecordsOnly } from "@/lib/rbac";
+import { canSeeEstimate, fromSession, teamsForUser } from "@/lib/scope";
 
 export default async function EstimateDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const session = await auth();
   const { id } = await params;
   const estimate = await prisma.estimate.findUnique({
     where: { id },
@@ -20,8 +24,15 @@ export default async function EstimateDetailPage({
     },
   });
   if (!estimate) notFound();
+  if (!canSeeEstimate(fromSession(session!.user), estimate)) notFound();
+
+  const ownOnly = writesOwnRecordsOnly(session?.user.role);
+  const authored = estimate.createdById === session?.user.id;
+  const canEdit =
+    can(session?.user.role, "estimates.edit", "RW") && (!ownOnly || authored);
+
   const [teams, locations] = await Promise.all([
-    prisma.team.findMany({ where: { active: true } }),
+    teamsForUser(fromSession(session!.user)),
     prisma.location.findMany({ where: { active: true } }),
   ]);
   const result = estimate.resultJson ? JSON.parse(estimate.resultJson) : null;
@@ -42,6 +53,14 @@ export default async function EstimateDetailPage({
         estimateId={estimate.id}
         teams={teams}
         locations={locations}
+        capabilities={{
+          canEdit,
+          canSubmit: can(session?.user.role, "estimates.submit", "RW") && (!ownOnly || authored),
+          canReview: can(session?.user.role, "estimates.review", "RW"),
+          canApprove: can(session?.user.role, "estimates.approve", "RW"),
+          canOverride: canEdit,
+          teamLocked: session?.user.role !== "ADMINISTRATOR",
+        }}
         initial={{
           ...estimate,
           result,
@@ -49,7 +68,11 @@ export default async function EstimateDetailPage({
           readiness: JSON.parse(estimate.readinessJson),
         }}
       />
-      <ActualsForm estimateId={estimate.id} actuals={estimate.actuals} />
+      {can(session?.user.role, "estimates.actuals", "RW") ? (
+        <ActualsForm estimateId={estimate.id} actuals={estimate.actuals} />
+      ) : estimate.actuals ? (
+        <ActualsForm estimateId={estimate.id} actuals={estimate.actuals} readOnly />
+      ) : null}
       <section className="card p-5">
         <h2 className="font-medium">Audit history</h2>
         <ul className="mt-3 space-y-2 text-sm text-[var(--muted)]">

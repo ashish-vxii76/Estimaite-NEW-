@@ -22,14 +22,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         const switchKey = String(credentials?.switchKey ?? "");
         if (switchKey && switchKey === process.env.AUTH_SECRET) {
-          return { id: user.id, email: user.email, name: user.name, role: user.role };
+          return { id: user.id, email: user.email, name: user.name, role: user.role, teamId: user.teamId };
         }
 
         const password = String(credentials?.password ?? "");
         if (!password) return null;
         const ok = await bcrypt.compare(password, user.passwordHash);
         if (!ok) return null;
-        return { id: user.id, email: user.email, name: user.name, role: user.role };
+        return { id: user.id, email: user.email, name: user.name, role: user.role, teamId: user.teamId };
       },
     }),
   ],
@@ -40,6 +40,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.sub = user.id;
         token.name = user.name;
         token.email = user.email;
+        token.teamId = (user as { teamId?: string | null }).teamId ?? null;
       }
       return token;
     },
@@ -49,6 +50,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.role = String(token.role ?? "VIEWER");
         session.user.name = token.name ?? session.user.name;
         session.user.email = token.email ?? session.user.email;
+        session.user.teamId = (token.teamId as string | null) ?? null;
       }
       return session;
     },

@@ -1,10 +1,10 @@
 import { getActiveConfig } from "@/services/configService";
-import { MappingEditor } from "@/components/admin/MappingEditor";
+import { GuardedMapping } from "@/components/admin/GuardedMapping";
 
 export default async function ComplexityMappingPage() {
   const config = await getActiveConfig();
   return (
-    <MappingEditor
+    <GuardedMapping
       title="Complexity Mapping"
       description="Lower and Upper are complexity-index percentages. The engine maps the scored index into a T-Shirt, complexity label and governance outcome."
       section="complexityMappings"

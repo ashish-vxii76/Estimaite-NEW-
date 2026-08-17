@@ -6,9 +6,11 @@ import { useRouter } from "next/navigation";
 export function BudgetForm({
   budget,
   currency,
+  readOnly = false,
 }: {
   budget: number | null;
   currency: string;
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const [value, setValue] = useState(budget == null ? "" : String(budget));
@@ -39,11 +41,16 @@ export function BudgetForm({
           onChange={(e) => setValue(e.target.value)}
           placeholder="Enter budget"
           className="mt-1 block w-48 rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2"
+          disabled={readOnly}
         />
       </label>
-      <button className="btn-primary" onClick={save}>
-        Set budget
-      </button>
+      {readOnly ? (
+        <p className="text-sm text-[var(--muted)]">Budget is read-only for this profile.</p>
+      ) : (
+        <button className="btn-primary" onClick={save}>
+          Set budget
+        </button>
+      )}
       {message ? <p className="text-sm text-[var(--ok)]">{message}</p> : null}
     </div>
   );

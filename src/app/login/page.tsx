@@ -10,7 +10,7 @@ export default async function LoginPage({
   const { profile } = await searchParams;
   const profiles = await prisma.user.findMany({
     where: { active: true },
-    select: { email: true, name: true, role: true },
+      select: { email: true, name: true, role: true, team: { select: { name: true } } },
     orderBy: { name: "asc" },
   });
   const initialEmail =
@@ -34,8 +34,8 @@ export default async function LoginPage({
         <p className="kicker">Estimaite</p>
         <h1 className="mt-2 font-display text-2xl font-semibold text-[var(--navy)]">Sign in</h1>
         <p className="mt-2 text-sm text-[var(--muted)]">
-          Choose a profile. Menus and permissions follow the role on that login. A demo estimate
-          register is already seeded.
+          Choose a profile. The whole app follows that role and team — a Vikings Approver only sees
+          Vikings, as Approver. Admin sees every team.
         </p>
         <form className="mt-6 space-y-4" action={authenticate}>
           <label className="block text-sm">
@@ -48,6 +48,7 @@ export default async function LoginPage({
               {profiles.map((item) => (
                 <option key={item.email} value={item.email}>
                   {item.name} — {roleLabel(item.role)}
+                  {item.team?.name ? ` · ${item.team.name}` : item.role === "ADMINISTRATOR" ? " · All teams" : ""}
                 </option>
               ))}
             </select>

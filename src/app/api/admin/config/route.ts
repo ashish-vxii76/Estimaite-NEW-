@@ -1,11 +1,19 @@
 import { NextResponse } from "next/server";
-import { requireRole, requireUser } from "@/lib/api-auth";
+import { requireFeature, requireUser } from "@/lib/api-auth";
 import { getActiveConfig, patchActiveConfig } from "@/services/configService";
+import { can } from "@/lib/rbac";
 import type { EstimationConfig } from "@/domain/estimation/types";
 
 export async function GET() {
-  const { error } = await requireUser();
+  const { session, error } = await requireUser();
   if (error) return error;
+  if (
+    !can(session!.user.role, "config.mappings") &&
+    !can(session!.user.role, "config.rates") &&
+    !can(session!.user.role, "config.teams")
+  ) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   const config = await getActiveConfig();
   return NextResponse.json({ config });
 }
@@ -13,10 +21,15 @@ export async function GET() {
 export async function PUT(request: Request) {
   const { session, error } = await requireUser();
   if (error) return error;
-  const forbidden = requireRole(session!.user.role, ["ADMINISTRATOR", "FINANCE"]);
-  if (forbidden) return forbidden;
   const body = await request.json();
   const section = String(body.section ?? "");
+  const rateSection = ["costMappings", "locationDailyRates", "teamCostMappings"].includes(section);
+  const forbidden = requireFeature(
+    session!.user.role,
+    rateSection ? "config.rates" : "config.mappings",
+    "RW",
+  );
+  if (forbidden) return forbidden;
   const patch: Partial<EstimationConfig> = {};
   if (section === "issueMappings") patch.issueMappings = body.rows;
   else if (section === "epicMappings") patch.epicMappings = body.rows;

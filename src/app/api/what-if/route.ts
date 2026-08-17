@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireUser } from "@/lib/api-auth";
+import { requireFeature, requireUser } from "@/lib/api-auth";
 import { getActiveConfig } from "@/services/configService";
 import { runWhatIf, type EstimateCalculationInput } from "@/domain/estimation";
 
@@ -25,11 +25,16 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
-  const { error } = await requireUser();
+  const { session, error } = await requireUser();
   if (error) return error;
+  const forbidden = requireFeature(session!.user.role, "whatIf", "RW");
+  if (forbidden) return forbidden;
   const parsed = schema.safeParse(await request.json());
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+  if (session!.user.teamId && parsed.data.team.teamId !== session!.user.teamId) {
+    return NextResponse.json({ error: "You can only run What-If for your team" }, { status: 403 });
   }
   const config = await getActiveConfig();
   try {

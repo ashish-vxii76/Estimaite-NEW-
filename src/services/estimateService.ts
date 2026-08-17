@@ -287,6 +287,18 @@ export async function transitionStatus(
   if (!spec.from.includes(estimate.status)) {
     throw new Error(`Cannot ${action} from ${estimate.status}`);
   }
+  if ((action === "review" || action === "approve" || action === "reject") && estimate.createdById === userId) {
+    throw new Error("You cannot review or approve a record you created");
+  }
+  if (action === "approve" || action === "reject") {
+    const prior = await prisma.approval.findFirst({
+      where: { estimateId: id, action: "review" },
+      orderBy: { createdAt: "desc" },
+    });
+    if (prior && prior.actorEmail === email) {
+      throw new Error("Two-person rule: the reviewer cannot also approve or reject");
+    }
+  }
   const updated = await prisma.estimate.update({
     where: { id },
     data: { status: spec.to },

@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ADMIN_PAGES } from "@/components/admin/adminPages";
+import { canAccessPath } from "@/lib/roles";
 
-export function AdminNav() {
+export function AdminNav({ role }: { role?: string }) {
   const pathname = usePathname();
+  const pages = ADMIN_PAGES.filter(([href]) => canAccessPath(role, href));
   return (
     <nav className="flex flex-wrap gap-2">
-      {ADMIN_PAGES.map(([href, label]) => (
+      {pages.map(([href, label]) => (
         <Link
           key={href}
           href={href}

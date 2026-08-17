@@ -17,6 +17,7 @@ export function MappingEditor({
   columns,
   rows,
   allowAdd = true,
+  readOnly = false,
 }: {
   title: string;
   description: string;
@@ -24,6 +25,7 @@ export function MappingEditor({
   columns: Column[];
   rows: Record<string, unknown>[];
   allowAdd?: boolean;
+  readOnly?: boolean;
 }) {
   const [data, setData] = useState(rows);
   const [message, setMessage] = useState("");
@@ -90,6 +92,7 @@ export function MappingEditor({
                       <select
                         className="w-full rounded border border-[var(--line)] bg-[var(--panel-2)] px-2 py-1"
                         value={String(row[col.key] ?? "")}
+                        disabled={readOnly}
                         onChange={(e) => update(index, col.key, e.target.value, col.type)}
                       >
                         {(col.options ?? []).map((opt) => (
@@ -100,6 +103,7 @@ export function MappingEditor({
                       <select
                         className="w-full rounded border border-[var(--line)] bg-[var(--panel-2)] px-2 py-1"
                         value={String(Boolean(row[col.key]))}
+                        disabled={readOnly}
                         onChange={(e) => update(index, col.key, e.target.value, "boolean")}
                       >
                         <option value="true">Yes</option>
@@ -110,6 +114,7 @@ export function MappingEditor({
                         className="w-full rounded border border-[var(--line)] bg-[var(--panel-2)] px-2 py-1"
                         type={col.type === "number" ? "number" : "text"}
                         step="any"
+                        disabled={readOnly}
                         value={String(row[col.key] ?? "")}
                         onChange={(e) => update(index, col.key, e.target.value, col.type)}
                       />
@@ -117,18 +122,23 @@ export function MappingEditor({
                   </td>
                 ))}
                 <td className="px-2 py-1">
+                  {readOnly ? null : (
                   <button
                     className="text-xs text-rose-300"
                     onClick={() => setData((current) => current.filter((_, i) => i !== index))}
                   >
                     Remove
                   </button>
+                  )}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      {readOnly ? (
+        <p className="text-sm text-[var(--muted)]">Read only for this role. Admin publishes mapping versions.</p>
+      ) : (
       <div className="flex flex-wrap gap-2">
         {allowAdd ? (
           <button
@@ -146,6 +156,7 @@ export function MappingEditor({
           Save and publish version
         </button>
       </div>
+      )}
       {message ? <p className="text-sm text-[var(--ok)]">{message}</p> : null}
     </div>
   );

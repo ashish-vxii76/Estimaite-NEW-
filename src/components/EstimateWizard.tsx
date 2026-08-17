@@ -45,11 +45,27 @@ export function EstimateWizard({
   initial,
   teams,
   locations,
+  capabilities = {
+    canEdit: true,
+    canSubmit: true,
+    canReview: true,
+    canApprove: true,
+    canOverride: true,
+    teamLocked: false,
+  },
 }: {
   estimateId?: string;
   initial?: Record<string, unknown>;
   teams: Team[];
   locations: Location[];
+  capabilities?: {
+    canEdit: boolean;
+    canSubmit: boolean;
+    canReview: boolean;
+    canApprove: boolean;
+    canOverride: boolean;
+    teamLocked: boolean;
+  };
 }) {
   const router = useRouter();
   const initialResult = (initial?.result as EstimateCalculationResult) ?? null;
@@ -204,6 +220,10 @@ export function EstimateWizard({
   }, [form.scores]);
 
   async function persist() {
+    if (!capabilities.canEdit && id) {
+      setError("This profile cannot edit this estimate");
+      return null;
+    }
     setError("");
     setBusy(true);
     try {
@@ -381,7 +401,11 @@ export function EstimateWizard({
                 />
               </Field>
               <Field label="Owning team">
-                <select value={form.teamId} onChange={(e) => applyTeam(e.target.value)}>
+                <select
+                  value={form.teamId}
+                  disabled={capabilities.teamLocked || !capabilities.canEdit}
+                  onChange={(e) => applyTeam(e.target.value)}
+                >
                   {teams.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.name}
@@ -433,7 +457,12 @@ export function EstimateWizard({
               </div>
             </div>
             <div className="flex justify-end">
-              <button type="button" className="btn-primary" onClick={() => persist().then(() => setMoment("size"))} disabled={busy}>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => (capabilities.canEdit ? persist().then(() => setMoment("size")) : setMoment("size"))}
+                disabled={busy}
+              >
                 Continue to size
               </button>
             </div>
@@ -479,7 +508,12 @@ export function EstimateWizard({
               <button type="button" className="btn-ghost" onClick={() => setMoment("ready")}>
                 Back
               </button>
-              <button type="button" className="btn-primary" onClick={() => persist().then(() => setMoment("plan"))} disabled={busy}>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => (capabilities.canEdit ? persist().then(() => setMoment("plan")) : setMoment("plan"))}
+                disabled={busy}
+              >
                 Continue to plan
               </button>
             </div>
@@ -538,7 +572,11 @@ export function EstimateWizard({
                 {form.costingBasis === "TEAM" ? (
                   <>
                     <Field label="Team name">
-                      <select value={form.teamId} onChange={(e) => applyTeam(e.target.value)}>
+                      <select
+                        value={form.teamId}
+                        disabled={capabilities.teamLocked || !capabilities.canEdit}
+                        onChange={(e) => applyTeam(e.target.value)}
+                      >
                         {teams.map((t) => (
                           <option key={t.id} value={t.id}>
                             {t.name}
@@ -684,7 +722,12 @@ export function EstimateWizard({
               <button type="button" className="btn-ghost" onClick={() => setMoment("size")}>
                 Back
               </button>
-              <button type="button" className="btn-primary" onClick={calculate} disabled={busy}>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={calculate}
+                disabled={busy || !capabilities.canEdit}
+              >
                 Calculate & govern
               </button>
             </div>
@@ -754,26 +797,39 @@ export function EstimateWizard({
                     </Field>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <button className="btn-secondary" onClick={override} disabled={busy} type="button">
-                      Apply governed override
-                    </button>
-                    <button className="btn-primary" onClick={() => workflow("submit")} disabled={busy} type="button">
-                      Submit for review
-                    </button>
-                    <button className="btn-secondary" onClick={() => workflow("review")} disabled={busy} type="button">
-                      Mark reviewed
-                    </button>
-                    <button className="btn-secondary" onClick={() => workflow("approve")} disabled={busy} type="button">
-                      Approve
-                    </button>
-                    <button
-                      className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-medium text-[var(--danger)]"
-                      onClick={() => workflow("reject")}
-                      disabled={busy}
-                      type="button"
-                    >
-                      Reject
-                    </button>
+                    {capabilities.canOverride ? (
+                      <button className="btn-secondary" onClick={override} disabled={busy} type="button">
+                        Apply governed override
+                      </button>
+                    ) : null}
+                    {capabilities.canSubmit ? (
+                      <button className="btn-primary" onClick={() => workflow("submit")} disabled={busy} type="button">
+                        Submit for review
+                      </button>
+                    ) : null}
+                    {capabilities.canReview ? (
+                      <button className="btn-secondary" onClick={() => workflow("review")} disabled={busy} type="button">
+                        Mark reviewed
+                      </button>
+                    ) : null}
+                    {capabilities.canApprove ? (
+                      <>
+                        <button className="btn-secondary" onClick={() => workflow("approve")} disabled={busy} type="button">
+                          Approve
+                        </button>
+                        <button
+                          className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-medium text-[var(--danger)]"
+                          onClick={() => workflow("reject")}
+                          disabled={busy}
+                          type="button"
+                        >
+                          Reject
+                        </button>
+                      </>
+                    ) : null}
+                    {!capabilities.canEdit && !capabilities.canSubmit && !capabilities.canReview && !capabilities.canApprove ? (
+                      <p className="text-sm text-[var(--muted)]">View only for this profile.</p>
+                    ) : null}
                   </div>
                 </section>
                 <section className="card p-5 text-sm text-[var(--muted)]">
@@ -816,7 +872,7 @@ function Field({
   return (
     <label className={`block text-sm ${className}`}>
       <span className="mb-1 block text-[var(--muted)]">{label}</span>
-      <div className="[&_input]:w-full [&_input]:rounded-lg [&_input]:border [&_input]:border-[var(--line)] [&_input]:bg-white [&_input]:px-3 [&_input]:py-2 [&_select]:w-full [&_select]:rounded-lg [&_select]:border [&_select]:border-[var(--line)] [&_select]:bg-white [&_select]:px-3 [&_select]:py-2 [&_textarea]:w-full [&_textarea]:rounded-lg [&_textarea]:border [&_textarea]:border-[var(--line)] [&_textarea]:bg-white [&_textarea]:px-3 [&_textarea]:py-2">
+      <div className="[&_input]:w-full [&_input]:rounded-lg [&_input]:border [&_input]:border-[var(--line)] [&_input]:bg-[var(--panel-2)] [&_input]:px-3 [&_input]:py-2 [&_select]:w-full [&_select]:rounded-lg [&_select]:border [&_select]:border-[var(--line)] [&_select]:bg-[var(--panel-2)] [&_select]:px-3 [&_select]:py-2 [&_textarea]:w-full [&_textarea]:rounded-lg [&_textarea]:border [&_textarea]:border-[var(--line)] [&_textarea]:bg-[var(--panel-2)] [&_textarea]:px-3 [&_textarea]:py-2">
         {children}
       </div>
     </label>

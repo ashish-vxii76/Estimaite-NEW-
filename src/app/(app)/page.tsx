@@ -2,20 +2,31 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { HomeCharts } from "@/components/HomeCharts";
-import {
-  ESTIMATE_CREATE_ROLES,
-  hasRole,
-  welcomeLine,
-} from "@/lib/roles";
+import { can } from "@/lib/rbac";
+import { estimateScope, fromSession } from "@/lib/scope";
+import { ESTIMATE_CREATE_ROLES, hasRole, welcomeLine } from "@/lib/roles";
 
-function nextAction(role: string | undefined, drafts: number, pending: number, discovery: number) {
+function nextAction(
+  role: string | undefined,
+  drafts: number,
+  pendingReview: number,
+  pendingApprove: number,
+  discovery: number,
+) {
+  if (role === "APPROVER") {
+    return pendingApprove > 0
+      ? { href: "/estimates?status=REVIEWED", label: "Approve waiting estimates" }
+      : { href: "/estimates", label: "Open the register" };
+  }
+  if (role === "REVIEWER") {
+    return pendingReview > 0
+      ? { href: "/estimates?status=READY_FOR_REVIEW", label: "Review waiting estimates" }
+      : { href: "/estimates", label: "Open the register" };
+  }
   if (hasRole(role, ESTIMATE_CREATE_ROLES) && discovery > 0) {
     return { href: "/estimates?status=DRAFT", label: "Open discovery queue" };
   }
-  if (role === "REVIEWER" || role === "APPROVER") {
-    return { href: "/estimates?status=READY_FOR_REVIEW", label: "Review waiting estimates" };
-  }
-  if (role === "ADMINISTRATOR" || role === "FINANCE") {
+  if (can(role, "config.users") || can(role, "config.mappings", "RW")) {
     return { href: "/admin", label: "Open mapping studio" };
   }
   if (hasRole(role, ESTIMATE_CREATE_ROLES) && drafts > 0) {
@@ -24,7 +35,7 @@ function nextAction(role: string | undefined, drafts: number, pending: number, d
   if (hasRole(role, ESTIMATE_CREATE_ROLES)) {
     return { href: "/estimates/new", label: "Start the next estimate" };
   }
-  if (pending > 0) {
+  if (pendingReview + pendingApprove > 0) {
     return { href: "/estimates?status=READY_FOR_REVIEW", label: "See items in review" };
   }
   return { href: "/estimates", label: "Open the register" };
@@ -32,22 +43,29 @@ function nextAction(role: string | undefined, drafts: number, pending: number, d
 
 export default async function HomePage() {
   const session = await auth();
-  const [total, drafts, pending, approved, completed, byTeamRows, byStatusRows, resultRows] =
+  const scope = estimateScope(fromSession(session!.user));
+  const [total, drafts, pendingReview, pendingApprove, approved, completed, byTeamRows, byStatusRows, resultRows, team] =
     await Promise.all([
-      prisma.estimate.count(),
-      prisma.estimate.count({ where: { status: { in: ["DRAFT", "RETURNED"] } } }),
-      prisma.estimate.count({ where: { status: { in: ["READY_FOR_REVIEW", "REVIEWED"] } } }),
-      prisma.estimate.count({ where: { status: "APPROVED" } }),
-      prisma.estimate.count({ where: { status: "COMPLETED" } }),
+      prisma.estimate.count({ where: scope }),
+      prisma.estimate.count({ where: { ...scope, status: { in: ["DRAFT", "RETURNED"] } } }),
+      prisma.estimate.count({ where: { ...scope, status: "READY_FOR_REVIEW" } }),
+      prisma.estimate.count({ where: { ...scope, status: "REVIEWED" } }),
+      prisma.estimate.count({ where: { ...scope, status: "APPROVED" } }),
+      prisma.estimate.count({ where: { ...scope, status: "COMPLETED" } }),
       prisma.estimate.groupBy({
         by: ["teamId"],
+        where: scope,
         _count: { _all: true },
       }),
       prisma.estimate.groupBy({
         by: ["status"],
+        where: scope,
         _count: { _all: true },
       }),
-      prisma.estimate.findMany({ select: { resultJson: true } }),
+      prisma.estimate.findMany({ where: scope, select: { resultJson: true } }),
+      session?.user.teamId
+        ? prisma.team.findUnique({ where: { id: session.user.teamId }, select: { name: true } })
+        : Promise.resolve(null),
     ]);
 
   const discovery = resultRows.filter((row) => {
@@ -68,7 +86,10 @@ export default async function HomePage() {
     }
   }).length;
 
-  const teams = await prisma.team.findMany({ select: { id: true, name: true } });
+  const teams = await prisma.team.findMany({
+    where: session?.user.role === "ADMINISTRATOR" ? undefined : session?.user.teamId ? { id: session.user.teamId } : { id: "__none__" },
+    select: { id: true, name: true },
+  });
   const teamNames = Object.fromEntries(teams.map((t) => [t.id, t.name]));
   const byTeam = byTeamRows.map((row) => ({
     name: teamNames[row.teamId] ?? "Unknown",
@@ -88,14 +109,15 @@ export default async function HomePage() {
     count: row._count._all,
   }));
 
-  const action = nextAction(session?.user.role, drafts, pending, discovery);
+  const action = nextAction(session?.user.role, drafts, pendingReview, pendingApprove, discovery);
+  const teamName = session?.user.role === "ADMINISTRATOR" ? "All teams" : team?.name;
   const situation =
     total === 0
-      ? "No estimates in the register yet. The next action is to size the first work item."
+      ? "No estimates in this scope yet. The next action is to size the first work item."
       : discovery > 0
         ? `${discovery} of ${total} estimates are stamped DISCOVERY REQUIRED. Size those first.`
-        : pending > 0
-          ? `${pending} estimates are waiting in review. ${total} sit in the register.`
+        : pendingReview + pendingApprove > 0
+          ? `${pendingReview + pendingApprove} estimates are waiting in review. ${total} sit in the register.`
           : `${total} estimates in the register. Nothing is waiting on discovery.`;
 
   return (
@@ -103,10 +125,11 @@ export default async function HomePage() {
       <div>
         <p className="kicker">Home</p>
         <h1 className="font-display text-2xl font-semibold text-[var(--navy)]">
-          {welcomeLine(session?.user.name, session?.user.role)}
+          {welcomeLine(session?.user.name, session?.user.role, teamName)}
         </h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Signed in as {session?.user.email}. Menus and actions follow this profile.
+          Signed in as {session?.user.email}. Menus, numbers and actions follow this profile
+          {teamName ? ` for ${teamName}` : ""}.
         </p>
       </div>
       <div className="situation flex flex-wrap items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm">
@@ -118,7 +141,7 @@ export default async function HomePage() {
       <div className="grid gap-4 md:grid-cols-5">
         <Tile label="Estimates" value={total} />
         <Tile label="Drafts" value={drafts} />
-        <Tile label="In review" value={pending} />
+        <Tile label="In review" value={pendingReview + pendingApprove} />
         <Tile label="Approved" value={approved} />
         <Tile label="Completed" value={completed} />
       </div>

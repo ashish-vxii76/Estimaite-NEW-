@@ -1,17 +1,11 @@
-import {
-  ADMIN_ROLES,
-  ESTIMATE_CREATE_ROLES,
-  LEARNING_ROLES,
-  PORTFOLIO_ROLES,
-  SCENARIO_ROLES,
-  USER_ADMIN_ROLES,
-} from "@/lib/roles";
+import { can, type FeatureId } from "@/lib/rbac";
+import { ESTIMATE_CREATE_ROLES } from "@/lib/roles";
 
 export type NavNode = {
   id: string;
   label: string;
   href?: string;
-  roles?: string[];
+  feature?: FeatureId;
   createHref?: string;
   createLabel?: string;
   createRoles?: string[];
@@ -19,15 +13,12 @@ export type NavNode = {
 };
 
 export const NAV_TREE: NavNode[] = [
-  {
-    id: "home",
-    label: "Home",
-    href: "/",
-  },
+  { id: "home", label: "Home", href: "/", feature: "home" },
   {
     id: "estimates",
     label: "Estimates",
     href: "/estimates",
+    feature: "estimates.list",
     createHref: "/estimates/new",
     createLabel: "Create new estimate",
     createRoles: ESTIMATE_CREATE_ROLES,
@@ -36,24 +27,27 @@ export const NAV_TREE: NavNode[] = [
         id: "new-estimate",
         label: "New estimate",
         href: "/estimates/new",
-        roles: ESTIMATE_CREATE_ROLES,
+        feature: "estimates.create",
       },
-      { id: "estimates-all", label: "All estimates", href: "/estimates" },
-      { id: "estimates-drafts", label: "Drafts", href: "/estimates?status=DRAFT" },
+      { id: "estimates-all", label: "All estimates", href: "/estimates", feature: "estimates.list" },
+      { id: "estimates-drafts", label: "Drafts", href: "/estimates?status=DRAFT", feature: "estimates.list" },
       {
         id: "estimates-review",
         label: "Ready for review",
         href: "/estimates?status=READY_FOR_REVIEW",
+        feature: "estimates.list",
       },
       {
         id: "estimates-approved",
         label: "Approved",
         href: "/estimates?status=APPROVED",
+        feature: "estimates.list",
       },
       {
         id: "estimates-completed",
         label: "Completed",
         href: "/estimates?status=COMPLETED",
+        feature: "estimates.list",
       },
     ],
   },
@@ -61,162 +55,122 @@ export const NAV_TREE: NavNode[] = [
     id: "portfolio",
     label: "Portfolio",
     href: "/portfolio",
-    roles: PORTFOLIO_ROLES,
+    feature: "portfolio.view",
     children: [
       {
         id: "portfolio-rollup",
         label: "Roll-up & CR register",
         href: "/portfolio",
-        roles: PORTFOLIO_ROLES,
+        feature: "portfolio.view",
       },
       {
         id: "portfolio-budget",
         label: "Budget",
         href: "/portfolio#budget",
-        roles: PORTFOLIO_ROLES,
+        feature: "portfolio.budget",
       },
     ],
   },
   {
     id: "scenarios",
     label: "Scenarios",
-    roles: SCENARIO_ROLES,
-    children: [
-      {
-        id: "what-if",
-        label: "What-If",
-        href: "/what-if",
-        roles: SCENARIO_ROLES,
-      },
-    ],
+    children: [{ id: "what-if", label: "What-If", href: "/what-if", feature: "whatIf" }],
   },
   {
     id: "learning",
     label: "Learning",
-    roles: LEARNING_ROLES,
     children: [
-      {
-        id: "calibration",
-        label: "Calibration",
-        href: "/calibration",
-        roles: LEARNING_ROLES,
-      },
-      {
-        id: "analytics",
-        label: "Analytics",
-        href: "/analytics",
-        roles: LEARNING_ROLES,
-      },
+      { id: "calibration", label: "Calibration", href: "/calibration", feature: "calibration.view" },
+      { id: "analytics", label: "Analytics", href: "/analytics", feature: "analytics" },
     ],
   },
   {
     id: "administration",
     label: "Administration",
     href: "/admin",
-    roles: ADMIN_ROLES,
     children: [
-      { id: "admin-overview", label: "Overview", href: "/admin", roles: ADMIN_ROLES },
+      { id: "admin-overview", label: "Overview", href: "/admin" },
       {
         id: "admin-access",
         label: "Access",
-        roles: USER_ADMIN_ROLES,
         children: [
           {
             id: "admin-users",
             label: "Login credentials",
             href: "/admin/users",
+            feature: "config.users",
             createHref: "/admin/users",
             createLabel: "Create login",
-            createRoles: USER_ADMIN_ROLES,
-            roles: USER_ADMIN_ROLES,
+            createRoles: ["ADMINISTRATOR"],
           },
+          { id: "admin-rbac", label: "RBAC", href: "/admin/rbac", feature: "config.rbac" },
         ],
       },
       {
         id: "admin-org",
         label: "Organisation",
-        roles: ADMIN_ROLES,
         children: [
           {
             id: "teams",
             label: "Teams",
             href: "/teams",
+            feature: "config.teams",
             createHref: "/teams/new",
             createLabel: "Create new team",
             createRoles: ["ADMINISTRATOR"],
-            roles: ADMIN_ROLES,
           },
           {
             id: "team-composition",
             label: "Team composition",
             href: "/admin/team-composition",
-            roles: ADMIN_ROLES,
+            feature: "config.teams",
           },
         ],
       },
       {
         id: "admin-size",
         label: "Size & complexity",
-        roles: ADMIN_ROLES,
         children: [
-          { id: "issue-mapping", label: "Issue mapping", href: "/admin/issue-mapping", roles: ADMIN_ROLES },
-          { id: "epic-mapping", label: "Epic mapping", href: "/admin/epic-mapping", roles: ADMIN_ROLES },
+          { id: "issue-mapping", label: "Issue mapping", href: "/admin/issue-mapping", feature: "config.mappings" },
+          { id: "epic-mapping", label: "Epic mapping", href: "/admin/epic-mapping", feature: "config.mappings" },
           {
             id: "complexity-mapping",
             label: "Complexity mapping",
             href: "/admin/complexity-mapping",
-            roles: ADMIN_ROLES,
+            feature: "config.mappings",
           },
         ],
       },
       {
         id: "admin-people",
         label: "People & capacity",
-        roles: ADMIN_ROLES,
         children: [
           {
             id: "resource-mapping",
             label: "Resource mapping",
             href: "/admin/resource-mapping",
-            roles: ADMIN_ROLES,
+            feature: "config.mappings",
           },
         ],
       },
       {
         id: "admin-commercial",
         label: "Commercial",
-        roles: ADMIN_ROLES,
         children: [
-          {
-            id: "cost-mapping",
-            label: "Location sprint rates",
-            href: "/admin/cost-mapping",
-            roles: ADMIN_ROLES,
-          },
-          {
-            id: "team-cost-mapping",
-            label: "Team sprint rates",
-            href: "/admin/team-cost-mapping",
-            roles: ADMIN_ROLES,
-          },
-          {
-            id: "daily-rates",
-            label: "Location daily rates",
-            href: "/admin/daily-rates",
-            roles: ADMIN_ROLES,
-          },
+          { id: "cost-mapping", label: "Location sprint rates", href: "/admin/cost-mapping", feature: "config.rates" },
+          { id: "team-cost-mapping", label: "Team sprint rates", href: "/admin/team-cost-mapping", feature: "config.rates" },
+          { id: "daily-rates", label: "Location daily rates", href: "/admin/daily-rates", feature: "config.rates" },
         ],
       },
       {
         id: "admin-engine",
         label: "Engine",
-        roles: ADMIN_ROLES,
         children: [
           {
             id: "estimation-config",
             label: "Estimation config",
             href: "/admin/estimation-config",
-            roles: ADMIN_ROLES,
+            feature: "config.mappings",
           },
         ],
       },
@@ -225,15 +179,27 @@ export const NAV_TREE: NavNode[] = [
 ];
 
 export function canSeeNav(node: NavNode, role: string): boolean {
-  if (role === "ADMINISTRATOR") return true;
-  if (!node.roles || node.roles.length === 0) return true;
-  return node.roles.includes(role);
+  if (node.feature) return can(role, node.feature);
+  if (node.children?.length) return node.children.some((child) => canSeeNav(child, role));
+  if (node.href === "/admin") {
+    return (
+      can(role, "config.teams") ||
+      can(role, "config.rates") ||
+      can(role, "config.mappings") ||
+      can(role, "config.users") ||
+      can(role, "config.rbac")
+    );
+  }
+  return true;
 }
 
 export function canCreate(node: NavNode, role: string): boolean {
   if (!node.createHref) return false;
+  if (node.id === "estimates") return can(role, "estimates.create", "RW");
+  if (node.id === "admin-users") return can(role, "config.users", "RW");
+  if (node.id === "teams") return can(role, "config.teams", "RW");
   if (!node.createRoles || node.createRoles.length === 0) return true;
-  return role === "ADMINISTRATOR" || node.createRoles.includes(role);
+  return node.createRoles.includes(role);
 }
 
 export function pathOf(href: string): { pathname: string; search: string; hash: string } {

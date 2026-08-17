@@ -5,6 +5,7 @@ import {
   rollupPortfolio,
   type EstimateCalculationResult,
 } from "@/domain/estimation";
+import type { Prisma } from "@prisma/client";
 
 function parseResult(json: string | null): EstimateCalculationResult | null {
   if (!json) return null;
@@ -15,9 +16,10 @@ function parseResult(json: string | null): EstimateCalculationResult | null {
   }
 }
 
-export async function getPortfolio() {
+export async function getPortfolio(scope?: Prisma.EstimateWhereInput) {
   const [estimates, settings] = await Promise.all([
     prisma.estimate.findMany({
+      where: scope,
       include: { team: true, actuals: true },
       orderBy: { updatedAt: "desc" },
     }),
@@ -77,11 +79,11 @@ export async function setPortfolioBudget(budget: number | null, currency: string
   });
 }
 
-export async function getCalibration() {
+export async function getCalibration(scope?: Prisma.EstimateWhereInput) {
   const [config, estimates] = await Promise.all([
     getActiveConfig(),
     prisma.estimate.findMany({
-      where: { actuals: { isNot: null } },
+      where: { actuals: { isNot: null }, ...scope },
       include: { actuals: true },
     }),
   ]);

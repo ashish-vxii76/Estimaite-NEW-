@@ -5,6 +5,9 @@ import { PortfolioCharts } from "@/components/PortfolioCharts";
 import { StatusBadge } from "@/components/ui";
 import { formatMoney } from "@/lib/utils";
 import { DELIVERY_FLAGS, T_SHIRTS } from "@/domain/estimation";
+import { auth } from "@/auth";
+import { can } from "@/lib/rbac";
+import { estimateScope, fromSession } from "@/lib/scope";
 
 const RAG_CLASS: Record<string, string> = {
   UNSET: "bg-slate-100 text-slate-700",
@@ -14,8 +17,11 @@ const RAG_CLASS: Record<string, string> = {
 };
 
 export default async function PortfolioPage() {
-  const data = await getPortfolio();
+  const session = await auth();
+  const data = await getPortfolio(estimateScope(fromSession(session!.user)));
   const currency = data.currency;
+  const canCreate = can(session?.user.role, "estimates.create", "RW");
+  const canBudget = can(session?.user.role, "portfolio.budget", "RW");
 
   return (
     <div className="space-y-6">
@@ -23,8 +29,8 @@ export default async function PortfolioPage() {
         <p className="kicker">Register</p>
         <h1 className="font-display text-2xl font-semibold text-[var(--navy)]">Portfolio Roll-Up</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Aggregates every calculated CR in the Register. Budget status is RAG against the entered
-          portfolio budget.
+          Aggregates calculated CRs in this profile&apos;s scope. Admin sees every team; other
+          roles see only their team. Budget RAG uses the entered portfolio budget.
         </p>
       </div>
 
@@ -45,7 +51,7 @@ export default async function PortfolioPage() {
       </div>
 
       <section id="budget" className="card scroll-mt-6 p-5">
-        <BudgetForm budget={data.budget} currency={currency} />
+        <BudgetForm budget={data.budget} currency={currency} readOnly={!canBudget} />
       </section>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -92,9 +98,11 @@ export default async function PortfolioPage() {
       <section className="card overflow-x-auto">
         <div className="flex items-center justify-between px-5 py-4">
           <h2 className="font-medium">CR Register</h2>
-          <Link href="/estimates/new" className="text-sm font-medium text-[var(--navy)] underline">
-            New estimate
-          </Link>
+          {canCreate ? (
+            <Link href="/estimates/new" className="text-sm font-medium text-[var(--navy)] underline">
+              New estimate
+            </Link>
+          ) : null}
         </div>
         <table className="w-full min-w-[900px] text-left text-sm">
           <thead className="bg-[var(--panel-2)] text-[var(--muted)]">

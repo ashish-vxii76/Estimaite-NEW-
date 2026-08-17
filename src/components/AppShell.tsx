@@ -7,12 +7,15 @@ import { roleLabel } from "@/lib/roles";
 export function AppShell({
   children,
   user,
+  teamName,
   profiles,
 }: {
   children: React.ReactNode;
   user: { name?: string | null; email?: string | null; role?: string };
+  teamName?: string | null;
   profiles: ProfileOption[];
 }) {
+  const roleLine = teamName ? `${teamName} · ${roleLabel(user.role)}` : roleLabel(user.role);
   return (
     <div className="flex min-h-screen">
       <Suspense
@@ -23,7 +26,7 @@ export function AppShell({
         <SideNav
           role={user.role ?? "VIEWER"}
           userName={user.name}
-          userRole={roleLabel(user.role)}
+          userRole={roleLine}
           signOut={<SignOutButton />}
           profileSwitcher={
             <ProfileSwitcher

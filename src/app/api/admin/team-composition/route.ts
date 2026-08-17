@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireRole, requireUser } from "@/lib/api-auth";
+import { requireFeature, requireUser } from "@/lib/api-auth";
+import { fromSession, teamScope } from "@/lib/scope";
 
 export async function GET() {
-  const { error } = await requireUser();
+  const { session, error } = await requireUser();
   if (error) return error;
+  const forbidden = requireFeature(session!.user.role, "config.teams");
+  if (forbidden) return forbidden;
   const members = await prisma.teamMember.findMany({
+    where: { team: teamScope(fromSession(session!.user)) },
     include: { team: true },
     orderBy: [{ teamId: "asc" }, { name: "asc" }],
   });
@@ -25,7 +29,7 @@ export async function GET() {
 export async function PUT(request: Request) {
   const { session, error } = await requireUser();
   if (error) return error;
-  const forbidden = requireRole(session!.user.role, ["ADMINISTRATOR"]);
+  const forbidden = requireFeature(session!.user.role, "config.teams", "RW");
   if (forbidden) return forbidden;
   const body = await request.json();
   const members = (body.members ?? []) as {

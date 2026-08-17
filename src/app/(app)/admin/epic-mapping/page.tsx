@@ -1,10 +1,10 @@
 import { getActiveConfig } from "@/services/configService";
-import { MappingEditor } from "@/components/admin/MappingEditor";
+import { GuardedMapping } from "@/components/admin/GuardedMapping";
 
 export default async function EpicMappingPage() {
   const config = await getActiveConfig();
   return (
-    <MappingEditor
+    <GuardedMapping
       title="Epic Mapping"
       description="T-Shirt Size, ROM SP, Expected Stories, Dev SP, QA SP, Dev PD, QA PD, Total PD, Governance and Notes."
       section="epicMappings"

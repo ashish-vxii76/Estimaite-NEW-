@@ -1,16 +1,11 @@
 import { NextResponse } from "next/server";
-import { requireRole, requireUser } from "@/lib/api-auth";
+import { requireFeature, requireUser } from "@/lib/api-auth";
 import { setPortfolioBudget } from "@/services/portfolioService";
 
 export async function PUT(request: Request) {
   const { session, error } = await requireUser();
   if (error) return error;
-  const forbidden = requireRole(session!.user.role, [
-    "ADMINISTRATOR",
-    "FINANCE",
-    "DELIVERY_LEAD",
-    "APPROVER",
-  ]);
+  const forbidden = requireFeature(session!.user.role, "portfolio.budget", "RW");
   if (forbidden) return forbidden;
   const body = await request.json();
   const budget = body.budget === "" || body.budget == null ? null : Number(body.budget);

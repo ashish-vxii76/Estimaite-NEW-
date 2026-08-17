@@ -1,26 +1,32 @@
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
+import { auth } from "@/auth";
 import { StatusBadge } from "@/components/ui";
 import { formatMoney } from "@/lib/utils";
 import type { EstimateCalculationResult } from "@/domain/estimation/types";
+import { can } from "@/lib/rbac";
+import { estimateScope, fromSession } from "@/lib/scope";
 
 export default async function EstimatesPage({
   searchParams,
 }: {
   searchParams: Promise<{ status?: string }>;
 }) {
+  const session = await auth();
   const { status } = await searchParams;
+  const scope = estimateScope(fromSession(session!.user));
   const where =
     status === "DRAFT"
-      ? { status: { in: ["DRAFT", "RETURNED"] } }
+      ? { ...scope, status: { in: ["DRAFT", "RETURNED"] } }
       : status
-        ? { status }
-        : undefined;
+        ? { ...scope, status }
+        : scope;
   const estimates = await prisma.estimate.findMany({
     where,
     include: { team: true },
     orderBy: { updatedAt: "desc" },
   });
+  const canCreate = can(session?.user.role, "estimates.create", "RW");
   const filters = [
     ["", "All estimates"],
     ["DRAFT", "Drafts"],
@@ -37,9 +43,11 @@ export default async function EstimatesPage({
           <p className="kicker">Register</p>
           <h1 className="font-display text-2xl font-semibold text-[var(--navy)]">Estimates</h1>
         </div>
-        <Link href="/estimates/new" className="btn-primary">
-          New estimate
-        </Link>
+        {canCreate ? (
+          <Link href="/estimates/new" className="btn-primary">
+            New estimate
+          </Link>
+        ) : null}
       </div>
       <div className="flex flex-wrap gap-2">
         {filters.map(([value, label]) => (
@@ -75,8 +83,7 @@ export default async function EstimatesPage({
             {estimates.length === 0 ? (
               <tr>
                 <td className="px-4 py-8 text-[var(--muted)]" colSpan={9}>
-                  No estimates in this filter. Seed the demo register with{" "}
-                  <code>npm run db:seed</code> or create a new estimate.
+                  No estimates in this filter for this profile.
                 </td>
               </tr>
             ) : (

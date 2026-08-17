@@ -1,10 +1,10 @@
 import { getActiveConfig } from "@/services/configService";
-import { MappingEditor } from "@/components/admin/MappingEditor";
+import { GuardedMapping } from "@/components/admin/GuardedMapping";
 
 export default async function ResourceMappingPage() {
   const config = await getActiveConfig();
   return (
-    <MappingEditor
+    <GuardedMapping
       title="Resource Mapping"
       description="Resource Level, SP Capacity / Sprint, Days per Point, Definition and Rule. Capacity feeds planning; days/point feeds resource-aware effort."
       section="resourceLevels"

@@ -1,10 +1,10 @@
 import { getActiveConfig } from "@/services/configService";
-import { MappingEditor } from "@/components/admin/MappingEditor";
+import { GuardedMapping } from "@/components/admin/GuardedMapping";
 
 export default async function IssueMappingPage() {
   const config = await getActiveConfig();
   return (
-    <MappingEditor
+    <GuardedMapping
       title="Issue Mapping"
       description="T-Shirt Size, Total SP, Dev SP, QA SP, Dev PD, QA PD, Total PD, Sprint Rule, Governance and Notes. Automated estimates read Dev/QA SP and governance from this table."
       section="issueMappings"

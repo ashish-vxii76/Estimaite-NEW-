@@ -1,10 +1,11 @@
 import { getActiveConfig } from "@/services/configService";
-import { MappingEditor } from "@/components/admin/MappingEditor";
+import { GuardedMapping } from "@/components/admin/GuardedMapping";
 
 export default async function CostMappingPage() {
   const config = await getActiveConfig();
   return (
-    <MappingEditor
+    <GuardedMapping
+      feature="config.rates"
       title="Cost Mapping"
       description="Location rate card. Daily rates are in the configured currency per resource-day and drive blended costing and resource-sprint economics."
       section="costMappings"

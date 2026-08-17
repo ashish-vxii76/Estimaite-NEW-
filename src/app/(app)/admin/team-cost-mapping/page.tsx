@@ -1,10 +1,11 @@
 import { getActiveConfig } from "@/services/configService";
-import { MappingEditor } from "@/components/admin/MappingEditor";
+import { GuardedMapping } from "@/components/admin/GuardedMapping";
 
 export default async function TeamCostMappingPage() {
   const config = await getActiveConfig();
   return (
-    <MappingEditor
+    <GuardedMapping
+      feature="config.rates"
       title="Team Cost Mapping"
       description="Team Location, Team Name, Cost Method, Cost, Standard Team Size and Currency. Team Sprint Rate is not prorated unless a commercial policy says so."
       section="teamCostMappings"

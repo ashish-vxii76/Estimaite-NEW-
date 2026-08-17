@@ -13,6 +13,8 @@ model User {
   name         String
   passwordHash String
   role         String
+  teamId       String?
+  team         Team?      @relation(fields: [teamId], references: [id])
   active       Boolean    @default(true)
   createdAt    DateTime   @default(now())
   estimates    Estimate[] @relation("CreatedBy")
@@ -33,6 +35,7 @@ model Team {
   effectiveTo      DateTime?
   active           Boolean      @default(true)
   members          TeamMember[]
+  users            User[]
   estimates        Estimate[]
 }
 

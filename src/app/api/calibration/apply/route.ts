@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { requireRole, requireUser } from "@/lib/api-auth";
+import { requireFeature, requireUser } from "@/lib/api-auth";
 import { getActiveConfig, patchActiveConfig } from "@/services/configService";
 import { getCalibration } from "@/services/portfolioService";
 
 export async function POST(request: Request) {
   const { session, error } = await requireUser();
   if (error) return error;
-  const forbidden = requireRole(session!.user.role, ["ADMINISTRATOR"]);
+  const forbidden = requireFeature(session!.user.role, "calibration.apply", "RW");
   if (forbidden) return forbidden;
   const body = await request.json().catch(() => ({}));
   const levelIds = Array.isArray(body.levelIds) ? (body.levelIds as string[]) : null;

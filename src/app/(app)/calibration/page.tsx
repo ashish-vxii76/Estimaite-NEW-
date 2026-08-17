@@ -2,10 +2,13 @@ import { getCalibration } from "@/services/portfolioService";
 import { CalibrationActions } from "@/components/CalibrationActions";
 import { ExplanationPanel } from "@/components/ui";
 import { auth } from "@/auth";
+import { can } from "@/lib/rbac";
+import { estimateScope, fromSession } from "@/lib/scope";
 
 export default async function CalibrationPage() {
-  const [data, session] = await Promise.all([getCalibration(), auth()]);
-  const canApply = session?.user.role === "ADMINISTRATOR";
+  const session = await auth();
+  const [data] = await Promise.all([getCalibration(estimateScope(fromSession(session!.user)))]);
+  const canApply = can(session?.user.role, "calibration.apply", "RW");
 
   return (
     <div className="space-y-6">

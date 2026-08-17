@@ -139,8 +139,26 @@ async function main() {
     },
   });
 
+  const teamByName = Object.fromEntries(
+    (await prisma.team.findMany({ select: { id: true, name: true } })).map((t) => [t.name, t.id]),
+  );
+  const userTeams: Record<string, string | null> = {
+    "admin@estimaite.local": null,
+    "ba@estimaite.local": teamByName.Vikings ?? null,
+    "eng@estimaite.local": teamByName.Vikings ?? null,
+    "qa@estimaite.local": teamByName.Spartans ?? null,
+    "reviewer@estimaite.local": teamByName.Vikings ?? null,
+    "approver@estimaite.local": teamByName.Vikings ?? null,
+    "delivery@estimaite.local": teamByName.Centurions ?? null,
+    "finance@estimaite.local": teamByName.Vikings ?? null,
+    "viewer@estimaite.local": teamByName.Praetorians ?? null,
+  };
+  for (const [email, teamId] of Object.entries(userTeams)) {
+    await prisma.user.update({ where: { email }, data: { teamId } });
+  }
+
   await seedDemoRegister(prisma);
-  console.log("Seeded PRD v3 CHF mappings, teams, and demo estimate register.");
+  console.log("Seeded PRD v3 CHF mappings, teams, demo register, and team-scoped logins.");
 }
 
 main()

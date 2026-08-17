@@ -17,11 +17,13 @@ export function TeamCompositionEditor({
   members,
   locations,
   levels,
+  readOnly = false,
 }: {
   teams: { id: string; name: string }[];
   members: Member[];
   locations: string[];
   levels: string[];
+  readOnly?: boolean;
 }) {
   const [rows, setRows] = useState(members);
   const [message, setMessage] = useState("");
@@ -139,6 +141,9 @@ export function TeamCompositionEditor({
           </tbody>
         </table>
       </div>
+      {readOnly ? (
+        <p className="text-sm text-[var(--muted)]">Team composition is read-only for this profile.</p>
+      ) : (
       <div className="flex gap-2">
         <button
           className="rounded-lg border border-[var(--line)] px-3 py-2"
@@ -162,6 +167,7 @@ export function TeamCompositionEditor({
           Save composition
         </button>
       </div>
+      )}
       {message ? <p className="text-sm text-[var(--ok)]">{message}</p> : null}
     </div>
   );

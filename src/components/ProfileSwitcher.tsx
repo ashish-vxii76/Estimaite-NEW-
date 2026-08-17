@@ -9,6 +9,7 @@ export type ProfileOption = {
   email: string;
   name: string;
   role: string;
+  teamName?: string | null;
 };
 
 export function ProfileSwitcher({
@@ -54,7 +55,8 @@ export function ProfileSwitcher({
       >
         {profiles.map((profile) => (
           <option key={profile.email} value={profile.email}>
-            {profile.name} ({roleLabel(profile.role)})
+            {profile.name} ({roleLabel(profile.role)}
+            {profile.teamName ? ` · ${profile.teamName}` : profile.role === "ADMINISTRATOR" ? " · All teams" : ""})
           </option>
         ))}
       </select>

@@ -5,8 +5,10 @@ import { useState } from "react";
 export function ActualsForm({
   estimateId,
   actuals,
+  readOnly = false,
 }: {
   estimateId: string;
+  readOnly?: boolean;
   actuals: {
     actualDevPd: number;
     actualQaPd: number;
@@ -71,6 +73,7 @@ export function ActualsForm({
               defaultValue={defaults[name] ?? ""}
               className="mt-1 w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2"
               required
+              disabled={readOnly}
             />
           </label>
         ))}
@@ -85,11 +88,14 @@ export function ActualsForm({
                 : ""
             }
             className="mt-1 w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2"
+            disabled={readOnly}
           />
         </label>
-        <div className="md:col-span-3">
-          <button className="btn-primary">Save actuals</button>
-        </div>
+        {readOnly ? null : (
+          <div className="md:col-span-3">
+            <button className="btn-primary">Save actuals</button>
+          </div>
+        )}
       </form>
       {message ? <p className="mt-3 text-sm text-[var(--ok)]">{message}</p> : null}
       {variance ? (
