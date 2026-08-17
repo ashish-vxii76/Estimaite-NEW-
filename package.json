@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack --hostname 0.0.0.0",
+    "dev": "next dev --hostname 0.0.0.0",
     "predev": "node scripts/ensure-local.mjs",
     "build": "next build --turbopack",
     "prebuild": "node scripts/ensure-local.mjs",

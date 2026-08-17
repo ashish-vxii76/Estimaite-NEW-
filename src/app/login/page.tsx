@@ -8,11 +8,20 @@ export default async function LoginPage({
   searchParams: Promise<{ profile?: string }>;
 }) {
   const { profile } = await searchParams;
-  const profiles = await prisma.user.findMany({
-    where: { active: true },
+  let profiles: { email: string; name: string; role: string; team: { name: string } | null }[] = [];
+  try {
+    profiles = await prisma.user.findMany({
+      where: { active: true },
       select: { email: true, name: true, role: true, team: { select: { name: true } } },
-    orderBy: { name: "asc" },
-  });
+      orderBy: { name: "asc" },
+    });
+  } catch {
+    profiles = (await prisma.user.findMany({
+      where: { active: true },
+      select: { email: true, name: true, role: true },
+      orderBy: { name: "asc" },
+    })).map((row) => ({ ...row, team: null }));
+  }
   const initialEmail =
     profiles.find((p) => p.email === profile)?.email ??
     profiles.find((p) => p.role === "ADMINISTRATOR")?.email ??
