@@ -34,7 +34,8 @@ export default async function LoginPage({
         <p className="kicker">Estimaite</p>
         <h1 className="mt-2 font-display text-2xl font-semibold text-[var(--navy)]">Sign in</h1>
         <p className="mt-2 text-sm text-[var(--muted)]">
-          Choose a profile. Menus and permissions follow the role on that login.
+          Choose a profile. Menus and permissions follow the role on that login. A demo estimate
+          register is already seeded.
         </p>
         <form className="mt-6 space-y-4" action={authenticate}>
           <label className="block text-sm">

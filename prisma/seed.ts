@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { DEFAULT_CONFIG } from "../src/domain/estimation/defaultConfig";
+import { seedDemoRegister } from "./seedDemo";
 
 const prisma = new PrismaClient();
 
@@ -138,7 +139,8 @@ async function main() {
     },
   });
 
-  console.log("Seeded PRD v3 CHF mappings, Vikings/Spartans/Centurions/Praetorians.");
+  await seedDemoRegister(prisma);
+  console.log("Seeded PRD v3 CHF mappings, teams, and demo estimate register.");
 }
 
 main()

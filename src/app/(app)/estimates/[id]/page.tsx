@@ -33,7 +33,10 @@ export default async function EstimateDetailPage({
           <p className="kicker">{estimate.reference}</p>
           <h1 className="font-display text-2xl font-semibold text-[var(--navy)]">{estimate.title}</h1>
         </div>
-        <StatusBadge status={estimate.status} />
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge status={estimate.status} />
+          {result?.deliveryFlag ? <StatusBadge status={result.deliveryFlag} /> : null}
+        </div>
       </div>
       <EstimateWizard
         estimateId={estimate.id}

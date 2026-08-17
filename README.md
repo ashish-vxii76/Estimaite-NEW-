@@ -18,6 +18,8 @@ npm run dev
 
 Sign in with `admin@estimaite.local` / `demo1234`.
 
+`npm run db:seed` also loads an 18-item demo register (issues, epics, discovery, completed actuals, and a CHF portfolio budget) so Home, Estimates, Portfolio, and Calibration are populated.
+
 ## Product contract
 
 Treat `PRD.md` and `CLAUDE.md` as binding. Do not change formulas, thresholds, mappings, rounding or costing semantics merely to make tests pass.

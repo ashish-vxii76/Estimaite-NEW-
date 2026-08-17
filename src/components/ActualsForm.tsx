@@ -11,11 +11,25 @@ export function ActualsForm({
     actualDevPd: number;
     actualQaPd: number;
     actualSprints: number;
+    actualDevResources: number;
+    actualQaResources: number;
+    actualOtherCost: number;
+    completionDate: Date | string | null;
     varianceJson: string;
   } | null;
 }) {
   const [message, setMessage] = useState("");
   const variance = actuals ? JSON.parse(actuals.varianceJson) : null;
+  const defaults: Record<string, number | undefined> = actuals
+    ? {
+        actualDevPd: actuals.actualDevPd,
+        actualQaPd: actuals.actualQaPd,
+        actualSprints: actuals.actualSprints,
+        actualDevResources: actuals.actualDevResources,
+        actualQaResources: actuals.actualQaResources,
+        actualOtherCost: actuals.actualOtherCost,
+      }
+    : {};
 
   async function onSubmit(formData: FormData) {
     const res = await fetch(`/api/estimates/${estimateId}/actuals`, {
@@ -54,7 +68,8 @@ export function ActualsForm({
               type="number"
               min={0}
               step="0.01"
-              className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2"
+              defaultValue={defaults[name] ?? ""}
+              className="mt-1 w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2"
               required
             />
           </label>
@@ -64,7 +79,12 @@ export function ActualsForm({
           <input
             name="completionDate"
             type="date"
-            className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2"
+            defaultValue={
+              actuals?.completionDate
+                ? new Date(actuals.completionDate).toISOString().slice(0, 10)
+                : ""
+            }
+            className="mt-1 w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2"
           />
         </label>
         <div className="md:col-span-3">

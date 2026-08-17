@@ -21,7 +21,7 @@ export default async function PortfolioPage() {
     <div className="space-y-6">
       <div>
         <p className="kicker">Register</p>
-        <h1 className="text-2xl font-semibold">Portfolio Roll-Up</h1>
+        <h1 className="font-display text-2xl font-semibold text-[var(--navy)]">Portfolio Roll-Up</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
           Aggregates every calculated CR in the Register. Budget status is RAG against the entered
           portfolio budget.

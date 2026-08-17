@@ -5,10 +5,11 @@ export default async function WhatIfPage() {
   const teams = await prisma.team.findMany({ include: { members: true } });
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">What-If optimisation</h1>
+      <p className="kicker">Scenario</p>
+      <h1 className="font-display text-2xl font-semibold text-[var(--navy)]">What-If optimisation</h1>
       <p className="text-sm text-[var(--muted)]">
-        Scenarios never modify an approved estimate. Senior is not recommended if the team has none
-        configured.
+        Run against the seeded Vikings, Spartans, Centurions, and Praetorians rosters. Scenarios
+        never modify an approved estimate. Senior is not recommended if the team has none configured.
       </p>
       <WhatIfForm
         teams={teams.map((t) => ({
