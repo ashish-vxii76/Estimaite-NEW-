@@ -98,8 +98,8 @@ export function EstimateWizard({
       string,
       string
     >,
-    locationId: locations[0]?.id ?? "",
-    locationName: locations[0]?.name ?? "",
+    locationId: locations.find((l) => l.name === (teams[0]?.mappedLocation ?? ""))?.id ?? locations[0]?.id ?? "",
+    locationName: teams[0]?.mappedLocation ?? locations[0]?.name ?? "",
   });
 
   useEffect(() => {
@@ -115,7 +115,11 @@ export function EstimateWizard({
   }, [initial]);
 
   const payload = useMemo(() => {
-    const loc = locations.find((l) => l.id === form.locationId) ?? locations[0];
+    const team = teams.find((t) => t.id === form.teamId);
+    const loc =
+      form.costingBasis === "TEAM"
+        ? locations.find((l) => l.name === team?.mappedLocation) ?? locations[0]
+        : locations.find((l) => l.id === form.locationId) ?? locations[0];
     return {
       workItemType: form.workItemType,
       reference: form.reference,
@@ -131,7 +135,12 @@ export function EstimateWizard({
       planningMode: form.planningMode,
       costingModel: "RESOURCE_SPRINT",
       costingBasis: form.workItemType === "EPIC" ? undefined : form.costingBasis,
-      locationName: form.costingBasis === "LOCATION" ? form.locationName : "",
+      locationName:
+        form.workItemType === "EPIC"
+          ? ""
+          : form.costingBasis === "TEAM"
+            ? (teams.find((t) => t.id === form.teamId)?.mappedLocation ?? form.locationName)
+            : form.locationName,
       costMethod: form.workItemType === "EPIC" ? "" : form.costMethod,
       projectOverrideRate:
         form.workItemType === "EPIC" || !form.projectOverrideRate ? null : form.projectOverrideRate,
@@ -164,7 +173,21 @@ export function EstimateWizard({
           ]
         : [],
     };
-  }, [form, locations]);
+  }, [form, locations, teams]);
+
+  const selectedTeam = teams.find((t) => t.id === form.teamId);
+
+  function applyTeam(teamId: string) {
+    const team = teams.find((t) => t.id === teamId);
+    const loc = locations.find((l) => l.name === team?.mappedLocation);
+    setForm((current) => ({
+      ...current,
+      teamId,
+      currency: team?.currency ?? current.currency,
+      locationName: team?.mappedLocation ?? "",
+      locationId: loc?.id ?? "",
+    }));
+  }
 
   const previewIndex = useMemo(() => {
     try {
@@ -358,7 +381,7 @@ export function EstimateWizard({
                 />
               </Field>
               <Field label="Owning team">
-                <select value={form.teamId} onChange={(e) => setForm({ ...form, teamId: e.target.value })}>
+                <select value={form.teamId} onChange={(e) => applyTeam(e.target.value)}>
                   {teams.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.name}
@@ -483,13 +506,27 @@ export function EstimateWizard({
                 <Field label="Costing basis">
                   <select
                     value={form.costingBasis}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const costingBasis = e.target.value;
+                      if (costingBasis === "TEAM") {
+                        const team = teams.find((t) => t.id === form.teamId);
+                        const loc = locations.find((l) => l.name === team?.mappedLocation);
+                        setForm({
+                          ...form,
+                          costingBasis,
+                          locationName: team?.mappedLocation ?? "",
+                          locationId: loc?.id ?? "",
+                          currency: team?.currency ?? form.currency,
+                        });
+                        return;
+                      }
                       setForm({
                         ...form,
-                        costingBasis: e.target.value,
-                        locationName: e.target.value === "TEAM" ? "" : form.locationName,
-                      })
-                    }
+                        costingBasis,
+                        locationName: "",
+                        locationId: "",
+                      });
+                    }}
                   >
                     <option value="TEAM">Team</option>
                     <option value="LOCATION">Location</option>
@@ -498,27 +535,50 @@ export function EstimateWizard({
                 <Field label="Cost method">
                   <input value={form.costMethod} readOnly />
                 </Field>
-                <Field label="Location rate card">
-                  <select
-                    disabled={form.costingBasis !== "LOCATION"}
-                    value={form.costingBasis === "LOCATION" ? form.locationName : ""}
-                    onChange={(e) => {
-                      const loc = locations.find((l) => l.name === e.target.value);
-                      setForm({
-                        ...form,
-                        locationName: e.target.value,
-                        locationId: loc?.id ?? "",
-                      });
-                    }}
-                  >
-                    <option value="">Select location</option>
-                    {locations.map((l) => (
-                      <option key={l.id} value={l.name}>
-                        {l.name} — {l.dailyRate} {l.currency}/day
-                      </option>
-                    ))}
-                  </select>
-                </Field>
+                {form.costingBasis === "TEAM" ? (
+                  <>
+                    <Field label="Team name">
+                      <select value={form.teamId} onChange={(e) => applyTeam(e.target.value)}>
+                        {teams.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field label="Location (from team)">
+                      <input
+                        readOnly
+                        value={
+                          selectedTeam
+                            ? `${selectedTeam.mappedLocation} · resource sprint ${selectedTeam.resourceSprintRate} ${selectedTeam.currency}`
+                            : ""
+                        }
+                      />
+                    </Field>
+                  </>
+                ) : (
+                  <Field label="Location rate card" className="md:col-span-2">
+                    <select
+                      value={form.locationName}
+                      onChange={(e) => {
+                        const loc = locations.find((l) => l.name === e.target.value);
+                        setForm({
+                          ...form,
+                          locationName: e.target.value,
+                          locationId: loc?.id ?? "",
+                        });
+                      }}
+                    >
+                      <option value="">Select location</option>
+                      {locations.map((l) => (
+                        <option key={l.id} value={l.name}>
+                          {l.name} — {l.dailyRate} {l.currency}/day
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                )}
                 <Field label="Project override rate (optional)">
                   <input
                     type="number"
