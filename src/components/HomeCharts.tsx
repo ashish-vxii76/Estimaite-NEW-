@@ -18,10 +18,40 @@ import {
 const COLORS = ["#1e3a5f", "#0f766e", "#b45309", "#5c6b80", "#b42318", "#047857"];
 const TOOLTIP = { background: "#fffcf7", border: "1px solid #ddd6c8", color: "#1b2a4a" };
 
-function percentLabel({ percent }: { percent?: number }) {
-  const value = Math.round((percent ?? 0) * 100);
-  if (value <= 0) return "";
-  return `${value}%`;
+function PercentInside({
+  cx = 0,
+  cy = 0,
+  midAngle = 0,
+  innerRadius = 0,
+  outerRadius = 0,
+  percent = 0,
+}: {
+  cx?: number;
+  cy?: number;
+  midAngle?: number;
+  innerRadius?: number;
+  outerRadius?: number;
+  percent?: number;
+}) {
+  const value = Math.round(percent * 100);
+  if (value <= 0) return null;
+  const radian = Math.PI / 180;
+  const radius = innerRadius + (outerRadius - innerRadius) / 2;
+  const x = cx + radius * Math.cos(-midAngle * radian);
+  const y = cy + radius * Math.sin(-midAngle * radian);
+  return (
+    <text
+      x={x}
+      y={y}
+      fill="#fff"
+      textAnchor="middle"
+      dominantBaseline="central"
+      fontSize={12}
+      fontWeight={700}
+    >
+      {value}%
+    </text>
+  );
 }
 
 export function HomeCharts({
@@ -52,10 +82,10 @@ export function HomeCharts({
                 dataKey="count"
                 nameKey="name"
                 innerRadius={52}
-                outerRadius={88}
+                outerRadius={96}
                 paddingAngle={2}
-                label={percentLabel}
-                labelLine
+                label={PercentInside}
+                labelLine={false}
               >
                 {byStatus.map((row, index) => (
                   <Cell key={row.name} fill={COLORS[index % COLORS.length]} />
