@@ -47,7 +47,9 @@ export default async function EstimatesPage({
             key={label}
             href={value ? `/estimates?status=${value}` : "/estimates"}
             className={`rounded-full px-3 py-1 text-sm ${
-              current === value ? "bg-[var(--navy)] text-white" : "bg-[var(--panel-2)]"
+              current === value
+                ? "bg-[var(--navy)] !text-white"
+                : "bg-[var(--panel-2)] text-[var(--text)]"
             }`}
           >
             {label}

@@ -14,7 +14,7 @@ export function AdminNav() {
           href={href}
           className={`rounded-full px-3 py-1 text-xs ${
             pathname === href || (href !== "/admin" && pathname.startsWith(href))
-              ? "bg-[var(--navy)] text-white"
+              ? "bg-[var(--navy)] !text-white"
               : "bg-[var(--panel-2)] text-[var(--text)]"
           }`}
         >

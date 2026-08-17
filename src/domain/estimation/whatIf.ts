@@ -23,18 +23,7 @@ export function runWhatIf(input: {
   team: TeamComposition;
   objective: WhatIfObjective;
   maxSprints?: number;
-}): {
-  teamName: string;
-  bestDevLevel: string;
-  bestQaLevel: string;
-  devCount: number;
-  qaCount: number;
-  sprints: number;
-  cost: number | null;
-  effort: number;
-  feasible: boolean;
-  notes: string[];
-} {
+}): WhatIfResult {
   const notes: string[] = [];
   const levels = input.config.resourceLevels.filter((l) =>
     input.team.availableLevels.includes(l.id),
@@ -85,8 +74,10 @@ export function runWhatIf(input: {
   }
 
   if (!best) {
+    const emptyNotes = [...notes, "No feasible combination within the deadline."];
     return {
       teamName: input.team.teamName,
+      objective: input.objective,
       bestDevLevel: "",
       bestQaLevel: "",
       devCount: 0,
@@ -95,12 +86,22 @@ export function runWhatIf(input: {
       cost: 0,
       effort: 0,
       feasible: false,
-      notes: [...notes, "No feasible combination within the deadline."],
+      combinationsTried: candidates.length,
+      notes: emptyNotes,
+      rationale: explainWhatIf({
+        feasible: false,
+        objective: input.objective,
+        maxSprints: input.maxSprints,
+        teamName: input.team.teamName,
+        combinationsTried: candidates.length,
+        notes: emptyNotes,
+      }),
     };
   }
 
   return {
     teamName: input.team.teamName,
+    objective: input.objective,
     bestDevLevel: best.devLevel,
     bestQaLevel: best.qaLevel,
     devCount: best.devCount,
@@ -109,8 +110,106 @@ export function runWhatIf(input: {
     cost: best.cost,
     effort: best.effort,
     feasible: true,
+    combinationsTried: candidates.length,
     notes,
+    rationale: explainWhatIf({
+      feasible: true,
+      objective: input.objective,
+      maxSprints: input.maxSprints,
+      teamName: input.team.teamName,
+      combinationsTried: candidates.length,
+      notes,
+      best,
+    }),
   };
+}
+
+export type WhatIfResult = {
+  teamName: string;
+  objective: WhatIfObjective;
+  bestDevLevel: string;
+  bestQaLevel: string;
+  devCount: number;
+  qaCount: number;
+  sprints: number;
+  cost: number | null;
+  effort: number;
+  feasible: boolean;
+  combinationsTried: number;
+  notes: string[];
+  rationale: { title: string; summary: string; steps: string[] };
+};
+
+function explainWhatIf(input: {
+  feasible: boolean;
+  objective: WhatIfObjective;
+  maxSprints?: number;
+  teamName: string;
+  combinationsTried: number;
+  notes: string[];
+  best?: ReturnType<typeof scoreCandidate>;
+}): { title: string; summary: string; steps: string[] } {
+  const goal = objectiveLabel(input.objective, input.maxSprints);
+  if (!input.feasible || !input.best) {
+    return {
+      title: "Why this result",
+      summary: `No mix for ${input.teamName} meets ${goal}.`,
+      steps: [
+        `The engine tried ${input.combinationsTried} Dev/QA seniority and headcount combinations on this team's roster.`,
+        input.objective === "CHEAPEST_WITHIN_N_SPRINTS"
+          ? `Every combination needed more than ${input.maxSprints} sprint(s).`
+          : "No combination produced a governed delivery plan.",
+        ...input.notes,
+      ],
+    };
+  }
+  const best = input.best;
+  const costText = best.cost == null ? "cost deferred" : `${best.cost} CHF AI-adjusted`;
+  return {
+    title: "Why this result",
+    summary: `${best.devCount} ${best.devLevel} Dev + ${best.qaCount} ${best.qaLevel} QA is the ${goal} mix for ${input.teamName}.`,
+    steps: [
+      `Objective: ${goal}. Scenarios never change an approved estimate; they only search staffing mixes.`,
+      `Compared ${input.combinationsTried} combinations from this team's configured seniority and max Dev/QA headcount.`,
+      `Winner: ${best.devCount} ${best.devLevel} Dev and ${best.qaCount} ${best.qaLevel} QA.`,
+      `That mix plans ${best.sprints} sprint(s), ${best.effort} person-days, and ${costText}.`,
+      explainRule(input.objective, input.maxSprints),
+      "Seniority is limited to levels on the team's composition. Senior is skipped when the team has none configured.",
+      ...input.notes,
+    ],
+  };
+}
+
+function objectiveLabel(objective: WhatIfObjective, maxSprints?: number) {
+  switch (objective) {
+    case "FEWEST_SPRINTS":
+    case "FASTEST_DELIVERY":
+      return "fewest sprints";
+    case "LEAST_EFFORT":
+      return "least effort";
+    case "BEST_VALUE":
+      return "best value (fastest plus one sprint of slack, then cheapest)";
+    case "CHEAPEST_WITHIN_N_SPRINTS":
+      return `cheapest mix within ${maxSprints ?? "N"} sprint(s)`;
+    default:
+      return "lowest AI-adjusted cost";
+  }
+}
+
+function explainRule(objective: WhatIfObjective, maxSprints?: number) {
+  switch (objective) {
+    case "FEWEST_SPRINTS":
+    case "FASTEST_DELIVERY":
+      return "Tie-break: fewer sprints first, then lower cost, then lower effort.";
+    case "LEAST_EFFORT":
+      return "Tie-break: lower total person-days first, then lower cost.";
+    case "BEST_VALUE":
+      return "The pool is first cut to mixes within one sprint of the fastest, then the cheapest of those wins.";
+    case "CHEAPEST_WITHIN_N_SPRINTS":
+      return `Mixes slower than ${maxSprints ?? "N"} sprint(s) were discarded before choosing the cheapest remaining.`;
+    default:
+      return "Tie-break: lower AI-adjusted delivery cost first, then fewer sprints.";
+  }
 }
 
 function scoreCandidate(

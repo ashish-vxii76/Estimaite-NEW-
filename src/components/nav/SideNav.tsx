@@ -204,7 +204,9 @@ function NavBranch({
     <div>
       <div
         className={`group flex items-center gap-0.5 rounded-lg ${
-          active ? "bg-[var(--navy)] text-white" : "text-[var(--text)] hover:bg-[var(--panel-2)]"
+          active
+            ? "bg-[var(--navy)] text-white [&_a]:text-white [&_span]:text-white"
+            : "text-[var(--text)] hover:bg-[var(--panel-2)]"
         }`}
         style={padding}
       >
@@ -217,7 +219,9 @@ function NavBranch({
           >
             <ChevronRight
               size={14}
-              className={`shrink-0 text-[var(--muted)] transition-transform ${isOpen ? "rotate-90" : ""}`}
+              className={`shrink-0 transition-transform ${
+                active ? "text-white" : "text-[var(--muted)]"
+              } ${isOpen ? "rotate-90" : ""}`}
             />
             {node.href && depth > 0 ? (
               <Link
@@ -243,7 +247,9 @@ function NavBranch({
             href={node.createHref!}
             aria-label={node.createLabel ?? `Create ${node.label}`}
             title={node.createLabel ?? `Create ${node.label}`}
-            className="mr-1 rounded-md p-1 text-[var(--navy)] hover:bg-[var(--panel-2)]"
+            className={`mr-1 rounded-md p-1 hover:bg-white/15 ${
+              active ? "text-white" : "text-[var(--navy)] hover:bg-[var(--panel-2)]"
+            }`}
             onClick={(e) => e.stopPropagation()}
           >
             <Plus size={14} />

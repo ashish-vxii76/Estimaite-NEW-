@@ -27,8 +27,10 @@ input, select, textarea, button {
   font: inherit;
 }
 
-a {
-  color: inherit;
+@layer base {
+  a {
+    color: inherit;
+  }
 }
 
 .card {
