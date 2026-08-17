@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/prisma";
 import { getActiveConfig } from "@/services/configService";
 import { TeamCompositionEditor } from "@/components/admin/TeamCompositionEditor";
 import { auth } from "@/auth";

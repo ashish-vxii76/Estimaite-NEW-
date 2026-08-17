@@ -9,12 +9,11 @@ Scope → Complexity → T-Shirt → SP / ROM → Dev & QA → Capacity → Reso
 ## Quick start
 
 ```bash
-cp .env.example .env
-npx prisma db push
-npm run db:seed
-npm test
+npm install
 npm run dev
 ```
+
+`npm run dev` creates `.env` from `.env.example` if needed, syncs the SQLite schema, and seeds demo users when the database is empty.
 
 Sign in with `admin@estimaite.local` / `demo1234`.
 
