@@ -78,6 +78,7 @@ export function TeamCompositionEditor({
                   <select
                     className="w-full rounded border border-[var(--line)] bg-[var(--panel-2)] px-2 py-1"
                     value={row.teamId}
+                    disabled={readOnly}
                     onChange={(e) => update(index, "teamId", e.target.value)}
                   >
                     {teams.map((t) => (
@@ -91,6 +92,7 @@ export function TeamCompositionEditor({
                   <input
                     className="w-full rounded border border-[var(--line)] bg-[var(--panel-2)] px-2 py-1"
                     value={row.name}
+                    disabled={readOnly}
                     onChange={(e) => update(index, "name", e.target.value)}
                   />
                 </td>
@@ -98,6 +100,7 @@ export function TeamCompositionEditor({
                   <select
                     className="w-full rounded border border-[var(--line)] bg-[var(--panel-2)] px-2 py-1"
                     value={row.resourceLevel}
+                    disabled={readOnly}
                     onChange={(e) => update(index, "resourceLevel", e.target.value)}
                   >
                     {levels.map((l) => (
@@ -111,6 +114,7 @@ export function TeamCompositionEditor({
                   <select
                     className="w-full rounded border border-[var(--line)] bg-[var(--panel-2)] px-2 py-1"
                     value={row.roleStream}
+                    disabled={readOnly}
                     onChange={(e) => update(index, "roleStream", e.target.value)}
                   >
                     <option value="DEV">Dev</option>
@@ -121,6 +125,7 @@ export function TeamCompositionEditor({
                   <select
                     className="w-full rounded border border-[var(--line)] bg-[var(--panel-2)] px-2 py-1"
                     value={row.location}
+                    disabled={readOnly}
                     onChange={(e) => update(index, "location", e.target.value)}
                   >
                     {locations.map((l) => (
@@ -129,12 +134,14 @@ export function TeamCompositionEditor({
                   </select>
                 </td>
                 <td className="px-2 py-1">
+                  {readOnly ? null : (
                   <button
                     className="text-xs text-rose-300"
                     onClick={() => setRows((current) => current.filter((_, i) => i !== index))}
                   >
                     Remove
                   </button>
+                  )}
                 </td>
               </tr>
             ))}

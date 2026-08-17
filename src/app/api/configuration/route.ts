@@ -1,11 +1,19 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireRole, requireUser } from "@/lib/api-auth";
+import { requireFeature, requireUser } from "@/lib/api-auth";
 import { getActiveConfig, saveConfigVersion } from "@/services/configService";
+import { can } from "@/lib/rbac";
 
 export async function GET() {
-  const { error } = await requireUser();
+  const { session, error } = await requireUser();
   if (error) return error;
+  if (
+    !can(session!.user.role, "config.mappings") &&
+    !can(session!.user.role, "config.rates") &&
+    !can(session!.user.role, "config.teams")
+  ) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   const [config, locations, versions] = await Promise.all([
     getActiveConfig(),
     prisma.location.findMany({ where: { active: true } }),
@@ -17,7 +25,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const { session, error } = await requireUser();
   if (error) return error;
-  const forbidden = requireRole(session!.user.role, ["ADMINISTRATOR"]);
+  const forbidden = requireFeature(session!.user.role, "config.mappings", "RW");
   if (forbidden) return forbidden;
   const body = await request.json();
   const next = await saveConfigVersion(body.config, session!.user.id);

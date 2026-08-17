@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { DEFAULT_CONFIG } from "@/domain/estimation/defaultConfig";
@@ -39,6 +39,8 @@ type Location = {
 const defaultScores = Object.fromEntries(
   DEFAULT_CONFIG.complexityDimensions.map((d) => [d.id, 3]),
 );
+
+const CanEditFields = createContext(true);
 
 export function EstimateWizard({
   estimateId,
@@ -313,6 +315,7 @@ export function EstimateWizard({
   const momentIndex = MOMENTS.findIndex((m) => m.id === moment);
 
   return (
+    <CanEditFields.Provider value={capabilities.canEdit}>
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
       <div className="space-y-5">
         <div className="flex flex-wrap items-end justify-between gap-3">
@@ -857,6 +860,7 @@ export function EstimateWizard({
         title={form.title}
       />
     </div>
+    </CanEditFields.Provider>
   );
 }
 
@@ -869,10 +873,15 @@ function Field({
   children: React.ReactNode;
   className?: string;
 }) {
+  const canEdit = useContext(CanEditFields);
   return (
     <label className={`block text-sm ${className}`}>
       <span className="mb-1 block text-[var(--muted)]">{label}</span>
-      <div className="[&_input]:w-full [&_input]:rounded-lg [&_input]:border [&_input]:border-[var(--line)] [&_input]:bg-[var(--panel-2)] [&_input]:px-3 [&_input]:py-2 [&_select]:w-full [&_select]:rounded-lg [&_select]:border [&_select]:border-[var(--line)] [&_select]:bg-[var(--panel-2)] [&_select]:px-3 [&_select]:py-2 [&_textarea]:w-full [&_textarea]:rounded-lg [&_textarea]:border [&_textarea]:border-[var(--line)] [&_textarea]:bg-[var(--panel-2)] [&_textarea]:px-3 [&_textarea]:py-2">
+      <div
+        className={`[&_input]:w-full [&_input]:rounded-lg [&_input]:border [&_input]:border-[var(--line)] [&_input]:bg-[var(--panel-2)] [&_input]:px-3 [&_input]:py-2 [&_select]:w-full [&_select]:rounded-lg [&_select]:border [&_select]:border-[var(--line)] [&_select]:bg-[var(--panel-2)] [&_select]:px-3 [&_select]:py-2 [&_textarea]:w-full [&_textarea]:rounded-lg [&_textarea]:border [&_textarea]:border-[var(--line)] [&_textarea]:bg-[var(--panel-2)] [&_textarea]:px-3 [&_textarea]:py-2 ${
+          canEdit ? "" : "pointer-events-none opacity-80"
+        }`}
+      >
         {children}
       </div>
     </label>

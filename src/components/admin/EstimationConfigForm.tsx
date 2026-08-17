@@ -3,7 +3,13 @@
 import { useState } from "react";
 import type { EstimationConfig } from "@/domain/estimation/types";
 
-export function EstimationConfigForm({ config }: { config: EstimationConfig }) {
+export function EstimationConfigForm({
+  config,
+  readOnly = false,
+}: {
+  config: EstimationConfig;
+  readOnly?: boolean;
+}) {
   const [form, setForm] = useState({
     sprintWorkingDays: config.sprintWorkingDays,
     issueMaxRecommendedSprints: config.issueMaxRecommendedSprints,
@@ -71,6 +77,7 @@ export function EstimationConfigForm({ config }: { config: EstimationConfig }) {
           step={step}
           className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2"
           value={form[key] as number}
+          disabled={readOnly}
           onChange={(e) => setForm({ ...form, [key]: Number(e.target.value) })}
         />
       </label>
@@ -110,9 +117,13 @@ export function EstimationConfigForm({ config }: { config: EstimationConfig }) {
         {num("xl", "XL")}
         {num("xxl", "XXL")}
       </section>
-      <button className="btn-primary" onClick={save}>
-        Save and publish version
-      </button>
+      {readOnly ? (
+        <p className="text-sm text-[var(--muted)]">Read only for this role. Admin publishes mapping versions.</p>
+      ) : (
+        <button className="btn-primary" onClick={save}>
+          Save and publish version
+        </button>
+      )}
       {message ? <p className="text-sm text-[var(--ok)]">{message}</p> : null}
     </div>
   );
