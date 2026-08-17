@@ -68,10 +68,10 @@ export function ActualsForm({
           />
         </label>
         <div className="md:col-span-3">
-          <button className="rounded-lg bg-teal-400 px-4 py-2 text-slate-950">Save actuals</button>
+          <button className="btn-primary">Save actuals</button>
         </div>
       </form>
-      {message ? <p className="mt-3 text-sm text-teal-200">{message}</p> : null}
+      {message ? <p className="mt-3 text-sm text-[var(--ok)]">{message}</p> : null}
       {variance ? (
         <p className="mt-3 text-sm text-[var(--muted)]">
           Actual/Estimated ratio: {variance.actualEstimatedEffortRatio}. {variance.interpretation}

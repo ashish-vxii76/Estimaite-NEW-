@@ -111,7 +111,7 @@ export function WhatIfForm({
           />
         </label>
       </div>
-      <button className="rounded-lg bg-teal-400 px-4 py-2 text-slate-950" onClick={run}>
+      <button className="btn-primary" onClick={run}>
         Run scenario
       </button>
       {error ? <p className="text-sm text-rose-300">{error}</p> : null}

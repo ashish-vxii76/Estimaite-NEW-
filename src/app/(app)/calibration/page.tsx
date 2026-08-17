@@ -10,7 +10,7 @@ export default async function CalibrationPage() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs uppercase tracking-[0.2em] text-teal-300">Learn → Recalibrate</p>
+        <p className="kicker">Learn → Recalibrate</p>
         <h1 className="text-2xl font-semibold">Calibration</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
           Actual vs estimate → suggested Days/Point. Derived from the Register Actual/Est ratios by
@@ -52,7 +52,7 @@ export default async function CalibrationPage() {
                 <td className="px-4 py-3">{row.name}</td>
                 <td>{row.currentDaysPerPoint.toFixed(2)}</td>
                 <td>{row.avgActualEstRatio == null ? "" : row.avgActualEstRatio.toFixed(2)}</td>
-                <td className="font-medium text-teal-200">
+                <td className="font-medium text-[var(--navy)]">
                   {row.samples < 3 || row.suggestedDaysPerPoint == null
                     ? row.samples < 3
                       ? `Insufficient data — ${row.samples} of 3`

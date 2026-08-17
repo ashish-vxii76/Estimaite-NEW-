@@ -28,7 +28,7 @@ export function CalibrationActions({ rows }: { rows: CalibrationRow[] }) {
   return (
     <div className="space-y-2">
       <button
-        className="rounded-lg bg-teal-400 px-4 py-2 text-slate-950 disabled:opacity-40"
+        className="btn-primary disabled:opacity-40"
         onClick={apply}
         disabled={!applicable.length}
       >
@@ -38,7 +38,7 @@ export function CalibrationActions({ rows }: { rows: CalibrationRow[] }) {
         Suggestions never apply themselves. This publishes a new configuration version after
         administrator approval.
       </p>
-      {message ? <p className="text-sm text-teal-200">{message}</p> : null}
+      {message ? <p className="text-sm text-[var(--ok)]">{message}</p> : null}
     </div>
   );
 }

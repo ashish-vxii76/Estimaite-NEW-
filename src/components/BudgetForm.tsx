@@ -41,10 +41,10 @@ export function BudgetForm({
           className="mt-1 block w-48 rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2"
         />
       </label>
-      <button className="rounded-lg bg-teal-400 px-4 py-2 text-slate-950" onClick={save}>
+      <button className="btn-primary" onClick={save}>
         Set budget
       </button>
-      {message ? <p className="text-sm text-teal-200">{message}</p> : null}
+      {message ? <p className="text-sm text-[var(--ok)]">{message}</p> : null}
     </div>
   );
 }

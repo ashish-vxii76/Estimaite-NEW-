@@ -1,21 +1,23 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #0f1419;
-  --panel: #171e27;
-  --panel-2: #1e2733;
-  --line: #2a3544;
-  --text: #e8eef6;
-  --muted: #93a4b8;
-  --accent: #2dd4bf;
-  --accent-2: #14b8a6;
-  --warn: #f59e0b;
-  --danger: #f87171;
-  --ok: #34d399;
+  --bg: #f3efe6;
+  --panel: #fffcf7;
+  --panel-2: #f6f1e8;
+  --line: #ddd6c8;
+  --text: #1b2a4a;
+  --muted: #5c6b80;
+  --accent: #0f766e;
+  --accent-2: #0d9488;
+  --navy: #1e3a5f;
+  --warn: #b45309;
+  --danger: #b42318;
+  --ok: #047857;
 }
 
 body {
-  background: radial-gradient(1200px 600px at 10% -10%, #163044 0%, transparent 55%),
+  background:
+    radial-gradient(900px 420px at 100% -10%, #e7eef6 0%, transparent 55%),
     var(--bg);
   color: var(--text);
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
@@ -25,13 +27,100 @@ input, select, textarea, button {
   font: inherit;
 }
 
+a {
+  color: inherit;
+}
+
 .card {
-  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: 12px;
+  box-shadow: 0 1px 0 rgba(27, 42, 74, 0.04);
 }
 
 .sticky-summary {
-  backdrop-filter: blur(12px);
-  background: color-mix(in srgb, var(--panel) 80%, transparent);
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+
+.btn-primary {
+  background: var(--navy);
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.08);
+}
+
+.btn-secondary {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+}
+
+.stamp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 7.5rem;
+  padding: 0.45rem 0.7rem;
+  border: 2px solid currentColor;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transform: rotate(-6deg);
+}
+
+.stamp-danger {
+  color: #9f1239;
+  background: color-mix(in srgb, #9f1239 8%, white);
+}
+
+.stamp-navy {
+  color: var(--navy);
+  background: color-mix(in srgb, var(--navy) 8%, white);
+}
+
+.stamp-ok {
+  color: #047857;
+  background: color-mix(in srgb, #047857 8%, white);
+}
+
+.stamp-warn {
+  color: #b45309;
+  background: color-mix(in srgb, #b45309 8%, white);
+}
+
+.situation {
+  background: #f8ead3;
+  border: 1px solid #e8c48a;
+  color: #7c4a12;
+}
+
+.kicker {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.font-display {
+  font-family: var(--font-geist-sans), ui-serif, Georgia, serif;
+}
+
+.btn-ghost {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--navy);
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-weight: 600;
 }

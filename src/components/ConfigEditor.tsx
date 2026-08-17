@@ -34,10 +34,10 @@ export function ConfigEditor({
           value={json}
           onChange={(e) => setJson(e.target.value)}
         />
-        <button className="mt-3 rounded-lg bg-teal-400 px-4 py-2 text-slate-950" onClick={save}>
+        <button className="btn-primary mt-3" onClick={save}>
           Publish new configuration version
         </button>
-        {message ? <p className="mt-2 text-sm text-teal-200">{message}</p> : null}
+        {message ? <p className="mt-2 text-sm text-[var(--ok)]">{message}</p> : null}
       </section>
       <aside className="space-y-4">
         <section className="card p-4 text-sm">

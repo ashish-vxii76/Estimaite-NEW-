@@ -7,10 +7,10 @@ import { formatMoney } from "@/lib/utils";
 import { DELIVERY_FLAGS, T_SHIRTS } from "@/domain/estimation";
 
 const RAG_CLASS: Record<string, string> = {
-  UNSET: "bg-slate-500/20 text-slate-200",
-  GREEN: "bg-emerald-500/20 text-emerald-300",
-  AMBER: "bg-amber-500/20 text-amber-200",
-  RED: "bg-rose-500/20 text-rose-300",
+  UNSET: "bg-slate-100 text-slate-700",
+  GREEN: "bg-emerald-50 text-emerald-800",
+  AMBER: "bg-amber-50 text-amber-900",
+  RED: "bg-rose-50 text-rose-800",
 };
 
 export default async function PortfolioPage() {
@@ -20,7 +20,7 @@ export default async function PortfolioPage() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs uppercase tracking-[0.2em] text-teal-300">Register</p>
+        <p className="kicker">Register</p>
         <h1 className="text-2xl font-semibold">Portfolio Roll-Up</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
           Aggregates every calculated CR in the Register. Budget status is RAG against the entered
@@ -92,7 +92,7 @@ export default async function PortfolioPage() {
       <section className="card overflow-x-auto">
         <div className="flex items-center justify-between px-5 py-4">
           <h2 className="font-medium">CR Register</h2>
-          <Link href="/estimates/new" className="text-sm text-teal-300">
+          <Link href="/estimates/new" className="text-sm font-medium text-[var(--navy)] underline">
             New estimate
           </Link>
         </div>
@@ -121,7 +121,7 @@ export default async function PortfolioPage() {
               data.register.map((row) => (
                 <tr key={row.id} className="border-t border-[var(--line)]">
                   <td className="px-4 py-3">
-                    <Link className="text-teal-300" href={`/estimates/${row.id}`}>
+                    <Link className="font-medium text-[var(--navy)] underline" href={`/estimates/${row.id}`}>
                       {row.reference}
                     </Link>
                   </td>

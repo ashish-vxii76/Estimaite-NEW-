@@ -30,8 +30,8 @@ export default async function EstimateDetailPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs text-[var(--muted)]">{estimate.reference}</p>
-          <h1 className="text-2xl font-semibold">{estimate.title}</h1>
+          <p className="kicker">{estimate.reference}</p>
+          <h1 className="font-display text-2xl font-semibold text-[var(--navy)]">{estimate.title}</h1>
         </div>
         <StatusBadge status={estimate.status} />
       </div>

@@ -13,7 +13,7 @@ export default async function TeamsPage() {
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Teams</h1>
         {canCreate ? (
-          <Link href="/teams/new" className="rounded-lg bg-teal-400 px-4 py-2 text-sm text-slate-950">
+          <Link href="/teams/new" className="btn-primary">
             New team
           </Link>
         ) : null}

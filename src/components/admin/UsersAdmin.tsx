@@ -92,13 +92,13 @@ export function UsersAdmin({ initial }: { initial: UserRow[] }) {
           </select>
         </Field>
         <div className="md:col-span-2">
-          <button className="rounded-lg bg-teal-400 px-4 py-2 text-slate-950" onClick={createUser}>
+          <button className="btn-primary" onClick={createUser}>
             Create login
           </button>
         </div>
       </section>
 
-      {message ? <p className="text-sm text-teal-200">{message}</p> : null}
+      {message ? <p className="text-sm text-[var(--ok)]">{message}</p> : null}
 
       <section className="card overflow-x-auto">
         <table className="w-full min-w-[720px] text-left text-sm">
@@ -131,7 +131,7 @@ export function UsersAdmin({ initial }: { initial: UserRow[] }) {
                 </td>
                 <td>
                   <button
-                    className="text-xs text-teal-300 underline"
+                    className="text-xs text-[var(--navy)] underline"
                     onClick={() => updateUser(row.id, { active: !row.active })}
                   >
                     {row.active ? "Active" : "Disabled"}
@@ -139,7 +139,7 @@ export function UsersAdmin({ initial }: { initial: UserRow[] }) {
                 </td>
                 <td>
                   <button
-                    className="text-xs text-teal-300 underline"
+                    className="text-xs text-[var(--navy)] underline"
                     onClick={() => {
                       const password = window.prompt("New password (min 8 characters)", "demo1234");
                       if (password) updateUser(row.id, { password });

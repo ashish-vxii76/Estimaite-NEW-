@@ -36,7 +36,7 @@ export function NewTeamForm() {
   return (
     <div className="mx-auto max-w-lg space-y-5">
       <div>
-        <p className="text-xs uppercase tracking-[0.2em] text-teal-300">Organisation</p>
+        <p className="kicker">Organisation</p>
         <h1 className="text-2xl font-semibold">Create new team</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
           Adds a delivery team. Roster and rate-card edits stay in Administration.
@@ -63,7 +63,7 @@ export function NewTeamForm() {
         </Field>
         {error ? <p className="text-sm text-rose-300">{error}</p> : null}
         <button
-          className="rounded-lg bg-teal-400 px-4 py-2 text-slate-950 disabled:opacity-60"
+          className="btn-primary disabled:opacity-60"
           disabled={busy}
         >
           {busy ? "Creating…" : "Create team"}

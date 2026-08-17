@@ -47,7 +47,7 @@ export function ProfileSwitcher({
         Switch profile
       </label>
       <select
-        className="w-full rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-2 py-1.5 text-xs text-slate-100"
+        className="w-full rounded-lg border border-[var(--line)] bg-white px-2 py-1.5 text-xs text-[var(--text)]"
         value={currentEmail ?? ""}
         disabled={pending}
         onChange={(e) => onChange(e.target.value)}
@@ -63,7 +63,7 @@ export function ProfileSwitcher({
       ) : (
         <p className="text-[10px] text-[var(--muted)]">Switching signs you in as that profile.</p>
       )}
-      {error ? <p className="text-[10px] text-rose-300">{error}</p> : null}
+      {error ? <p className="text-[10px] text-[var(--danger)]">{error}</p> : null}
     </div>
   );
 }

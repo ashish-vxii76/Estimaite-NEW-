@@ -2,26 +2,23 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { DEFAULT_CONFIG } from "@/domain/estimation/defaultConfig";
 import { DEFAULT_READINESS_CRITERIA } from "@/domain/estimation/readiness";
-import { ExplanationPanel, StatusBadge } from "@/components/ui";
+import { calculateComplexityIndex } from "@/domain/estimation/complexity";
 import { formatMoney } from "@/lib/utils";
+import { GovernedSummary } from "@/components/GovernedSummary";
+import { ExplanationPanel } from "@/components/ui";
 import type { EstimateCalculationResult } from "@/domain/estimation/types";
 
-const STEPS = [
-  "Work Item",
-  "Definition of Ready",
-  "Scope",
-  "Complexity",
-  "Costing & Commercial Basis",
-  "Resource & Planning",
-  "Automated Delivery Estimate",
-  "Cost Method & Estimation",
-  "Review & Override",
-  "Final Governed Summary",
-  "Actuals & Variance",
-  "Scenario / Stance / Effort",
-];
+const MOMENTS = [
+  { id: "ready", label: "Ready" },
+  { id: "size", label: "Size" },
+  { id: "plan", label: "Plan & cost" },
+  { id: "govern", label: "Govern" },
+] as const;
+
+type MomentId = (typeof MOMENTS)[number]["id"];
 
 type Team = {
   id: string;
@@ -55,13 +52,12 @@ export function EstimateWizard({
   locations: Location[];
 }) {
   const router = useRouter();
-  const [step, setStep] = useState(0);
+  const initialResult = (initial?.result as EstimateCalculationResult) ?? null;
+  const [moment, setMoment] = useState<MomentId>(initialResult ? "govern" : "ready");
   const [id, setId] = useState(estimateId);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<EstimateCalculationResult | null>(
-    (initial?.result as EstimateCalculationResult) ?? null,
-  );
+  const [result, setResult] = useState<EstimateCalculationResult | null>(initialResult);
   const [overrideSp, setOverrideSp] = useState(8);
   const [overrideReason, setOverrideReason] = useState("");
   const [form, setForm] = useState({
@@ -98,9 +94,10 @@ export function EstimateWizard({
           ]),
         )
       : defaultScores,
-    readiness: Object.fromEntries(
-      DEFAULT_READINESS_CRITERIA.map((c) => [c.id, "YES"]),
-    ) as Record<string, string>,
+    readiness: Object.fromEntries(DEFAULT_READINESS_CRITERIA.map((c) => [c.id, "YES"])) as Record<
+      string,
+      string
+    >,
     locationId: locations[0]?.id ?? "",
     locationName: locations[0]?.name ?? "",
   });
@@ -169,6 +166,20 @@ export function EstimateWizard({
     };
   }, [form, locations]);
 
+  const previewIndex = useMemo(() => {
+    try {
+      return calculateComplexityIndex(
+        Object.entries(form.scores).map(([dimensionId, score]) => ({
+          dimensionId,
+          score: Number(score),
+        })),
+        DEFAULT_CONFIG,
+      ).index;
+    } catch {
+      return 0;
+    }
+  }, [form.scores]);
+
   async function persist() {
     setError("");
     setBusy(true);
@@ -210,7 +221,7 @@ export function EstimateWizard({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Calculation failed");
       setResult(data.result);
-      setStep(6);
+      setMoment("govern");
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -256,441 +267,479 @@ export function EstimateWizard({
     }
   }
 
+  const momentIndex = MOMENTS.findIndex((m) => m.id === moment);
+
   return (
-    <div className="space-y-5">
-      <div className="sticky-summary card sticky top-3 z-10 flex flex-wrap gap-3 px-4 py-3 text-sm">
-        <span>T-Shirt {result?.effectiveTshirt ?? "—"}</span>
-        <span>SP {result?.selectedSp ?? "—"}</span>
-        <span>Dev {result?.devSp ?? "—"}</span>
-        <span>QA {result?.qaSp ?? "—"}</span>
-        <span>Sprints {result?.finalSprints ?? "—"}</span>
-        <span>
-          Cost {result ? formatMoney(result.aiAdjustedDeliveryCost, result.currency) : "—"}
-        </span>
-        <span>Confidence {result?.confidence ?? "—"}</span>
-        <span>Decision {result?.governanceDecision ?? "—"}</span>
-        <span>Flag {result?.deliveryFlag ?? "—"}</span>
-      </div>
-
-      <ol className="flex flex-wrap gap-2 text-xs">
-        {STEPS.map((label, i) => (
-          <li key={label}>
-            <button
-              className={`rounded-full px-3 py-1 ${i === step ? "bg-teal-400 text-slate-950" : "bg-[var(--panel-2)]"}`}
-              onClick={() => setStep(i)}
-            >
-              {i + 1}. {label}
-            </button>
-          </li>
-        ))}
-      </ol>
-
-      {error ? <p className="text-sm text-rose-300">{error}</p> : null}
-
-      {step === 0 && (
-        <section className="card grid gap-4 p-5 md:grid-cols-2">
-          <Field label="Work item type">
-            <select
-              value={form.workItemType}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  workItemType: e.target.value,
-                  ...(e.target.value === "EPIC"
-                    ? { otherFixedCost: 0, projectOverrideRate: 0, costMethod: "", costingBasis: "" }
-                    : {
-                        costingBasis: form.costingBasis || "TEAM",
-                        costMethod: "Resource Cost per Sprint",
-                      }),
-                })
-              }
-            >
-              <option value="ISSUE">Issue / Story</option>
-              <option value="EPIC">Epic ROM</option>
-            </select>
-          </Field>
-          <Field label="Work item ID / CR">
-            <input
-              value={form.reference}
-              onChange={(e) => setForm({ ...form, reference: e.target.value })}
-            />
-          </Field>
-          <Field label="Title" className="md:col-span-2">
-            <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-          </Field>
-          <Field label="Description" className="md:col-span-2">
-            <textarea
-              rows={4}
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-            />
-          </Field>
-          <Field label="Owning team">
-            <select value={form.teamId} onChange={(e) => setForm({ ...form, teamId: e.target.value })}>
-              {teams.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Requester">
-            <input
-              value={form.requester}
-              onChange={(e) => setForm({ ...form, requester: e.target.value })}
-            />
-          </Field>
-        </section>
-      )}
-
-      {step === 1 && (
-        <section className="card space-y-3 p-5">
-          <p className="text-sm text-[var(--muted)]">
-            Yes or No only. Score is the count of Yes (0–5). Fewer than 3 Yes returns Discovery Required.
-          </p>
-          {DEFAULT_READINESS_CRITERIA.map((c) => (
-            <Field key={c.id} label={c.label}>
-              <select
-                value={form.readiness[c.id]}
-                onChange={(e) =>
-                  setForm({ ...form, readiness: { ...form.readiness, [c.id]: e.target.value } })
-                }
-              >
-                <option value="YES">Yes</option>
-                <option value="NO">No</option>
-              </select>
-            </Field>
-          ))}
-        </section>
-      )}
-
-      {step === 2 && (
-        <section className="card grid gap-4 p-5 md:grid-cols-2">
-          <Field label="Project">
-            <input value={form.project} onChange={(e) => setForm({ ...form, project: e.target.value })} />
-          </Field>
-          <Field label="Programme">
-            <input
-              value={form.programme}
-              onChange={(e) => setForm({ ...form, programme: e.target.value })}
-            />
-          </Field>
-          <Field label="Release">
-            <input value={form.release} onChange={(e) => setForm({ ...form, release: e.target.value })} />
-          </Field>
-          <Field label="Jira ID">
-            <input value={form.jiraId} onChange={(e) => setForm({ ...form, jiraId: e.target.value })} />
-          </Field>
-        </section>
-      )}
-
-      {step === 3 && (
-        <section className="card space-y-4 p-5">
-          {DEFAULT_CONFIG.complexityDimensions.map((d) => (
-            <Field key={d.id} label={`${d.name} (weight ${d.weight})`}>
-              <select
-                value={form.scores[d.id]}
-                onChange={(e) =>
-                  setForm({ ...form, scores: { ...form.scores, [d.id]: Number(e.target.value) } })
-                }
-              >
-                {(d.options ?? []).map((label, index) => (
-                  <option key={label} value={index + 1}>
-                    {index + 1} — {label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          ))}
-        </section>
-      )}
-
-      {step === 4 && (
-        <section className="card grid gap-4 p-5 md:grid-cols-2">
-          {form.workItemType === "EPIC" ? (
-            <p className="md:col-span-2 text-sm text-amber-200">
-              COST DEFERRED — ROM Epic; cost at Story level. Commercial inputs are cleared.
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
+      <div className="space-y-5">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="kicker">Estimate</p>
+            <h2 className="font-display text-2xl font-semibold text-[var(--navy)]">
+              {estimateId ? "Inputs and governance" : "New estimate"}
+            </h2>
+            <p className="mt-1 max-w-xl text-sm text-[var(--muted)]">
+              Four moments. Same governed engine. The summary stays on the right while you work.
             </p>
-          ) : (
-            <>
-              <Field label="Costing basis">
+          </div>
+          <Link href="/estimates" className="btn-ghost">
+            Cancel
+          </Link>
+        </div>
+
+        <ol className="flex flex-wrap gap-2">
+          {MOMENTS.map((m, i) => (
+            <li key={m.id}>
+              <button
+                type="button"
+                onClick={() => setMoment(m.id)}
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                  moment === m.id
+                    ? "border-[var(--navy)] bg-[var(--navy)] text-white"
+                    : i < momentIndex
+                      ? "border-[var(--line)] bg-white text-[var(--navy)]"
+                      : "border-[var(--line)] bg-[var(--bg)] text-[var(--muted)]"
+                }`}
+              >
+                {i + 1}. {m.label}
+              </button>
+            </li>
+          ))}
+        </ol>
+
+        {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
+
+        {moment === "ready" && (
+          <section className="card space-y-8 p-6">
+            <header>
+              <p className="kicker">Moment 1</p>
+              <h3 className="font-display text-xl font-semibold text-[var(--navy)]">
+                Is this ready to estimate?
+              </h3>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                Incomplete Definition of Ready becomes a DISCOVERY REQUIRED stamp — not a silent warning.
+              </p>
+            </header>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Work item type">
                 <select
-                  value={form.costingBasis}
+                  value={form.workItemType}
                   onChange={(e) =>
                     setForm({
                       ...form,
-                      costingBasis: e.target.value,
-                      locationName: e.target.value === "TEAM" ? "" : form.locationName,
+                      workItemType: e.target.value,
+                      ...(e.target.value === "EPIC"
+                        ? { otherFixedCost: 0, projectOverrideRate: 0, costMethod: "", costingBasis: "" }
+                        : {
+                            costingBasis: form.costingBasis || "TEAM",
+                            costMethod: "Resource Cost per Sprint",
+                          }),
                     })
                   }
                 >
-                  <option value="TEAM">Team</option>
-                  <option value="LOCATION">Location</option>
+                  <option value="ISSUE">Issue / Story</option>
+                  <option value="EPIC">Epic ROM</option>
                 </select>
               </Field>
-              <Field label="Cost method">
-                <input value={form.costMethod} readOnly />
+              <Field label="Work item ID / CR">
+                <input
+                  value={form.reference}
+                  onChange={(e) => setForm({ ...form, reference: e.target.value })}
+                />
               </Field>
-              <Field label="Location rate card">
-                <select
-                  disabled={form.costingBasis !== "LOCATION"}
-                  value={form.costingBasis === "LOCATION" ? form.locationName : ""}
-                  onChange={(e) => {
-                    const loc = locations.find((l) => l.name === e.target.value);
-                    setForm({
-                      ...form,
-                      locationName: e.target.value,
-                      locationId: loc?.id ?? "",
-                    });
-                  }}
-                >
-                  <option value="">Select location</option>
-                  {locations.map((l) => (
-                    <option key={l.id} value={l.name}>
-                      {l.name} — {l.dailyRate} {l.currency}/day
+              <Field label="Title" className="md:col-span-2">
+                <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+              </Field>
+              <Field label="Description" className="md:col-span-2">
+                <textarea
+                  rows={4}
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                />
+              </Field>
+              <Field label="Owning team">
+                <select value={form.teamId} onChange={(e) => setForm({ ...form, teamId: e.target.value })}>
+                  {teams.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
                     </option>
                   ))}
                 </select>
               </Field>
-              <Field label="Project override rate (optional)">
+              <Field label="Requester">
+                <input
+                  value={form.requester}
+                  onChange={(e) => setForm({ ...form, requester: e.target.value })}
+                />
+              </Field>
+              <Field label="Project">
+                <input value={form.project} onChange={(e) => setForm({ ...form, project: e.target.value })} />
+              </Field>
+              <Field label="Programme">
+                <input
+                  value={form.programme}
+                  onChange={(e) => setForm({ ...form, programme: e.target.value })}
+                />
+              </Field>
+              <Field label="Release">
+                <input value={form.release} onChange={(e) => setForm({ ...form, release: e.target.value })} />
+              </Field>
+              <Field label="Jira ID">
+                <input value={form.jiraId} onChange={(e) => setForm({ ...form, jiraId: e.target.value })} />
+              </Field>
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold text-[var(--navy)]">Definition of Ready</h4>
+              <p className="mb-3 text-xs text-[var(--muted)]">
+                Yes or No only. Score is the count of Yes (0–5). Fewer than 3 Yes returns Discovery Required.
+              </p>
+              <div className="grid gap-3 md:grid-cols-2">
+                {DEFAULT_READINESS_CRITERIA.map((c) => (
+                  <Field key={c.id} label={c.label}>
+                    <select
+                      value={form.readiness[c.id]}
+                      onChange={(e) =>
+                        setForm({ ...form, readiness: { ...form.readiness, [c.id]: e.target.value } })
+                      }
+                    >
+                      <option value="YES">Yes</option>
+                      <option value="NO">No</option>
+                    </select>
+                  </Field>
+                ))}
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <button type="button" className="btn-primary" onClick={() => persist().then(() => setMoment("size"))} disabled={busy}>
+                Continue to size
+              </button>
+            </div>
+          </section>
+        )}
+
+        {moment === "size" && (
+          <section className="card space-y-6 p-6">
+            <header>
+              <p className="kicker">Moment 2</p>
+              <h3 className="font-display text-xl font-semibold text-[var(--navy)]">
+                How complex is the work?
+              </h3>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                Weights stay in Administration. The index updates live: round(20 × Σ(score × weight)).
+              </p>
+            </header>
+            <div className="flex items-baseline justify-between rounded-xl border border-[var(--line)] bg-[var(--bg)] px-4 py-3">
+              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">
+                Complexity index
+              </span>
+              <span className="font-display text-3xl font-semibold text-[var(--navy)]">{previewIndex}</span>
+            </div>
+            <div className="space-y-3">
+              {DEFAULT_CONFIG.complexityDimensions.map((d) => (
+                <Field key={d.id} label={`${d.name} (weight ${d.weight})`}>
+                  <select
+                    value={form.scores[d.id]}
+                    onChange={(e) =>
+                      setForm({ ...form, scores: { ...form.scores, [d.id]: Number(e.target.value) } })
+                    }
+                  >
+                    {(d.options ?? []).map((label, index) => (
+                      <option key={label} value={index + 1}>
+                        {index + 1} — {label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              ))}
+            </div>
+            <div className="flex justify-between gap-2">
+              <button type="button" className="btn-ghost" onClick={() => setMoment("ready")}>
+                Back
+              </button>
+              <button type="button" className="btn-primary" onClick={() => persist().then(() => setMoment("plan"))} disabled={busy}>
+                Continue to plan
+              </button>
+            </div>
+          </section>
+        )}
+
+        {moment === "plan" && (
+          <section className="card space-y-8 p-6">
+            <header>
+              <p className="kicker">Moment 3</p>
+              <h3 className="font-display text-xl font-semibold text-[var(--navy)]">
+                How will we staff and cost it?
+              </h3>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                AI is 0–100% in the form and 0–1 in the engine. It increases capacity; it never reduces SP.
+              </p>
+            </header>
+            {form.workItemType === "EPIC" ? (
+              <p className="rounded-lg border border-dashed border-[var(--line)] bg-[var(--bg)] px-3 py-2 text-sm text-[var(--warn)]">
+                COST DEFERRED — ROM Epic; cost at Story level. Commercial inputs are cleared.
+              </p>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Costing basis">
+                  <select
+                    value={form.costingBasis}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        costingBasis: e.target.value,
+                        locationName: e.target.value === "TEAM" ? "" : form.locationName,
+                      })
+                    }
+                  >
+                    <option value="TEAM">Team</option>
+                    <option value="LOCATION">Location</option>
+                  </select>
+                </Field>
+                <Field label="Cost method">
+                  <input value={form.costMethod} readOnly />
+                </Field>
+                <Field label="Location rate card">
+                  <select
+                    disabled={form.costingBasis !== "LOCATION"}
+                    value={form.costingBasis === "LOCATION" ? form.locationName : ""}
+                    onChange={(e) => {
+                      const loc = locations.find((l) => l.name === e.target.value);
+                      setForm({
+                        ...form,
+                        locationName: e.target.value,
+                        locationId: loc?.id ?? "",
+                      });
+                    }}
+                  >
+                    <option value="">Select location</option>
+                    {locations.map((l) => (
+                      <option key={l.id} value={l.name}>
+                        {l.name} — {l.dailyRate} {l.currency}/day
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Project override rate (optional)">
+                  <input
+                    type="number"
+                    min={0}
+                    value={form.projectOverrideRate || ""}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        projectOverrideRate: e.target.value === "" ? 0 : Number(e.target.value),
+                      })
+                    }
+                  />
+                </Field>
+              </div>
+            )}
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Dev seniority">
+                <select
+                  value={form.devResourceLevel}
+                  onChange={(e) => setForm({ ...form, devResourceLevel: e.target.value })}
+                >
+                  {DEFAULT_CONFIG.resourceLevels.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name} ({l.capacitySpPerSprint} SP/sprint)
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="QA seniority">
+                <select
+                  value={form.qaResourceLevel}
+                  onChange={(e) => setForm({ ...form, qaResourceLevel: e.target.value })}
+                >
+                  {DEFAULT_CONFIG.resourceLevels.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name} ({l.capacitySpPerSprint} SP/sprint)
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Estimate stance">
+                <select value={form.stance} onChange={(e) => setForm({ ...form, stance: e.target.value })}>
+                  <option value="OPTIMISTIC">Optimistic (one T-shirt lower)</option>
+                  <option value="NEUTRAL">Neutral</option>
+                  <option value="PESSIMISTIC">Pessimistic (one T-shirt higher)</option>
+                </select>
+              </Field>
+              <Field label="Planning mode">
+                <select
+                  value={form.planningMode}
+                  onChange={(e) => setForm({ ...form, planningMode: e.target.value })}
+                >
+                  <option value="RESOURCE_CONSTRAINED">Resource-constrained</option>
+                  <option value="SPRINT_CONSTRAINED">Sprint-constrained</option>
+                </select>
+              </Field>
+              <Field label="Dev AI productivity %">
                 <input
                   type="number"
                   min={0}
-                  value={form.projectOverrideRate || ""}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      projectOverrideRate: e.target.value === "" ? 0 : Number(e.target.value),
-                    })
-                  }
+                  max={100}
+                  step={1}
+                  value={Math.round(form.devAiProductivity * 100)}
+                  onChange={(e) => setForm({ ...form, devAiProductivity: Number(e.target.value) / 100 })}
                 />
               </Field>
-            </>
-          )}
-        </section>
-      )}
+              <Field label="QA AI productivity %">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={Math.round(form.qaAiProductivity * 100)}
+                  onChange={(e) => setForm({ ...form, qaAiProductivity: Number(e.target.value) / 100 })}
+                />
+              </Field>
+              <Field label="Available Dev">
+                <input
+                  type="number"
+                  min={0}
+                  value={form.availableDev}
+                  onChange={(e) => setForm({ ...form, availableDev: Number(e.target.value) })}
+                />
+              </Field>
+              <Field label="Available QA">
+                <input
+                  type="number"
+                  min={0}
+                  value={form.availableQa}
+                  onChange={(e) => setForm({ ...form, availableQa: Number(e.target.value) })}
+                />
+              </Field>
+              <Field label="Target sprints">
+                <input
+                  type="number"
+                  min={1}
+                  value={form.targetSprints}
+                  onChange={(e) => setForm({ ...form, targetSprints: Number(e.target.value) })}
+                />
+              </Field>
+            </div>
+            <div className="flex justify-between gap-2">
+              <button type="button" className="btn-ghost" onClick={() => setMoment("size")}>
+                Back
+              </button>
+              <button type="button" className="btn-primary" onClick={calculate} disabled={busy}>
+                Calculate & govern
+              </button>
+            </div>
+          </section>
+        )}
 
-      {step === 5 && (
-        <section className="card grid gap-4 p-5 md:grid-cols-2">
-          <Field label="Dev seniority">
-            <select
-              value={form.devResourceLevel}
-              onChange={(e) => setForm({ ...form, devResourceLevel: e.target.value })}
-            >
-              {DEFAULT_CONFIG.resourceLevels.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name} ({l.capacitySpPerSprint} SP/sprint)
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="QA seniority">
-            <select
-              value={form.qaResourceLevel}
-              onChange={(e) => setForm({ ...form, qaResourceLevel: e.target.value })}
-            >
-              {DEFAULT_CONFIG.resourceLevels.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name} ({l.capacitySpPerSprint} SP/sprint)
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Estimate stance">
-            <select value={form.stance} onChange={(e) => setForm({ ...form, stance: e.target.value })}>
-              <option value="OPTIMISTIC">Optimistic (one T-shirt lower)</option>
-              <option value="NEUTRAL">Neutral</option>
-              <option value="PESSIMISTIC">Pessimistic (one T-shirt higher)</option>
-            </select>
-          </Field>
-          <Field label="Dev AI productivity %">
-            <input
-              type="number"
-              min={0}
-              max={100}
-              step={1}
-              value={Math.round(form.devAiProductivity * 100)}
-              onChange={(e) =>
-                setForm({ ...form, devAiProductivity: Number(e.target.value) / 100 })
-              }
-            />
-          </Field>
-          <Field label="QA AI productivity %">
-            <input
-              type="number"
-              min={0}
-              max={100}
-              step={1}
-              value={Math.round(form.qaAiProductivity * 100)}
-              onChange={(e) => setForm({ ...form, qaAiProductivity: Number(e.target.value) / 100 })}
-            />
-          </Field>
-          <Field label="Planning mode">
-            <select
-              value={form.planningMode}
-              onChange={(e) => setForm({ ...form, planningMode: e.target.value })}
-            >
-              <option value="RESOURCE_CONSTRAINED">Resource-constrained</option>
-              <option value="SPRINT_CONSTRAINED">Sprint-constrained</option>
-            </select>
-          </Field>
-          <Field label="Available Dev">
-            <input
-              type="number"
-              min={0}
-              value={form.availableDev}
-              onChange={(e) => setForm({ ...form, availableDev: Number(e.target.value) })}
-            />
-          </Field>
-          <Field label="Available QA">
-            <input
-              type="number"
-              min={0}
-              value={form.availableQa}
-              onChange={(e) => setForm({ ...form, availableQa: Number(e.target.value) })}
-            />
-          </Field>
-          <Field label="Target sprints">
-            <input
-              type="number"
-              min={1}
-              value={form.targetSprints}
-              onChange={(e) => setForm({ ...form, targetSprints: Number(e.target.value) })}
-            />
-          </Field>
-          <p className="md:col-span-2 text-sm text-[var(--muted)]">
-            AI is 0–100% in the form and 0–1 in the engine. It increases capacity; it never reduces SP.
-          </p>
-        </section>
-      )}
-
-      {(step === 6 || step === 7 || step === 9 || step === 11) && result && (
-        <section className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-4">
-            <Stat label="Index" value={String(result.complexityIndex)} />
-            <Stat label="Assessed / effective" value={`${result.assessedTshirt} → ${result.effectiveTshirt}`} />
-            <Stat label="Selected SP" value={String(result.selectedSp)} />
-            <Stat label="Dev / QA SP" value={`${result.devSp} / ${result.qaSp}`} />
-            <Stat label="Final sprints" value={String(result.finalSprints)} />
-            <Stat label="Utilisation" value={`${result.utilisation}%`} />
-            <Stat label="Baseline cost" value={formatMoney(result.baselineDeliveryCost, result.currency)} />
-            <Stat label="AI-adjusted cost" value={formatMoney(result.aiAdjustedDeliveryCost, result.currency)} />
-            <Stat
-              label="AI avoidance"
-              value={formatMoney(result.estimatedAiCostAvoidance, result.currency)}
-            />
-            <Stat label="Effort PD" value={String(result.adjustedTotalEffortPd)} />
-            <Stat label="Blended daily" value={String(result.blendedDailyRate)} />
-            <Stat label="Effort-based cost" value={formatMoney(result.effortBasedCost, result.currency)} />
-            <Stat label="Delivery flag" value={result.deliveryFlag} />
-            <Stat label="Final decision" value={result.governanceDecision} />
-            <Stat label="DoR" value={`${result.readinessScore} / ${result.dorStatus}`} />
-            <Stat label="Opt / Pes SP" value={`${result.optimisticSp} / ${result.pessimisticSp}`} />
-          </div>
-          {result.epicSummary ? <p className="text-sm text-teal-200">{result.epicSummary}</p> : null}
-          {result.costApplicability !== "OK" ? (
-            <p className="text-sm text-amber-200">{result.costApplicability}</p>
-          ) : null}
-          <div className="flex flex-wrap gap-2">
-            <StatusBadge status={result.confidence} />
-            <StatusBadge status={result.deliveryFlag} />
-            <StatusBadge status={result.governanceDecision} />
-          </div>
-          {step === 7 && form.workItemType !== "EPIC" ? (
-            <Field label="Other / fixed cost">
-              <input
-                type="number"
-                min={0}
-                value={form.otherFixedCost}
-                onChange={(e) => setForm({ ...form, otherFixedCost: Number(e.target.value) })}
-              />
-            </Field>
-          ) : null}
-          <div className="space-y-2">
-            {Object.values(result.explanations).map((ex) => (
-              <ExplanationPanel key={ex.title} {...ex} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {step === 8 && (
-        <section className="card space-y-4 p-5">
-          <p className="text-sm text-[var(--muted)]">
-            DRAFT → READY FOR REVIEW → REVIEWED → APPROVED. Automated SP stays immutable when
-            overriding.
-          </p>
-          <div className="grid gap-3 md:grid-cols-2">
-            <Field label="Override SP">
-              <input
-                type="number"
-                value={overrideSp}
-                onChange={(e) => setOverrideSp(Number(e.target.value))}
-              />
-            </Field>
-            <Field label="Override reason">
-              <input value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)} />
-            </Field>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button className="rounded-lg bg-[var(--panel-2)] px-3 py-2" onClick={override} disabled={busy}>
-              Apply governed override
-            </button>
-            <button className="rounded-lg bg-teal-400 px-3 py-2 text-slate-950" onClick={() => workflow("submit")} disabled={busy}>
-              Submit for review
-            </button>
-            <button className="rounded-lg bg-[var(--panel-2)] px-3 py-2" onClick={() => workflow("review")} disabled={busy}>
-              Mark reviewed
-            </button>
-            <button className="rounded-lg bg-[var(--panel-2)] px-3 py-2" onClick={() => workflow("approve")} disabled={busy}>
-              Approve
-            </button>
-            <button className="rounded-lg bg-rose-500/20 px-3 py-2 text-rose-200" onClick={() => workflow("reject")} disabled={busy}>
-              Reject
-            </button>
-          </div>
-        </section>
-      )}
-
-      {step === 10 && (
-        <section className="card p-5 text-sm text-[var(--muted)]">
-          Capture actuals after delivery from the estimate record. Variance is actual versus the
-          snapshot, not a live recalculation.
-        </section>
-      )}
-
-      <div className="flex justify-between gap-3">
-        <div className="flex gap-2">
-          <button
-            className="rounded-lg border border-[var(--line)] px-4 py-2"
-            onClick={() => setStep(Math.max(0, step - 1))}
-            disabled={step === 0}
-            type="button"
-          >
-            Back
-          </button>
-          <button
-            type="button"
-            className="rounded-lg border border-[var(--line)] px-4 py-2 text-[var(--muted)]"
-            onClick={() => router.push("/estimates")}
-          >
-            Cancel
-          </button>
-        </div>
-        {step < 6 ? (
-          <button
-            className="rounded-lg bg-teal-400 px-4 py-2 text-slate-950"
-            onClick={() => (step === 5 ? calculate() : persist().then(() => setStep(step + 1)))}
-            disabled={busy}
-          >
-            {step === 5 ? "Calculate" : "Continue"}
-          </button>
-        ) : step < 11 ? (
-          <button className="rounded-lg bg-teal-400 px-4 py-2 text-slate-950" onClick={() => setStep(step + 1)}>
-            Continue
-          </button>
-        ) : null}
+        {moment === "govern" && (
+          <section className="space-y-6">
+            <header>
+              <p className="kicker">Moment 4</p>
+              <h3 className="font-display text-xl font-semibold text-[var(--navy)]">Govern the result</h3>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                Overrides need a reason. Automated SP stays immutable. Actuals are captured after delivery.
+              </p>
+            </header>
+            {!result ? (
+              <div className="card p-6 text-sm text-[var(--muted)]">
+                Calculate from Plan & cost first. The engine has not run yet.
+                <div className="mt-4">
+                  <button type="button" className="btn-primary" onClick={() => setMoment("plan")}>
+                    Go to plan
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="grid gap-3 md:grid-cols-3">
+                  <Stat label="Utilisation" value={`${result.utilisation}%`} />
+                  <Stat label="Baseline cost" value={formatMoney(result.baselineDeliveryCost, result.currency)} />
+                  <Stat
+                    label="AI avoidance"
+                    value={formatMoney(result.estimatedAiCostAvoidance, result.currency)}
+                  />
+                  <Stat label="Effort PD" value={String(result.adjustedTotalEffortPd)} />
+                  <Stat label="Blended daily" value={String(result.blendedDailyRate)} />
+                  <Stat label="Opt / Pes SP" value={`${result.optimisticSp} / ${result.pessimisticSp}`} />
+                </div>
+                {form.workItemType !== "EPIC" ? (
+                  <section className="card p-5">
+                    <Field label="Other / fixed cost (CHF)">
+                      <input
+                        type="number"
+                        min={0}
+                        value={form.otherFixedCost}
+                        onChange={(e) => setForm({ ...form, otherFixedCost: Number(e.target.value) })}
+                      />
+                    </Field>
+                    <button type="button" className="btn-ghost mt-3" onClick={calculate} disabled={busy}>
+                      Recalculate with other cost
+                    </button>
+                  </section>
+                ) : null}
+                <section className="card space-y-4 p-5">
+                  <p className="text-sm text-[var(--muted)]">
+                    DRAFT → READY FOR REVIEW → REVIEWED → APPROVED.
+                  </p>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <Field label="Override SP">
+                      <input
+                        type="number"
+                        value={overrideSp}
+                        onChange={(e) => setOverrideSp(Number(e.target.value))}
+                      />
+                    </Field>
+                    <Field label="Override reason">
+                      <input value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)} />
+                    </Field>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button className="btn-secondary" onClick={override} disabled={busy} type="button">
+                      Apply governed override
+                    </button>
+                    <button className="btn-primary" onClick={() => workflow("submit")} disabled={busy} type="button">
+                      Submit for review
+                    </button>
+                    <button className="btn-secondary" onClick={() => workflow("review")} disabled={busy} type="button">
+                      Mark reviewed
+                    </button>
+                    <button className="btn-secondary" onClick={() => workflow("approve")} disabled={busy} type="button">
+                      Approve
+                    </button>
+                    <button
+                      className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-medium text-[var(--danger)]"
+                      onClick={() => workflow("reject")}
+                      disabled={busy}
+                      type="button"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </section>
+                <section className="card p-5 text-sm text-[var(--muted)]">
+                  Capture actuals after delivery from the estimate record below. Variance is actual versus
+                  the snapshot, not a live recalculation.
+                </section>
+                <div className="space-y-2">
+                  {Object.values(result.explanations).map((ex) => (
+                    <ExplanationPanel key={ex.title} {...ex} />
+                  ))}
+                </div>
+                <button type="button" className="btn-ghost" onClick={() => setMoment("plan")}>
+                  Back to plan
+                </button>
+              </>
+            )}
+          </section>
+        )}
       </div>
+
+      <GovernedSummary
+        result={result}
+        previewIndex={previewIndex}
+        reference={form.reference}
+        title={form.title}
+      />
     </div>
   );
 }
@@ -707,7 +756,7 @@ function Field({
   return (
     <label className={`block text-sm ${className}`}>
       <span className="mb-1 block text-[var(--muted)]">{label}</span>
-      <div className="[&_input]:w-full [&_input]:rounded-lg [&_input]:border [&_input]:border-[var(--line)] [&_input]:bg-[var(--panel-2)] [&_input]:px-3 [&_input]:py-2 [&_select]:w-full [&_select]:rounded-lg [&_select]:border [&_select]:border-[var(--line)] [&_select]:bg-[var(--panel-2)] [&_select]:px-3 [&_select]:py-2 [&_textarea]:w-full [&_textarea]:rounded-lg [&_textarea]:border [&_textarea]:border-[var(--line)] [&_textarea]:bg-[var(--panel-2)] [&_textarea]:px-3 [&_textarea]:py-2">
+      <div className="[&_input]:w-full [&_input]:rounded-lg [&_input]:border [&_input]:border-[var(--line)] [&_input]:bg-white [&_input]:px-3 [&_input]:py-2 [&_select]:w-full [&_select]:rounded-lg [&_select]:border [&_select]:border-[var(--line)] [&_select]:bg-white [&_select]:px-3 [&_select]:py-2 [&_textarea]:w-full [&_textarea]:rounded-lg [&_textarea]:border [&_textarea]:border-[var(--line)] [&_textarea]:bg-white [&_textarea]:px-3 [&_textarea]:py-2">
         {children}
       </div>
     </label>
@@ -718,7 +767,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="card p-4">
       <p className="text-xs uppercase tracking-wide text-[var(--muted)]">{label}</p>
-      <p className="mt-1 text-lg font-semibold">{value}</p>
+      <p className="mt-1 text-lg font-semibold text-[var(--navy)]">{value}</p>
     </div>
   );
 }

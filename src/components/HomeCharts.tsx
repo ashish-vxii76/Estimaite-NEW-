@@ -13,7 +13,8 @@ import {
   YAxis,
 } from "recharts";
 
-const COLORS = ["#2dd4bf", "#38bdf8", "#f59e0b", "#a78bfa", "#f87171", "#34d399"];
+const COLORS = ["#1e3a5f", "#0f766e", "#b45309", "#5c6b80", "#b42318", "#047857"];
+const TOOLTIP = { background: "#fffcf7", border: "1px solid #ddd6c8", color: "#1b2a4a" };
 
 export function HomeCharts({
   byStatus,
@@ -43,9 +44,7 @@ export function HomeCharts({
                   <Cell key={row.name} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip
-                contentStyle={{ background: "#171e27", border: "1px solid #2a3544" }}
-              />
+              <Tooltip contentStyle={TOOLTIP} />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -55,11 +54,11 @@ export function HomeCharts({
         <div className="mt-4 h-72">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={byTeam}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#2a3544" />
-              <XAxis dataKey="name" tick={{ fill: "#93a4b8", fontSize: 11 }} />
-              <YAxis allowDecimals={false} tick={{ fill: "#93a4b8", fontSize: 12 }} />
-              <Tooltip contentStyle={{ background: "#171e27", border: "1px solid #2a3544" }} />
-              <Bar dataKey="count" fill="#2dd4bf" radius={[6, 6, 0, 0]} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#ddd6c8" />
+              <XAxis dataKey="name" tick={{ fill: "#5c6b80", fontSize: 11 }} />
+              <YAxis allowDecimals={false} tick={{ fill: "#5c6b80", fontSize: 12 }} />
+              <Tooltip contentStyle={TOOLTIP} />
+              <Bar dataKey="count" fill="#1e3a5f" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

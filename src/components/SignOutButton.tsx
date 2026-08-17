@@ -8,7 +8,7 @@ export function SignOutButton() {
         await signOut({ redirectTo: "/login" });
       }}
     >
-      <button className="mt-3 text-teal-300 underline">Sign out</button>
+      <button className="mt-3 text-[var(--navy)] underline">Sign out</button>
     </form>
   );
 }

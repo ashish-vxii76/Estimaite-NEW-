@@ -146,8 +146,8 @@ export function SideNav({
 function Brand() {
   return (
     <Link href="/" className="block px-1">
-      <p className="text-xs uppercase tracking-[0.22em] text-teal-300">Estimaite</p>
-      <h1 className="mt-1 text-lg font-semibold">Estimation Platform</h1>
+      <p className="kicker">Estimaite</p>
+      <h1 className="mt-1 text-lg font-semibold text-[var(--navy)]">Estimation Platform</h1>
       <p className="mt-1 text-xs text-[var(--muted)]">Estimate → Plan → Govern → Measure</p>
     </Link>
   );
@@ -166,7 +166,7 @@ function UserBlock({
 }) {
   return (
     <div className="mt-6 border-t border-[var(--line)] pt-4 text-xs text-[var(--muted)]">
-      <p className="font-medium text-slate-100">{name}</p>
+      <p className="font-medium text-[var(--navy)]">{name}</p>
       <p>{role}</p>
       {profileSwitcher}
       {signOut}
@@ -204,7 +204,7 @@ function NavBranch({
     <div>
       <div
         className={`group flex items-center gap-0.5 rounded-lg ${
-          active ? "bg-teal-400/15 text-teal-100" : "text-slate-200 hover:bg-[var(--panel-2)]"
+          active ? "bg-[var(--navy)] text-white" : "text-[var(--text)] hover:bg-[var(--panel-2)]"
         }`}
         style={padding}
       >
@@ -243,7 +243,7 @@ function NavBranch({
             href={node.createHref!}
             aria-label={node.createLabel ?? `Create ${node.label}`}
             title={node.createLabel ?? `Create ${node.label}`}
-            className="mr-1 rounded-md p-1 text-teal-300 hover:bg-teal-400/20"
+            className="mr-1 rounded-md p-1 text-[var(--navy)] hover:bg-[var(--panel-2)]"
             onClick={(e) => e.stopPropagation()}
           >
             <Plus size={14} />

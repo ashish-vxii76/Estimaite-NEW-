@@ -31,7 +31,7 @@ export default async function EstimatesPage({
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Estimates</h1>
-        <Link href="/estimates/new" className="rounded-lg bg-teal-400 px-4 py-2 text-slate-950">
+        <Link href="/estimates/new" className="btn-primary">
           New estimate
         </Link>
       </div>
@@ -41,7 +41,7 @@ export default async function EstimatesPage({
             key={label}
             href={value ? `/estimates?status=${value}` : "/estimates"}
             className={`rounded-full px-3 py-1 text-sm ${
-              current === value ? "bg-teal-400 text-slate-950" : "bg-[var(--panel-2)]"
+              current === value ? "bg-[var(--navy)] text-white" : "bg-[var(--panel-2)]"
             }`}
           >
             {label}
@@ -64,7 +64,7 @@ export default async function EstimatesPage({
             {estimates.map((row) => (
               <tr key={row.id} className="border-t border-[var(--line)]">
                 <td className="px-4 py-3">
-                  <Link className="text-teal-300" href={`/estimates/${row.id}`}>
+                  <Link className="font-medium text-[var(--navy)] underline" href={`/estimates/${row.id}`}>
                     {row.reference}
                   </Link>
                 </td>
