@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { DEFAULT_CONFIG } from "../src/domain/estimation/defaultConfig";
 import { seedDemoRegister } from "./seedDemo";
+import { DEFAULT_RBAC } from "../src/lib/rbac";
 
 const prisma = new PrismaClient();
 
@@ -156,6 +157,12 @@ async function main() {
   for (const [email, teamId] of Object.entries(userTeams)) {
     await prisma.user.update({ where: { email }, data: { teamId } });
   }
+
+  await prisma.rbacSettings.upsert({
+    where: { id: "default" },
+    update: {},
+    create: { id: "default", matrixJson: JSON.stringify(DEFAULT_RBAC) },
+  });
 
   await seedDemoRegister(prisma);
   console.log("Seeded PRD v3 CHF mappings, teams, demo register, and team-scoped logins.");

@@ -1,4 +1,4 @@
-import { can, type FeatureId } from "@/lib/rbac";
+import { can, type FeatureId, type RbacMatrix } from "@/lib/rbac";
 import { ESTIMATE_CREATE_ROLES } from "@/lib/roles";
 
 export type NavNode = {
@@ -178,26 +178,26 @@ export const NAV_TREE: NavNode[] = [
   },
 ];
 
-export function canSeeNav(node: NavNode, role: string): boolean {
-  if (node.feature) return can(role, node.feature);
-  if (node.children?.length) return node.children.some((child) => canSeeNav(child, role));
+export function canSeeNav(node: NavNode, role: string, matrix?: RbacMatrix): boolean {
+  if (node.feature) return can(role, node.feature, "R", matrix);
+  if (node.children?.length) return node.children.some((child) => canSeeNav(child, role, matrix));
   if (node.href === "/admin") {
     return (
-      can(role, "config.teams") ||
-      can(role, "config.rates") ||
-      can(role, "config.mappings") ||
-      can(role, "config.users") ||
-      can(role, "config.rbac")
+      can(role, "config.teams", "R", matrix) ||
+      can(role, "config.rates", "R", matrix) ||
+      can(role, "config.mappings", "R", matrix) ||
+      can(role, "config.users", "R", matrix) ||
+      can(role, "config.rbac", "R", matrix)
     );
   }
   return true;
 }
 
-export function canCreate(node: NavNode, role: string): boolean {
+export function canCreate(node: NavNode, role: string, matrix?: RbacMatrix): boolean {
   if (!node.createHref) return false;
-  if (node.id === "estimates") return can(role, "estimates.create", "RW");
-  if (node.id === "admin-users") return can(role, "config.users", "RW");
-  if (node.id === "teams") return can(role, "config.teams", "RW");
+  if (node.id === "estimates") return can(role, "estimates.create", "RW", matrix);
+  if (node.id === "admin-users") return can(role, "config.users", "RW", matrix);
+  if (node.id === "teams") return can(role, "config.teams", "RW", matrix);
   if (!node.createRoles || node.createRoles.length === 0) return true;
   return node.createRoles.includes(role);
 }

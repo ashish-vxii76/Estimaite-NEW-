@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/auth";
 import { formatMoney } from "@/lib/utils";
-import { can } from "@/lib/rbac";
+import { can } from "@/lib/access";
 import { fromSession, teamsForUser } from "@/lib/scope";
 
 export default async function TeamsPage() {

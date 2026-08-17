@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { MappingEditor, type Column } from "@/components/admin/MappingEditor";
-import { can, type FeatureId } from "@/lib/rbac";
+import { can } from "@/lib/access";
+import type { FeatureId } from "@/lib/rbac";
 
 export async function GuardedMapping(props: {
   title: string;

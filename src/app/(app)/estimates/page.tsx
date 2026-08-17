@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { StatusBadge } from "@/components/ui";
 import { formatMoney } from "@/lib/utils";
 import type { EstimateCalculationResult } from "@/domain/estimation/types";
-import { can } from "@/lib/rbac";
+import { can } from "@/lib/access";
 import { estimateScope, fromSession } from "@/lib/scope";
 
 export default async function EstimatesPage({

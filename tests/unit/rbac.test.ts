@@ -6,6 +6,7 @@ import {
   accessFor,
   can,
   canAccessPath,
+  normalizeMatrix,
   seesAllTeams,
   writesOwnRecordsOnly,
   type Access,
@@ -174,5 +175,15 @@ describe("RBAC matrix", () => {
     expect(writesOwnRecordsOnly("REQUESTER")).toBe(true);
     expect(writesOwnRecordsOnly("APPROVER")).toBe(false);
     expect(writesOwnRecordsOnly("ADMINISTRATOR")).toBe(false);
+  });
+
+  it("applies a saved overlay so Requester can be granted portfolio", () => {
+    const custom = normalizeMatrix({
+      ...RBAC,
+      "portfolio.view": { ...RBAC["portfolio.view"], REQUESTER: "R" },
+    });
+    expect(can("REQUESTER", "portfolio.view", "R", custom)).toBe(true);
+    expect(can("REQUESTER", "portfolio.view", "RW", custom)).toBe(false);
+    expect(canAccessPath("REQUESTER", "/portfolio", custom)).toBe(true);
   });
 });

@@ -1,6 +1,5 @@
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
-import { canAccessPath } from "@/lib/roles";
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
@@ -11,14 +10,9 @@ export default auth((req) => {
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
-  const role = req.auth?.user?.role;
-  if (req.auth && !canAccessPath(role, pathname)) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/";
-    url.search = "";
-    return NextResponse.redirect(url);
-  }
-  return NextResponse.next();
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-estimaite-pathname", pathname);
+  return NextResponse.next({ request: { headers: requestHeaders } });
 });
 
 export const config = {

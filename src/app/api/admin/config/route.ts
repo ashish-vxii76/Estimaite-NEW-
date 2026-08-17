@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireFeature, requireUser } from "@/lib/api-auth";
 import { getActiveConfig, patchActiveConfig } from "@/services/configService";
-import { can } from "@/lib/rbac";
+import { can } from "@/lib/access";
 import type { EstimationConfig } from "@/domain/estimation/types";
 
 export async function GET() {

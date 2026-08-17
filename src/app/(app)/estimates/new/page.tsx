@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { EstimateWizard } from "@/components/EstimateWizard";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { can } from "@/lib/rbac";
+import { can } from "@/lib/access";
 import { fromSession, teamsForUser } from "@/lib/scope";
 
 export default async function NewEstimatePage() {

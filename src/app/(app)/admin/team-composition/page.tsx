@@ -1,7 +1,7 @@
 import { getActiveConfig } from "@/services/configService";
 import { TeamCompositionEditor } from "@/components/admin/TeamCompositionEditor";
 import { auth } from "@/auth";
-import { can } from "@/lib/rbac";
+import { can } from "@/lib/access";
 import { fromSession, teamsForUser } from "@/lib/scope";
 
 export default async function TeamCompositionPage() {

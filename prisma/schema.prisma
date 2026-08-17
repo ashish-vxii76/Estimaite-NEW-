@@ -155,6 +155,13 @@ model PortfolioSettings {
   updatedAt DateTime @updatedAt
 }
 
+model RbacSettings {
+  id         String   @id @default("default")
+  matrixJson String
+  updatedAt  DateTime @updatedAt
+}
+
+
 model AuditEvent {
   id         String    @id @default(cuid())
   estimateId String?

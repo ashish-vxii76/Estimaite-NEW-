@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { auth } from "@/auth";
-import { can } from "@/lib/rbac";
+import { can } from "@/lib/access";
 
 const CLUSTERS = [
   {
@@ -60,8 +60,9 @@ export default async function AdminHomePage() {
         <h1 className="font-display text-2xl font-semibold text-[var(--navy)]">Administration</h1>
         <p className="mt-1 max-w-2xl text-sm text-[var(--muted)]">
           Mapping studio plus access control. Open <Link href="/admin/rbac" className="underline">RBAC</Link>{" "}
-          for the function grid. Admin sees every team. A Vikings Approver sees Vikings only, with
-          Approver actions (approve/reject) and read access to portfolio, What-If and mappings.
+          to edit RW / R / blank per role. Saved grants apply to menus and APIs immediately. Admin
+          sees every team. A Vikings Approver sees Vikings only, unless you change that role&apos;s
+          functions.
         </p>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">

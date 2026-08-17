@@ -2,7 +2,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { UsersAdmin } from "@/components/admin/UsersAdmin";
-import { can } from "@/lib/rbac";
+import { can } from "@/lib/access";
 
 export default async function UsersPage() {
   const session = await auth();

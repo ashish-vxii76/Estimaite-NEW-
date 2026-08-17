@@ -12,15 +12,18 @@ import {
   isNodeActive,
   type NavNode,
 } from "@/components/nav/navConfig";
+import type { RbacMatrix } from "@/lib/rbac";
 
 export function SideNav({
   role,
+  matrix,
   userName,
   userRole,
   signOut,
   profileSwitcher,
 }: {
   role: string;
+  matrix?: RbacMatrix;
   userName?: string | null;
   userRole?: string | null;
   signOut: React.ReactNode;
@@ -44,7 +47,7 @@ export function SideNav({
     setMobileOpen(false);
   }, [pathname, search, hash]);
 
-  const tree = useMemo(() => filterTree(NAV_TREE, role), [role]);
+  const tree = useMemo(() => filterTree(NAV_TREE, role, matrix), [role, matrix]);
 
   useEffect(() => {
     setOpen((current) => {
@@ -74,6 +77,7 @@ export function SideNav({
           node={node}
           depth={0}
           role={role}
+          matrix={matrix}
           open={open}
           toggle={toggle}
           pathname={pathname}
@@ -178,6 +182,7 @@ function NavBranch({
   node,
   depth,
   role,
+  matrix,
   open,
   toggle,
   pathname,
@@ -187,17 +192,18 @@ function NavBranch({
   node: NavNode;
   depth: number;
   role: string;
+  matrix?: RbacMatrix;
   open: Record<string, boolean>;
   toggle: (id: string) => void;
   pathname: string;
   search: string;
   hash: string;
 }) {
-  const children = node.children?.filter((child) => canSeeNav(child, role)) ?? [];
+  const children = node.children?.filter((child) => canSeeNav(child, role, matrix)) ?? [];
   const hasChildren = children.length > 0;
   const isOpen = hasChildren && Boolean(open[node.id]);
   const active = isNodeActive(node, pathname, search, hash) && !hasChildren;
-  const showCreate = canCreate(node, role);
+  const showCreate = canCreate(node, role, matrix);
   const padding = { paddingLeft: `${8 + depth * 12}px` };
 
   return (
@@ -264,6 +270,7 @@ function NavBranch({
               node={child}
               depth={depth + 1}
               role={role}
+              matrix={matrix}
               open={open}
               toggle={toggle}
               pathname={pathname}
@@ -277,12 +284,12 @@ function NavBranch({
   );
 }
 
-function filterTree(nodes: NavNode[], role: string): NavNode[] {
+function filterTree(nodes: NavNode[], role: string, matrix?: RbacMatrix): NavNode[] {
   return nodes
-    .filter((node) => canSeeNav(node, role))
+    .filter((node) => canSeeNav(node, role, matrix))
     .map((node) => ({
       ...node,
-      children: node.children ? filterTree(node.children, role) : undefined,
+      children: node.children ? filterTree(node.children, role, matrix) : undefined,
     }))
     .filter((node) => node.href || (node.children && node.children.length > 0));
 }

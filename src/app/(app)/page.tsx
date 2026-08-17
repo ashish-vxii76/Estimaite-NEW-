@@ -2,9 +2,9 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { HomeCharts } from "@/components/HomeCharts";
-import { can } from "@/lib/rbac";
+import { can } from "@/lib/access";
 import { estimateScope, fromSession } from "@/lib/scope";
-import { ESTIMATE_CREATE_ROLES, hasRole, welcomeLine } from "@/lib/roles";
+import { welcomeLine } from "@/lib/roles";
 
 function nextAction(
   role: string | undefined,
@@ -23,16 +23,16 @@ function nextAction(
       ? { href: "/estimates?status=READY_FOR_REVIEW", label: "Review waiting estimates" }
       : { href: "/estimates", label: "Open the register" };
   }
-  if (hasRole(role, ESTIMATE_CREATE_ROLES) && discovery > 0) {
+  if (can(role, "estimates.create", "RW") && discovery > 0) {
     return { href: "/estimates?status=DRAFT", label: "Open discovery queue" };
   }
   if (can(role, "config.users") || can(role, "config.mappings", "RW")) {
     return { href: "/admin", label: "Open mapping studio" };
   }
-  if (hasRole(role, ESTIMATE_CREATE_ROLES) && drafts > 0) {
+  if (can(role, "estimates.create", "RW") && drafts > 0) {
     return { href: "/estimates?status=DRAFT", label: "Continue drafts" };
   }
-  if (hasRole(role, ESTIMATE_CREATE_ROLES)) {
+  if (can(role, "estimates.create", "RW")) {
     return { href: "/estimates/new", label: "Start the next estimate" };
   }
   if (pendingReview + pendingApprove > 0) {

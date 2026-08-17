@@ -2,10 +2,18 @@ import { auth } from "@/auth";
 import { AppShell } from "@/components/AppShell";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { getRbacMatrix } from "@/services/rbacService";
+import { canAccessPath } from "@/lib/access";
 
 export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  const matrix = await getRbacMatrix();
+  const pathname = (await headers()).get("x-estimaite-pathname") ?? "/";
+  if (pathname !== "/" && !canAccessPath(session.user.role, pathname)) {
+    redirect("/");
+  }
   let profiles: { email: string; name: string; role: string; teamName: string | null }[] = [];
   let teamName: string | null = session.user.role === "ADMINISTRATOR" ? "All teams" : null;
   try {
@@ -35,7 +43,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     profiles = users.map((p) => ({ ...p, teamName: null }));
   }
   return (
-    <AppShell user={session.user} teamName={teamName} profiles={profiles}>
+    <AppShell user={session.user} teamName={teamName} profiles={profiles} matrix={matrix}>
       {children}
     </AppShell>
   );

@@ -3,17 +3,20 @@ import { SideNav } from "@/components/nav/SideNav";
 import { SignOutButton } from "@/components/SignOutButton";
 import { ProfileSwitcher, type ProfileOption } from "@/components/ProfileSwitcher";
 import { roleLabel } from "@/lib/roles";
+import type { RbacMatrix } from "@/lib/rbac";
 
 export function AppShell({
   children,
   user,
   teamName,
   profiles,
+  matrix,
 }: {
   children: React.ReactNode;
   user: { name?: string | null; email?: string | null; role?: string };
   teamName?: string | null;
   profiles: ProfileOption[];
+  matrix?: RbacMatrix;
 }) {
   const roleLine = teamName ? `${teamName} · ${roleLabel(user.role)}` : roleLabel(user.role);
   return (
@@ -25,6 +28,7 @@ export function AppShell({
       >
         <SideNav
           role={user.role ?? "VIEWER"}
+          matrix={matrix}
           userName={user.name}
           userRole={roleLine}
           signOut={<SignOutButton />}

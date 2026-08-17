@@ -1,19 +1,21 @@
 import { AdminNav } from "@/components/admin/AdminNav";
 import { auth } from "@/auth";
+import { getRbacMatrix } from "@/services/rbacService";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
+  const matrix = await getRbacMatrix();
   return (
     <div className="space-y-5">
       <div>
         <p className="kicker">Administration</p>
         <p className="text-sm text-[var(--muted)]">
-          Access, mappings and rates. What you can open follows the RBAC matrix. Admin sees every
-          team; other profiles are limited to their assigned team.
+          Access, mappings and rates. What you can open follows the saved RBAC matrix under Access.
+          Admin sees every team; other profiles are limited to their assigned team.
         </p>
       </div>
       <div className="lg:hidden">
-        <AdminNav role={session?.user.role} />
+        <AdminNav role={session?.user.role} matrix={matrix} />
       </div>
       {children}
     </div>

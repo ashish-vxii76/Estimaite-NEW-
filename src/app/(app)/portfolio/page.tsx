@@ -6,7 +6,7 @@ import { StatusBadge } from "@/components/ui";
 import { formatMoney } from "@/lib/utils";
 import { DELIVERY_FLAGS, T_SHIRTS } from "@/domain/estimation";
 import { auth } from "@/auth";
-import { can } from "@/lib/rbac";
+import { can } from "@/lib/access";
 import { estimateScope, fromSession } from "@/lib/scope";
 
 const RAG_CLASS: Record<string, string> = {

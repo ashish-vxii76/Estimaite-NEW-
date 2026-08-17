@@ -48,8 +48,8 @@ function cell(spec: Partial<Record<AppRole, Access>>): Record<AppRole, Access> {
 const RW = "RW" as const;
 const R = "R" as const;
 
-/** Access matrix from Estimation_App_RBAC_Matrix. Blank = deny. */
-export const RBAC: Record<FeatureId, Record<AppRole, Access>> = {
+/** Access matrix from Estimation_App_RBAC_Matrix. Blank = deny. Factory default; live grants are stored in the database. */
+export const DEFAULT_RBAC: Record<FeatureId, Record<AppRole, Access>> = {
   home: cell({
     ADMINISTRATOR: R,
     REQUESTER: R,
@@ -182,6 +182,10 @@ export const RBAC: Record<FeatureId, Record<AppRole, Access>> = {
   }),
 };
 
+export const RBAC = DEFAULT_RBAC;
+
+export type RbacMatrix = Record<FeatureId, Record<AppRole, Access>>;
+
 export const GOVERNANCE_RULES = [
   "Own-records scope: Requester, Estimator and Delivery Lead may write only records they authored; they may read others on their team.",
   "Admin, Reviewer and Approver act across all records on their team (Admin: all teams) within granted functions.",
@@ -192,13 +196,41 @@ export const GOVERNANCE_RULES = [
   "Deny by default: no explicit grant means no access.",
 ];
 
-export function accessFor(role: string | null | undefined, feature: FeatureId): Access {
-  if (!role || !ROLES.includes(role as AppRole)) return null;
-  return RBAC[feature][role as AppRole];
+export function emptyMatrix(): RbacMatrix {
+  return structuredClone(DEFAULT_RBAC);
 }
 
-export function can(role: string | null | undefined, feature: FeatureId, mode: "R" | "RW" = "R"): boolean {
-  const access = accessFor(role, feature);
+export function normalizeMatrix(input: unknown): RbacMatrix {
+  const next = emptyMatrix();
+  if (!input || typeof input !== "object") return next;
+  const raw = input as Record<string, Record<string, unknown>>;
+  for (const feature of FEATURES) {
+    const row = raw[feature.id];
+    if (!row || typeof row !== "object") continue;
+    for (const role of ROLES) {
+      const value = row[role];
+      next[feature.id][role] = value === "RW" || value === "R" ? value : null;
+    }
+  }
+  return next;
+}
+
+export function accessFor(
+  role: string | null | undefined,
+  feature: FeatureId,
+  matrix: RbacMatrix = DEFAULT_RBAC,
+): Access {
+  if (!role || !ROLES.includes(role as AppRole)) return null;
+  return matrix[feature]?.[role as AppRole] ?? null;
+}
+
+export function can(
+  role: string | null | undefined,
+  feature: FeatureId,
+  mode: "R" | "RW" = "R",
+  matrix: RbacMatrix = DEFAULT_RBAC,
+): boolean {
+  const access = accessFor(role, feature, matrix);
   if (!access) return false;
   if (mode === "R") return access === "R" || access === "RW";
   return access === "RW";
@@ -241,18 +273,22 @@ export function featureForPath(pathname: string): { feature: FeatureId; mode: "R
   return hit ? { feature: hit.feature, mode: hit.mode } : null;
 }
 
-export function canAccessPath(role: string | null | undefined, pathname: string): boolean {
+export function canAccessPath(
+  role: string | null | undefined,
+  pathname: string,
+  matrix: RbacMatrix = DEFAULT_RBAC,
+): boolean {
   if (!role) return false;
   if (pathname === "/admin" || pathname === "/admin/") {
     return (
-      can(role, "config.teams") ||
-      can(role, "config.rates") ||
-      can(role, "config.mappings") ||
-      can(role, "config.users") ||
-      can(role, "config.rbac")
+      can(role, "config.teams", "R", matrix) ||
+      can(role, "config.rates", "R", matrix) ||
+      can(role, "config.mappings", "R", matrix) ||
+      can(role, "config.users", "R", matrix) ||
+      can(role, "config.rbac", "R", matrix)
     );
   }
   const mapped = featureForPath(pathname);
-  if (!mapped) return can(role, "home");
-  return can(role, mapped.feature, mapped.mode);
+  if (!mapped) return can(role, "home", "R", matrix);
+  return can(role, mapped.feature, mapped.mode, matrix);
 }

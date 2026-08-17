@@ -4,7 +4,8 @@ import { auth } from "@/auth";
 import { EstimateWizard } from "@/components/EstimateWizard";
 import { ActualsForm } from "@/components/ActualsForm";
 import { StatusBadge } from "@/components/ui";
-import { can, writesOwnRecordsOnly } from "@/lib/rbac";
+import { can } from "@/lib/access";
+import { writesOwnRecordsOnly } from "@/lib/rbac";
 import { canSeeEstimate, fromSession, teamsForUser } from "@/lib/scope";
 
 export default async function EstimateDetailPage({

@@ -2,7 +2,7 @@ import { getCalibration } from "@/services/portfolioService";
 import { CalibrationActions } from "@/components/CalibrationActions";
 import { ExplanationPanel } from "@/components/ui";
 import { auth } from "@/auth";
-import { can } from "@/lib/rbac";
+import { can } from "@/lib/access";
 import { estimateScope, fromSession } from "@/lib/scope";
 
 export default async function CalibrationPage() {
