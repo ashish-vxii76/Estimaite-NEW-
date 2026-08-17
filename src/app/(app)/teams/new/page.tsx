@@ -4,6 +4,6 @@ import { NewTeamForm } from "@/components/NewTeamForm";
 
 export default async function NewTeamPage() {
   const session = await auth();
-  if (session?.user.role !== "ADMINISTRATOR") redirect("/teams");
+  if (session?.user.role !== "ADMINISTRATOR") redirect("/");
   return <NewTeamForm />;
 }

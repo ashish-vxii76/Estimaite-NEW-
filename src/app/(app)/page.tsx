@@ -1,72 +1,65 @@
 import { prisma } from "@/lib/prisma";
-import Link from "next/link";
-import { StatusBadge } from "@/components/ui";
+import { auth } from "@/auth";
+import { HomeCharts } from "@/components/HomeCharts";
+import { welcomeLine } from "@/lib/roles";
 
-export default async function DashboardPage() {
-  const [total, drafts, pending, approved, completed] = await Promise.all([
+export default async function HomePage() {
+  const session = await auth();
+  const [total, drafts, pending, approved, completed, byTeamRows, byStatusRows] = await Promise.all([
     prisma.estimate.count(),
-    prisma.estimate.count({ where: { status: "DRAFT" } }),
+    prisma.estimate.count({ where: { status: { in: ["DRAFT", "RETURNED"] } } }),
     prisma.estimate.count({ where: { status: { in: ["READY_FOR_REVIEW", "REVIEWED"] } } }),
     prisma.estimate.count({ where: { status: "APPROVED" } }),
     prisma.estimate.count({ where: { status: "COMPLETED" } }),
+    prisma.estimate.groupBy({
+      by: ["teamId"],
+      _count: { _all: true },
+    }),
+    prisma.estimate.groupBy({
+      by: ["status"],
+      _count: { _all: true },
+    }),
   ]);
-  const recent = await prisma.estimate.findMany({
-    include: { team: true },
-    orderBy: { updatedAt: "desc" },
-    take: 8,
-  });
+
+  const teams = await prisma.team.findMany({ select: { id: true, name: true } });
+  const teamNames = Object.fromEntries(teams.map((t) => [t.id, t.name]));
+  const byTeam = byTeamRows.map((row) => ({
+    name: teamNames[row.teamId] ?? "Unknown",
+    count: row._count._all,
+  }));
+  const statusLabels: Record<string, string> = {
+    DRAFT: "Draft",
+    RETURNED: "Returned",
+    READY_FOR_REVIEW: "Ready for review",
+    REVIEWED: "Reviewed",
+    APPROVED: "Approved",
+    REJECTED: "Rejected",
+    COMPLETED: "Completed",
+  };
+  const byStatus = byStatusRows.map((row) => ({
+    name: statusLabels[row.status] ?? row.status,
+    count: row._count._all,
+  }));
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <p className="text-sm text-[var(--muted)]">
-          Scope → Complexity → SP → Dev/QA → Capacity → Cost → Governance → Actuals
+        <p className="text-xs uppercase tracking-[0.2em] text-teal-300">Home</p>
+        <h1 className="text-2xl font-semibold">
+          {welcomeLine(session?.user.name, session?.user.role)}
+        </h1>
+        <p className="mt-1 text-sm text-[var(--muted)]">
+          Signed in as {session?.user.email}. Menus and actions follow this profile.
         </p>
       </div>
       <div className="grid gap-4 md:grid-cols-5">
         <Tile label="Estimates" value={total} />
         <Tile label="Drafts" value={drafts} />
-        <Tile label="Pending review" value={pending} />
+        <Tile label="In review" value={pending} />
         <Tile label="Approved" value={approved} />
         <Tile label="Completed" value={completed} />
       </div>
-      <div className="flex gap-3">
-        <Link href="/estimates/new" className="rounded-lg bg-teal-400 px-4 py-2 text-slate-950">
-          New estimate
-        </Link>
-        <Link href="/estimates" className="rounded-lg border border-[var(--line)] px-4 py-2">
-          All estimates
-        </Link>
-      </div>
-      <section className="card overflow-hidden">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-[var(--panel-2)] text-[var(--muted)]">
-            <tr>
-              <th className="px-4 py-3">Reference</th>
-              <th>Title</th>
-              <th>Team</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {recent.map((row) => (
-              <tr key={row.id} className="border-t border-[var(--line)]">
-                <td className="px-4 py-3">
-                  <Link className="text-teal-300" href={`/estimates/${row.id}`}>
-                    {row.reference}
-                  </Link>
-                </td>
-                <td>{row.title}</td>
-                <td>{row.team.name}</td>
-                <td>
-                  <StatusBadge status={row.status} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+      <HomeCharts byStatus={byStatus} byTeam={byTeam} />
     </div>
   );
 }

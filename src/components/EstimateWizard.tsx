@@ -659,14 +659,24 @@ export function EstimateWizard({
         </section>
       )}
 
-      <div className="flex justify-between">
-        <button
-          className="rounded-lg border border-[var(--line)] px-4 py-2"
-          onClick={() => setStep(Math.max(0, step - 1))}
-          disabled={step === 0}
-        >
-          Back
-        </button>
+      <div className="flex justify-between gap-3">
+        <div className="flex gap-2">
+          <button
+            className="rounded-lg border border-[var(--line)] px-4 py-2"
+            onClick={() => setStep(Math.max(0, step - 1))}
+            disabled={step === 0}
+            type="button"
+          >
+            Back
+          </button>
+          <button
+            type="button"
+            className="rounded-lg border border-[var(--line)] px-4 py-2 text-[var(--muted)]"
+            onClick={() => router.push("/estimates")}
+          >
+            Cancel
+          </button>
+        </div>
         {step < 6 ? (
           <button
             className="rounded-lg bg-teal-400 px-4 py-2 text-slate-950"

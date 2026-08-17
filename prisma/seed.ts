@@ -46,7 +46,7 @@ const MIX: Record<string, { location: string; allocationPct: number }[]> = {
 async function main() {
   const passwordHash = await bcrypt.hash("demo1234", 10);
   const users = [
-    ["admin@estimaite.local", "Platform Admin", "ADMINISTRATOR"],
+    ["admin@estimaite.local", "Ashish Joshi", "ADMINISTRATOR"],
     ["ba@estimaite.local", "Alex Requester", "REQUESTER"],
     ["eng@estimaite.local", "Jordan Tech Lead", "ESTIMATOR"],
     ["qa@estimaite.local", "Sam QA Lead", "ESTIMATOR"],
@@ -60,8 +60,8 @@ async function main() {
   for (const [email, name, role] of users) {
     await prisma.user.upsert({
       where: { email },
-      update: { name, role, passwordHash },
-      create: { email, name, role, passwordHash },
+      update: { name, role, passwordHash, active: true },
+      create: { email, name, role, passwordHash, active: true },
     });
   }
 

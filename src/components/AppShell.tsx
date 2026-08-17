@@ -1,13 +1,17 @@
 import { Suspense } from "react";
 import { SideNav } from "@/components/nav/SideNav";
 import { SignOutButton } from "@/components/SignOutButton";
+import { ProfileSwitcher, type ProfileOption } from "@/components/ProfileSwitcher";
+import { roleLabel } from "@/lib/roles";
 
 export function AppShell({
   children,
   user,
+  profiles,
 }: {
   children: React.ReactNode;
   user: { name?: string | null; email?: string | null; role?: string };
+  profiles: ProfileOption[];
 }) {
   return (
     <div className="flex min-h-screen">
@@ -19,8 +23,15 @@ export function AppShell({
         <SideNav
           role={user.role ?? "VIEWER"}
           userName={user.name}
-          userRole={user.role}
+          userRole={roleLabel(user.role)}
           signOut={<SignOutButton />}
+          profileSwitcher={
+            <ProfileSwitcher
+              currentEmail={user.email}
+              currentRole={user.role}
+              profiles={profiles}
+            />
+          }
         />
       </Suspense>
       <div className="flex min-w-0 flex-1 flex-col">

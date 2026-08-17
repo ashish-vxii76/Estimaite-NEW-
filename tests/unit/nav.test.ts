@@ -20,6 +20,21 @@ function find(id: string, nodes: NavNode[] = NAV_TREE): NavNode | undefined {
 }
 
 describe("left navigation tree", () => {
+  it("makes Home the dashboard route with no nested Dashboard page", () => {
+    const home = find("home");
+    expect(home?.href).toBe("/");
+    expect(home?.children).toBeUndefined();
+    expect(isNodeActive(home!, "/", "", "")).toBe(true);
+    expect(isNodeActive(home!, "/estimates", "", "")).toBe(false);
+  });
+
+  it("puts Teams under Administration, not a top-level Organisation group", () => {
+    expect(NAV_TREE.some((node) => node.id === "organisation")).toBe(false);
+    const teams = find("teams");
+    expect(teams?.href).toBe("/teams");
+    expect(containsActive(find("administration")!, "/teams", "", "")).toBe(true);
+  });
+
   it("puts create-new-estimate on the Estimates category", () => {
     const estimates = find("estimates");
     expect(estimates?.createHref).toBe("/estimates/new");
@@ -35,6 +50,11 @@ describe("left navigation tree", () => {
     expect(canSeeNav(admin, "ADMINISTRATOR")).toBe(true);
   });
 
+  it("hides login credentials from finance", () => {
+    expect(canSeeNav(find("admin-users")!, "FINANCE")).toBe(false);
+    expect(canSeeNav(find("admin-users")!, "ADMINISTRATOR")).toBe(true);
+  });
+
   it("treats estimate status filters as distinct from all estimates", () => {
     const all = find("estimates-all")!;
     const drafts = find("estimates-drafts")!;
@@ -42,10 +62,5 @@ describe("left navigation tree", () => {
     expect(isNodeActive(all, "/estimates", "?status=DRAFT", "")).toBe(false);
     expect(isNodeActive(drafts, "/estimates", "?status=DRAFT", "")).toBe(true);
     expect(isNodeActive(find("new-estimate")!, "/estimates/new", "", "")).toBe(true);
-  });
-
-  it("expands Estimates when a child route is active", () => {
-    expect(containsActive(find("estimates")!, "/estimates/new", "", "")).toBe(true);
-    expect(containsActive(find("administration")!, "/admin/issue-mapping", "", "")).toBe(true);
   });
 });

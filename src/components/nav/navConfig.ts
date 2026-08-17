@@ -1,60 +1,28 @@
+import {
+  ADMIN_ROLES,
+  ESTIMATE_CREATE_ROLES,
+  LEARNING_ROLES,
+  PORTFOLIO_ROLES,
+  SCENARIO_ROLES,
+  USER_ADMIN_ROLES,
+} from "@/lib/roles";
+
 export type NavNode = {
   id: string;
   label: string;
   href?: string;
-  /** If set, only these roles see the node. ADMINISTRATOR always sees every node. */
   roles?: string[];
-  /** Create action shown as + on this row. */
   createHref?: string;
   createLabel?: string;
   createRoles?: string[];
   children?: NavNode[];
 };
 
-export const ALL_ROLES = [
-  "ADMINISTRATOR",
-  "REQUESTER",
-  "ESTIMATOR",
-  "REVIEWER",
-  "APPROVER",
-  "DELIVERY_LEAD",
-  "FINANCE",
-  "VIEWER",
-] as const;
-
-const PORTFOLIO_ROLES = [
-  "ADMINISTRATOR",
-  "FINANCE",
-  "DELIVERY_LEAD",
-  "APPROVER",
-  "REVIEWER",
-  "VIEWER",
-  "ESTIMATOR",
-];
-
-const SCENARIO_ROLES = [
-  "ADMINISTRATOR",
-  "ESTIMATOR",
-  "DELIVERY_LEAD",
-  "REVIEWER",
-  "APPROVER",
-];
-
-const LEARNING_ROLES = [
-  "ADMINISTRATOR",
-  "FINANCE",
-  "DELIVERY_LEAD",
-  "REVIEWER",
-  "APPROVER",
-];
-
-const ADMIN_ROLES = ["ADMINISTRATOR", "FINANCE"];
-
 export const NAV_TREE: NavNode[] = [
   {
     id: "home",
     label: "Home",
-    children: [{ id: "dashboard", label: "Dashboard", href: "/" }],
+    href: "/",
   },
   {
     id: "estimates",
@@ -62,13 +30,13 @@ export const NAV_TREE: NavNode[] = [
     href: "/estimates",
     createHref: "/estimates/new",
     createLabel: "Create new estimate",
-    createRoles: ["REQUESTER", "ESTIMATOR", "DELIVERY_LEAD", "ADMINISTRATOR"],
+    createRoles: ESTIMATE_CREATE_ROLES,
     children: [
       {
         id: "new-estimate",
         label: "New estimate",
         href: "/estimates/new",
-        roles: ["REQUESTER", "ESTIMATOR", "DELIVERY_LEAD", "ADMINISTRATOR"],
+        roles: ESTIMATE_CREATE_ROLES,
       },
       { id: "estimates-all", label: "All estimates", href: "/estimates" },
       { id: "estimates-drafts", label: "Drafts", href: "/estimates?status=DRAFT" },
@@ -142,26 +110,50 @@ export const NAV_TREE: NavNode[] = [
     ],
   },
   {
-    id: "organisation",
-    label: "Organisation",
-    children: [
-      {
-        id: "teams",
-        label: "Teams",
-        href: "/teams",
-        createHref: "/teams/new",
-        createLabel: "Create new team",
-        createRoles: ["ADMINISTRATOR"],
-      },
-    ],
-  },
-  {
     id: "administration",
     label: "Administration",
     href: "/admin",
     roles: ADMIN_ROLES,
     children: [
       { id: "admin-overview", label: "Overview", href: "/admin", roles: ADMIN_ROLES },
+      {
+        id: "admin-access",
+        label: "Access",
+        roles: USER_ADMIN_ROLES,
+        children: [
+          {
+            id: "admin-users",
+            label: "Login credentials",
+            href: "/admin/users",
+            createHref: "/admin/users",
+            createLabel: "Create login",
+            createRoles: USER_ADMIN_ROLES,
+            roles: USER_ADMIN_ROLES,
+          },
+        ],
+      },
+      {
+        id: "admin-org",
+        label: "Organisation",
+        roles: ADMIN_ROLES,
+        children: [
+          {
+            id: "teams",
+            label: "Teams",
+            href: "/teams",
+            createHref: "/teams/new",
+            createLabel: "Create new team",
+            createRoles: ["ADMINISTRATOR"],
+            roles: ADMIN_ROLES,
+          },
+          {
+            id: "team-composition",
+            label: "Team composition",
+            href: "/admin/team-composition",
+            roles: ADMIN_ROLES,
+          },
+        ],
+      },
       {
         id: "admin-size",
         label: "Size & complexity",
@@ -182,12 +174,6 @@ export const NAV_TREE: NavNode[] = [
         label: "People & capacity",
         roles: ADMIN_ROLES,
         children: [
-          {
-            id: "team-composition",
-            label: "Team composition",
-            href: "/admin/team-composition",
-            roles: ADMIN_ROLES,
-          },
           {
             id: "resource-mapping",
             label: "Resource mapping",
@@ -274,7 +260,7 @@ export function isNodeActive(
     return pathname === "/portfolio";
   }
   if (node.id === "administration") {
-    return pathname === "/admin" || pathname.startsWith("/admin/");
+    return pathname === "/admin" || pathname.startsWith("/admin/") || pathname.startsWith("/teams");
   }
   if (target.search) {
     return pathname === target.pathname && normalizeSearch(search) === normalizeSearch(target.search);

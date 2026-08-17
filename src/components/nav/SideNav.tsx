@@ -18,11 +18,13 @@ export function SideNav({
   userName,
   userRole,
   signOut,
+  profileSwitcher,
 }: {
   role: string;
   userName?: string | null;
   userRole?: string | null;
   signOut: React.ReactNode;
+  profileSwitcher?: React.ReactNode;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -117,7 +119,12 @@ export function SideNav({
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">{nav}</div>
-            <UserBlock name={userName} role={userRole} signOut={signOut} />
+            <UserBlock
+              name={userName}
+              role={userRole}
+              signOut={signOut}
+              profileSwitcher={profileSwitcher}
+            />
           </div>
         </div>
       ) : null}
@@ -125,7 +132,12 @@ export function SideNav({
       <aside className="hidden w-72 shrink-0 flex-col border-r border-[var(--line)] bg-[var(--panel)] p-4 md:flex">
         <Brand />
         <div className="min-h-0 flex-1 overflow-y-auto">{nav}</div>
-        <UserBlock name={userName} role={userRole} signOut={signOut} />
+        <UserBlock
+          name={userName}
+          role={userRole}
+          signOut={signOut}
+          profileSwitcher={profileSwitcher}
+        />
       </aside>
     </>
   );
@@ -145,15 +157,18 @@ function UserBlock({
   name,
   role,
   signOut,
+  profileSwitcher,
 }: {
   name?: string | null;
   role?: string | null;
   signOut: React.ReactNode;
+  profileSwitcher?: React.ReactNode;
 }) {
   return (
     <div className="mt-6 border-t border-[var(--line)] pt-4 text-xs text-[var(--muted)]">
-      <p>{name}</p>
+      <p className="font-medium text-slate-100">{name}</p>
       <p>{role}</p>
+      {profileSwitcher}
       {signOut}
     </div>
   );
@@ -262,5 +277,6 @@ function filterTree(nodes: NavNode[], role: string): NavNode[] {
     .map((node) => ({
       ...node,
       children: node.children ? filterTree(node.children, role) : undefined,
-    }));
+    }))
+    .filter((node) => node.href || (node.children && node.children.length > 0));
 }
