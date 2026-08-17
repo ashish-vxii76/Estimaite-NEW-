@@ -49,10 +49,10 @@ export function WhatIfForm({
         locationName: "United Kingdom",
         allocationPct: 100,
         dailyRate: 650,
-        currency: "GBP",
+        currency: "CHF",
       },
     ],
-    currency: "GBP",
+    currency: "CHF",
   };
 
   async function run() {
@@ -94,7 +94,9 @@ export function WhatIfForm({
             onChange={(e) => setObjective(e.target.value)}
           >
             <option value="LOWEST_COST">Lowest cost</option>
-            <option value="FASTEST_DELIVERY">Fastest delivery</option>
+            <option value="FEWEST_SPRINTS">Fewest sprints</option>
+            <option value="LEAST_EFFORT">Least effort</option>
+            <option value="BEST_VALUE">Best value (fastest + 1 sprint slack, then cheapest)</option>
             <option value="CHEAPEST_WITHIN_N_SPRINTS">Cheapest within N sprints</option>
           </select>
         </label>

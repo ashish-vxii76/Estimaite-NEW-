@@ -5,10 +5,11 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatMoney(value: number, currency = "GBP") {
-  return new Intl.NumberFormat("en-GB", {
+export function formatMoney(value: number | null | undefined, currency = "CHF") {
+  if (value == null || Number.isNaN(value)) return "—";
+  return new Intl.NumberFormat("en-CH", {
     style: "currency",
     currency,
-    maximumFractionDigits: 0,
+    maximumFractionDigits: 2,
   }).format(value);
 }

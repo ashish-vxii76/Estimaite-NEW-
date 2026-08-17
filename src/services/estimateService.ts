@@ -15,7 +15,7 @@ const scoreSchema = z.object({
 
 const readinessSchema = z.object({
   criterionId: z.string(),
-  answer: z.enum(["YES", "PARTIAL", "NO"]),
+  answer: z.enum(["YES", "NO"]),
 });
 
 export const estimateInputSchema = z.object({
@@ -32,11 +32,15 @@ export const estimateInputSchema = z.object({
   stance: z.enum(["OPTIMISTIC", "NEUTRAL", "PESSIMISTIC"]).default("NEUTRAL"),
   planningMode: z.enum(["RESOURCE_CONSTRAINED", "SPRINT_CONSTRAINED"]).default("RESOURCE_CONSTRAINED"),
   costingModel: z.enum(["RESOURCE_SPRINT", "TEAM_SPRINT"]).default("RESOURCE_SPRINT"),
-  currency: z.string().default("GBP"),
+  costingBasis: z.enum(["TEAM", "LOCATION"]).optional(),
+  locationName: z.string().optional(),
+  costMethod: z.string().optional(),
+  projectOverrideRate: z.number().min(0).nullable().optional(),
+  currency: z.string().default("CHF"),
   devResourceLevel: z.string().default("intermediate"),
   qaResourceLevel: z.string().default("experienced"),
-  devAiProductivity: z.number().min(0).max(0.5).default(0),
-  qaAiProductivity: z.number().min(0).max(0.5).default(0),
+  devAiProductivity: z.number().min(0).max(1).default(0),
+  qaAiProductivity: z.number().min(0).max(1).default(0),
   availableDev: z.number().int().min(0).default(1),
   availableQa: z.number().int().min(0).default(1),
   targetSprints: z.number().int().min(1).default(1),
@@ -55,6 +59,30 @@ export const estimateInputSchema = z.object({
     )
     .optional(),
 });
+
+function commercialMix(data: Partial<z.infer<typeof estimateInputSchema>>) {
+  const mix = [...(data.locationMix ?? [])];
+  if (mix.length === 0) {
+    mix.push({
+      locationId: data.locationName ?? "",
+      locationName: data.locationName ?? "",
+      allocationPct: 0,
+      dailyRate: 0,
+      currency: data.currency ?? "CHF",
+    });
+  }
+  return mix.map((row, index) =>
+    index === 0
+      ? {
+          ...row,
+          costingBasis: data.costingBasis ?? "TEAM",
+          costMethod: data.costMethod ?? "Resource Cost per Sprint",
+          projectOverrideRate: data.projectOverrideRate ?? null,
+          locationName: data.locationName ?? row.locationName,
+        }
+      : row,
+  );
+}
 
 export async function createEstimate(data: z.infer<typeof estimateInputSchema>, userId: string) {
   const config = await getActiveConfig();
@@ -84,7 +112,7 @@ export async function createEstimate(data: z.infer<typeof estimateInputSchema>, 
       otherFixedCost: data.otherFixedCost,
       complexityScoresJson: JSON.stringify(data.complexityScores ?? []),
       readinessJson: JSON.stringify(data.readiness ?? []),
-      locationMixJson: JSON.stringify(data.locationMix ?? []),
+      locationMixJson: JSON.stringify(commercialMix(data)),
       configurationVersionId: config.versionId,
       rateVersionId: config.rateVersionId,
       createdById: userId,
@@ -127,7 +155,9 @@ export async function updateEstimate(
       ...(data.otherFixedCost !== undefined && { otherFixedCost: data.otherFixedCost }),
       ...(data.complexityScores && { complexityScoresJson: JSON.stringify(data.complexityScores) }),
       ...(data.readiness && { readinessJson: JSON.stringify(data.readiness) }),
-      ...(data.locationMix && { locationMixJson: JSON.stringify(data.locationMix) }),
+      ...((data.locationMix || data.costingBasis || data.locationName || data.costMethod || data.projectOverrideRate !== undefined) && {
+        locationMixJson: JSON.stringify(commercialMix(data)),
+      }),
     },
   });
   await audit(id, userId, "ESTIMATE_EDITED", existing.title, updated.title);
@@ -148,32 +178,49 @@ export async function calculateAndPersist(id: string, userId: string) {
   );
 
   const teamCost = config.teamCostMappings?.find((t) => t.teamName === estimate.team.name);
-  const costingModel = (
-    teamCost?.costMethod?.toLowerCase().includes("resource")
-      ? "RESOURCE_SPRINT"
-      : teamCost
-        ? "TEAM_SPRINT"
-        : estimate.costingModel
-  ) as EstimateCalculationInput["costingModel"];
-  const storedMix = JSON.parse(estimate.locationMixJson) as EstimateCalculationInput["locationAllocations"];
+  const storedMix = JSON.parse(estimate.locationMixJson || "[]") as Array<
+    EstimateCalculationInput["locationAllocations"][number] & {
+      costingBasis?: "TEAM" | "LOCATION";
+      locationName?: string;
+      costMethod?: string;
+      projectOverrideRate?: number | null;
+    }
+  >;
+  const commercial = Array.isArray(storedMix) ? storedMix[0] : undefined;
   const teamMix = JSON.parse(estimate.team.locationMixJson || "[]") as {
     location: string;
     allocationPct: number;
   }[];
-  const locationAllocations =
-    storedMix.length > 0
-      ? storedMix
-      : teamMix.map((m) => {
-          const rate = config.costMappings?.find((c) => c.location === m.location);
-          return {
-            locationId: m.location,
-            locationName: m.location,
-            allocationPct: m.allocationPct,
-            dailyRate: rate?.cost ?? 0,
-            currency: rate?.currency ?? estimate.team.currency,
-          };
-        });
+  const members = await prisma.teamMember.findMany({ where: { teamId: estimate.teamId } });
+  const roster = members.map((m) => ({
+    name: m.name,
+    roleStream: m.roleStream,
+    location: m.location,
+    seniority: m.resourceLevel,
+    headcount: 1,
+  }));
+  const mixHasAllocation = Array.isArray(storedMix) && storedMix.some((m) => (m.allocationPct ?? 0) > 0);
+  const locationAllocations = mixHasAllocation
+    ? storedMix.map((m) => ({
+        locationId: m.locationId,
+        locationName: m.locationName,
+        allocationPct: m.allocationPct,
+        dailyRate: m.dailyRate,
+        currency: m.currency,
+      }))
+    : teamMix.map((m) => {
+        const rate = config.locationDailyRates.find((c) => c.location === m.location);
+        return {
+          locationId: m.location,
+          locationName: m.location,
+          allocationPct: m.allocationPct,
+          dailyRate: rate?.dailyRate ?? 0,
+          currency: rate?.currency ?? estimate.team.currency,
+        };
+      });
 
+  const costingBasis = (commercial?.costingBasis ?? "TEAM") as EstimateCalculationInput["costingBasis"];
+  const locationName = commercial?.locationName || estimate.team.mappedLocation;
   const input: EstimateCalculationInput = {
     workItemType: estimate.workItemType as EstimateCalculationInput["workItemType"],
     complexityScores: JSON.parse(estimate.complexityScoresJson),
@@ -181,6 +228,14 @@ export async function calculateAndPersist(id: string, userId: string) {
     stance: estimate.stance as EstimateCalculationInput["stance"],
     overrideEnabled: estimate.overrideEnabled,
     overrideSp: estimate.overrideSp,
+    overrideReason: estimate.overrideReason,
+    overrideApprovedBy: estimate.overrideApprovedBy,
+    projectOverrideRate: commercial?.projectOverrideRate ?? null,
+    costingBasis,
+    teamId: estimate.teamId,
+    teamName: estimate.team.name,
+    locationName,
+    costMethod: commercial?.costMethod ?? "Resource Cost per Sprint",
     devResourceLevelId: estimate.devResourceLevel,
     qaResourceLevelId: estimate.qaResourceLevel,
     devAiProductivityPct: estimate.devAiProductivity,
@@ -189,12 +244,14 @@ export async function calculateAndPersist(id: string, userId: string) {
     availableDev: estimate.availableDev,
     availableQa: estimate.availableQa,
     targetSprints: estimate.targetSprints,
-    costingModel,
-    resourceSprintRate: estimate.team.resourceSprintRate,
-    teamSprintRate: teamCost?.cost ?? estimate.team.teamSprintRate,
-    otherFixedCost: estimate.otherFixedCost,
+    costingModel: "RESOURCE_SPRINT",
+    resourceSprintRate: teamCost?.resourceSprintCost ?? estimate.team.resourceSprintRate,
+    teamSprintRate: teamCost?.teamSprintCost ?? estimate.team.teamSprintRate,
+    otherFixedCost: estimate.workItemType === "EPIC" ? 0 : estimate.otherFixedCost,
     locationAllocations,
+    roster,
     currency: teamCost?.currency ?? estimate.currency,
+    standardTeamSize: teamCost?.standardTeamSize ?? estimate.team.standardTeamSize,
   };
 
   const result = calculateEstimate(input, config);
@@ -289,11 +346,11 @@ export async function captureActuals(
     actualDevPd: payload.actualDevPd,
     actualQaPd: payload.actualQaPd,
     actualSprints: payload.actualSprints,
-    actualCost: result.aiAdjustedDeliveryCost + payload.actualOtherCost,
+    actualCost: (result.aiAdjustedDeliveryCost ?? 0) + payload.actualOtherCost,
     estimatedDevPd: result.adjustedDevEffortPd,
     estimatedQaPd: result.adjustedQaEffortPd,
     estimatedSprints: result.finalSprints,
-    estimatedCost: result.aiAdjustedDeliveryCost,
+    estimatedCost: result.aiAdjustedDeliveryCost ?? 0,
   });
   const actuals = await prisma.actualDelivery.upsert({
     where: { estimateId: id },

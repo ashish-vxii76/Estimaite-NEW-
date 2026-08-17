@@ -2,9 +2,9 @@
 
 export function StatusBadge({ status }: { status: string }) {
   const tone =
-    status === "APPROVED" || status === "READY" || status === "HIGH"
+    status === "APPROVED" || status === "READY" || status === "HIGH" || status === "High"
       ? "bg-emerald-500/15 text-emerald-300"
-      : status.includes("REQUIRED") || status === "REJECTED" || status === "SPLIT" || status === "LOW"
+      : status.includes("REQUIRED") || status === "REJECTED" || status === "SPLIT" || status === "LOW" || status === "Low" || status === "Very Low"
         ? "bg-rose-500/15 text-rose-300"
         : status === "REVIEW" || status === "REVIEWED" || status === "MEDIUM" || status === "DECOMPOSE"
           ? "bg-amber-500/15 text-amber-200"

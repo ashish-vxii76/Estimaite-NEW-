@@ -16,11 +16,23 @@ export function PortfolioCharts({
   countByFlag,
   costByTshirt,
   currency,
+  sampleCount,
+  minSamples = 5,
 }: {
   countByFlag: Record<string, number>;
   costByTshirt: Record<string, number>;
   currency: string;
+  sampleCount: number;
+  minSamples?: number;
 }) {
+  if (sampleCount < minSamples) {
+    return (
+      <section className="card p-5 text-sm text-[var(--muted)]">
+        Insufficient data — {sampleCount} of {minSamples} estimates required before portfolio charts
+        render.
+      </section>
+    );
+  }
   const flags = DELIVERY_FLAGS.map((flag) => ({
     name: flag.replace(" REQUIRED", ""),
     full: flag,

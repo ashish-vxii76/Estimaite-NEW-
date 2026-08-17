@@ -70,7 +70,6 @@ export function calculateRequiredResources(input: {
       title: "Required Resources (Sprint-Constrained)",
       summary: `Dev ${requiredDev}, QA ${requiredQa}`,
       steps: [
-        `PRD uses base Dev/QA capacity (not AI-adjusted) for required headcount.`,
         `Required Dev = ROUNDUP(${input.devSP} / (${input.targetSprints} × ${input.devCapacity})) = ${requiredDev}`,
         `Required QA = ROUNDUP(${input.qaSP} / (${input.targetSprints} × ${input.qaCapacity})) = ${requiredQa}`,
       ],
@@ -109,8 +108,8 @@ export function planDelivery(input: {
       devSP: input.devSP,
       qaSP: input.qaSP,
       targetSprints: input.targetSprints,
-      devCapacity: input.baseDevCapacity,
-      qaCapacity: input.baseQaCapacity,
+      devCapacity: input.aiDevCapacity,
+      qaCapacity: input.aiQaCapacity,
     });
     const duration = calculateRequiredSprints({
       devSP: input.devSP,

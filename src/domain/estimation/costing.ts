@@ -1,12 +1,62 @@
 import { round2 } from "./math";
-import type { CostingModel, Explanation, LocationAllocation } from "./types";
+import type {
+  CostingBasis,
+  EstimationConfig,
+  Explanation,
+  LocationAllocation,
+  LocationDailyRateConfig,
+  RosterMember,
+} from "./types";
+
+const COSTED_ROLES = new Set(["DEV", "QA", "Dev", "QA Engineer"]);
+
+export function blendedDailyRateFromRoster(
+  roster: RosterMember[],
+  locationDailyRates: LocationDailyRateConfig[],
+): { rate: number; explanation: Explanation } {
+  const costed = roster.filter((r) => COSTED_ROLES.has(r.roleStream) || r.roleStream === "QA");
+  const total = costed.reduce((s, r) => s + (r.headcount ?? 1), 0);
+  if (total <= 0) {
+    return {
+      rate: 0,
+      explanation: {
+        title: "Blended Daily Rate",
+        summary: "0",
+        steps: ["No costed Dev/QA headcount on roster; blended rate is 0."],
+      },
+    };
+  }
+  const rateByLocation = Object.fromEntries(
+    locationDailyRates.map((row) => [row.location, row.dailyRate]),
+  );
+  const weighted = costed.reduce((s, r) => {
+    const rate = rateByLocation[r.location] ?? 0;
+    return s + (r.headcount ?? 1) * rate;
+  }, 0);
+  const rate = round2(weighted / total);
+  return {
+    rate,
+    explanation: {
+      title: "Blended Daily Rate",
+      summary: `${rate}`,
+      steps: [
+        "SM, PO, and IT Lead are not costed.",
+        ...costed.map(
+          (r) =>
+            `${r.roleStream} ${r.location} × ${r.headcount ?? 1} × ${rateByLocation[r.location] ?? 0}`,
+        ),
+        `Blended Daily Rate = ${weighted} / ${total} = ${rate}`,
+      ],
+    },
+  };
+}
 
 export function blendedDailyRate(allocations: LocationAllocation[]): {
   rate: number;
   explanation: Explanation;
 } {
-  const total = round2(allocations.reduce((sum, a) => sum + a.allocationPct, 0));
-  if (allocations.length === 0) {
+  const total = allocations.reduce((sum, a) => sum + a.allocationPct, 0);
+  if (allocations.length === 0 || total === 0) {
     return {
       rate: 0,
       explanation: {
@@ -32,7 +82,8 @@ export function blendedDailyRate(allocations: LocationAllocation[]): {
       summary: `${rate}`,
       steps: [
         ...allocations.map(
-          (a) => `${a.locationName}: ${a.allocationPct}% × ${a.dailyRate} = ${round2((a.allocationPct / 100) * a.dailyRate)}`,
+          (a) =>
+            `${a.locationName}: ${a.allocationPct}% × ${a.dailyRate} = ${round2((a.allocationPct / 100) * a.dailyRate)}`,
         ),
         `Blended Daily Rate = ${rate}`,
       ],
@@ -40,38 +91,51 @@ export function blendedDailyRate(allocations: LocationAllocation[]): {
   };
 }
 
+export function resolveSprintRates(input: {
+  costingBasis?: CostingBasis | "";
+  teamName?: string;
+  locationName?: string;
+  resourceSprintRate?: number;
+  teamSprintRate?: number;
+  config: EstimationConfig;
+}): { teamSprintRate: number; resourceSprintRate: number } {
+  if (input.costingBasis === "LOCATION" && input.locationName) {
+    const loc = input.config.costMappings.find((r) => r.location === input.locationName);
+    if (loc) {
+      return {
+        teamSprintRate: loc.teamSprintCost,
+        resourceSprintRate: loc.resourceSprintCost,
+      };
+    }
+  }
+  if (input.teamName) {
+    const team = input.config.teamCostMappings.find((r) => r.teamName === input.teamName);
+    if (team) {
+      return {
+        teamSprintRate: team.teamSprintCost,
+        resourceSprintRate: team.resourceSprintCost,
+      };
+    }
+  }
+  return {
+    teamSprintRate: input.teamSprintRate ?? 0,
+    resourceSprintRate: input.resourceSprintRate ?? 0,
+  };
+}
+
 export function calculateCommercialCost(input: {
-  model: CostingModel;
   plannedDev: number;
   plannedQa: number;
   sprints: number;
-  resourceSprintRate: number;
-  teamSprintRate: number;
+  selectedRate: number;
   otherFixedCost: number;
 }): { deliveryCost: number; resourceSprints: number; explanation: Explanation } {
-  if (input.resourceSprintRate < 0 || input.teamSprintRate < 0 || input.otherFixedCost < 0) {
+  if (input.selectedRate < 0 || input.otherFixedCost < 0) {
     throw new Error("Rates cannot be negative");
   }
   const plannedResources = input.plannedDev + input.plannedQa;
   const resourceSprints = round2(plannedResources * input.sprints);
-
-  if (input.model === "TEAM_SPRINT") {
-    const deliveryCost = round2(input.sprints * input.teamSprintRate + input.otherFixedCost);
-    return {
-      deliveryCost,
-      resourceSprints,
-      explanation: {
-        title: "Team Cost per Sprint",
-        summary: `${deliveryCost}`,
-        steps: [
-          "Full-team sprint rate is not automatically prorated.",
-          `Delivery Cost = ${input.sprints} sprints × ${input.teamSprintRate} + other ${input.otherFixedCost} = ${deliveryCost}`,
-        ],
-      },
-    };
-  }
-
-  const deliveryCost = round2(resourceSprints * input.resourceSprintRate + input.otherFixedCost);
+  const deliveryCost = round2(resourceSprints * input.selectedRate + input.otherFixedCost);
   return {
     deliveryCost,
     resourceSprints,
@@ -81,7 +145,7 @@ export function calculateCommercialCost(input: {
       steps: [
         `Planned resources = ${input.plannedDev} Dev + ${input.plannedQa} QA = ${plannedResources}`,
         `Resource-Sprints = ${plannedResources} × ${input.sprints} = ${resourceSprints}`,
-        `Delivery Cost = ${resourceSprints} × ${input.resourceSprintRate} + other ${input.otherFixedCost} = ${deliveryCost}`,
+        `Delivery Cost = ${resourceSprints} × ${input.selectedRate} + other ${input.otherFixedCost} = ${deliveryCost}`,
       ],
     },
   };

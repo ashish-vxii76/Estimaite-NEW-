@@ -1,3 +1,4 @@
+import { round2 } from "./math";
 import type {
   EstimationConfig,
   Explanation,
@@ -5,41 +6,43 @@ import type {
   WorkItemType,
 } from "./types";
 
+export function lookupMapping(workItemType: WorkItemType, tshirt: TShirt, config: EstimationConfig) {
+  if (workItemType === "EPIC") {
+    const mapping = config.epicMappings.find((m) => m.tshirt === tshirt);
+    if (!mapping) throw new Error(`No Epic mapping for ${tshirt}`);
+    return {
+      totalSp: mapping.romSp,
+      devSp: mapping.devSp,
+      qaSp: mapping.qaSp,
+      refDevPd: mapping.devPd,
+      refQaPd: mapping.qaPd,
+      expectedStories: mapping.expectedStories,
+    };
+  }
+  const mapping = config.issueMappings.find((m) => m.tshirt === tshirt);
+  if (!mapping) throw new Error(`No Issue mapping for ${tshirt}`);
+  return {
+    totalSp: mapping.totalSp,
+    devSp: mapping.devSp,
+    qaSp: mapping.qaSp,
+    refDevPd: mapping.devPd,
+    refQaPd: mapping.qaPd,
+    expectedStories: null as number | null,
+  };
+}
+
 export function mapStoryPoints(
   workItemType: WorkItemType,
   tshirt: TShirt,
   config: EstimationConfig,
 ): { sp: number; explanation: Explanation } {
-  if (workItemType === "EPIC") {
-    const mapping =
-      config.epicMappings?.find((m) => m.tshirt === tshirt) ??
-      config.epicRomMappings.find((m) => m.tshirt === tshirt);
-    if (!mapping) throw new Error(`No Epic ROM mapping for ${tshirt}`);
-    const romSp = mapping.romSp;
-    return {
-      sp: romSp,
-      explanation: {
-        title: "Epic ROM Story Points",
-        summary: `Epic ${tshirt} maps to ${romSp} ROM SP`,
-        steps: [`Configured Epic Mapping: ${tshirt} → ${romSp} ROM SP`],
-      },
-    };
-  }
-
-  const mapping =
-    config.issueMappings?.find((m) => m.tshirt === tshirt) ??
-    config.issueStoryPointMappings.find((m) => m.tshirt === tshirt);
-  if (!mapping) throw new Error(`No Issue SP mapping for ${tshirt}`);
-  const sp = "totalSp" in mapping ? mapping.totalSp : mapping.canonicalSp;
+  const mapping = lookupMapping(workItemType, tshirt, config);
   return {
-    sp,
+    sp: mapping.totalSp,
     explanation: {
-      title: "Issue Canonical Story Points",
-      summary: `Issue ${tshirt} maps to ${sp} SP`,
-      steps: [
-        `Configured Issue Mapping: ${tshirt} → ${sp}`,
-        "Automated S maps to 3. Two SP remains valid only for manual/team calibration.",
-      ],
+      title: workItemType === "EPIC" ? "Epic ROM Story Points" : "Issue Canonical Story Points",
+      summary: `${tshirt} → ${mapping.totalSp} SP (Dev ${mapping.devSp} / QA ${mapping.qaSp})`,
+      steps: [`Looked up ${workItemType} Mapping for effective T-shirt ${tshirt}.`],
     },
   };
 }

@@ -14,9 +14,10 @@ export const DELIVERY_FLAGS = [
 
 export type PortfolioRegisterItem = {
   governanceDecision: string;
+  deliveryFlag?: string;
   effectiveTshirt: string;
-  aiAdjustedDeliveryCost: number;
-  baselineDeliveryCost: number;
+  aiAdjustedDeliveryCost: number | null;
+  baselineDeliveryCost: number | null;
   adjustedTotalEffortPd: number;
 };
 
@@ -29,10 +30,10 @@ export function budgetStatus(
   if (budget == null || !Number.isFinite(budget) || budget <= 0) {
     return { rag: "UNSET", label: "set budget" };
   }
-  if (totalAiAdjustedCost <= budget * 0.9) {
+  if (totalAiAdjustedCost <= budget) {
     return { rag: "GREEN", label: "On budget" };
   }
-  if (totalAiAdjustedCost <= budget) {
+  if (totalAiAdjustedCost <= budget * 1.1) {
     return { rag: "AMBER", label: "Watch" };
   }
   return { rag: "RED", label: "Over budget" };
@@ -56,7 +57,7 @@ export function rollupPortfolio(
     totalAiAdjustedCost += item.aiAdjustedDeliveryCost || 0;
     totalBaselineCost += item.baselineDeliveryCost || 0;
     totalEffortPd += item.adjustedTotalEffortPd || 0;
-    const flag = item.governanceDecision || "READY";
+    const flag = item.deliveryFlag || item.governanceDecision || "READY";
     countByFlag[flag] = (countByFlag[flag] ?? 0) + 1;
     const tshirt = item.effectiveTshirt as TShirt;
     if (tshirt in costByTshirt) {

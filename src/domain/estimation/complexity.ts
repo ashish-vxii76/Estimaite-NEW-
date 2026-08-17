@@ -4,70 +4,54 @@ import type {
   Explanation,
   TShirt,
 } from "./types";
-import { round4 } from "./math";
+import { round0 } from "./math";
 
 export function calculateComplexityIndex(
   scores: ComplexityScoreInput[],
   config: EstimationConfig,
-): { index: number; indexPct: number; explanation: Explanation } {
+): { index: number; indexPct: number; weightedSum: number; explanation: Explanation } {
   const active = config.complexityDimensions.filter((d) => d.active);
   let weighted = 0;
-  let maxWeighted = 0;
   const steps: string[] = [];
 
   for (const dimension of active) {
     const input = scores.find((s) => s.dimensionId === dimension.id);
-    if (!input) {
-      throw new Error(`Missing complexity score for ${dimension.id}`);
-    }
+    if (!input) throw new Error(`Missing complexity score for ${dimension.id}`);
     if (input.score < dimension.minScore || input.score > dimension.maxScore) {
       throw new Error(
         `Score for ${dimension.id} must be between ${dimension.minScore} and ${dimension.maxScore}`,
       );
     }
     weighted += input.score * dimension.weight;
-    maxWeighted += dimension.maxScore * dimension.weight;
-    steps.push(
-      `${dimension.name}: ${input.score} × weight ${dimension.weight} = ${input.score * dimension.weight}`,
-    );
+    steps.push(`${dimension.name}: ${input.score} × ${dimension.weight} = ${input.score * dimension.weight}`);
   }
 
-  if (maxWeighted === 0) {
-    throw new Error("No active complexity dimensions configured");
-  }
-
-  const index = round4(weighted / maxWeighted);
+  const index = round0(20 * weighted);
   return {
     index,
-    indexPct: round4(index * 100),
+    indexPct: index,
+    weightedSum: weighted,
     explanation: {
       title: "Complexity Index",
-      summary: `Complexity Index = ${index} (${index * 100}%)`,
+      summary: `Complexity Index = ${index}`,
       steps: [
         ...steps,
-        `SUM(score × weight) = ${weighted}`,
-        `SUM(maxScore × weight) = ${maxWeighted}`,
-        `Index = ${weighted} / ${maxWeighted} = ${index}`,
+        `Σ(score × weight) = ${weighted}`,
+        `Index = round(20 × ${weighted}, 0) = ${index}`,
+        "Theoretical range is 20 (all scores 1) to 100 (all scores 5) when weights sum to 1.00.",
       ],
     },
   };
 }
 
-export function mapIndexToTshirt(
-  index: number,
-  config: EstimationConfig,
-): TShirt {
-  const pct = index * 100;
-  const mappings = config.complexityMappings?.length
-    ? config.complexityMappings
-    : config.complexityBands.map((b) => ({
-        lower: b.minInclusive * 100,
-        upper: b.maxExclusive * 100,
-        tshirt: b.tshirt,
-      }));
-  const band = mappings.find((b) => pct >= b.lower && pct < b.upper);
-  if (!band) {
-    throw new Error(`No complexity band configured for index ${index} (${pct}%)`);
-  }
-  return band.tshirt;
+export function mapIndexToTshirt(index: number, config: EstimationConfig): TShirt {
+  const mappings = [...(config.complexityMappings ?? [])].sort((a, b) => a.lower - b.lower);
+  const band = mappings.find((b) => index >= b.lower && index <= b.upper);
+  if (band) return band.tshirt;
+  if (index <= 20) return "XS";
+  if (index <= 35) return "S";
+  if (index <= 50) return "M";
+  if (index <= 65) return "L";
+  if (index <= 80) return "XL";
+  return "XXL";
 }

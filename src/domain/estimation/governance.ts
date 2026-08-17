@@ -1,9 +1,11 @@
 import type {
+  ComplexityScoreInput,
   EstimationConfig,
   Explanation,
   GovernanceDecision,
   TShirt,
   WorkItemType,
+  DorStatus,
 } from "./types";
 
 export function decideGovernance(input: {
@@ -11,72 +13,100 @@ export function decideGovernance(input: {
   assessedTshirt: TShirt;
   selectedSp: number;
   finalSprints: number;
-  readinessScore: number;
+  complexityIndex: number;
+  scores: ComplexityScoreInput[];
+  dorStatus: DorStatus;
+  overrideEnabled?: boolean;
+  overrideReason?: string | null;
+  overrideApprovedBy?: string | null;
+  projectOverrideRate?: number | null;
+  costingBasis?: string;
+  teamName?: string;
+  locationName?: string;
+  costMethod?: string;
   config: EstimationConfig;
-}): { decision: GovernanceDecision; explanation: Explanation } {
+}): { deliveryFlag: GovernanceDecision; decision: GovernanceDecision; explanation: Explanation } {
   const steps: string[] = [];
+  const uncertainty = input.scores.find((s) => s.dimensionId === "uncertainty")?.score ?? 3;
+  const spike =
+    uncertaintyTierIsSpike(uncertainty, input.config) ||
+    input.config.complexityDimensions
+      .find((d) => d.id === "uncertainty")
+      ?.options?.[uncertainty - 1]?.toLowerCase()
+      .includes("discovery");
 
-  if (input.readinessScore < input.config.readinessDiscoveryMax) {
+  let deliveryFlag: GovernanceDecision;
+  if (spike) {
+    deliveryFlag = "SPIKE REQUIRED";
+    steps.push("Uncertainty = Discovery / spike required → SPIKE REQUIRED (overrides other gates)");
+  } else if (input.workItemType === "EPIC") {
+    let sizeGate = 0;
+    if (input.selectedSp >= input.config.epicSplitSp) sizeGate = 2;
+    else if (input.selectedSp >= input.config.epicDecomposeSp) sizeGate = 1;
+    const indexGate = indexLevel(input.complexityIndex, input.config);
+    const structural = structuralGate(input.scores);
+    const level = Math.max(sizeGate, indexGate, structural);
+    deliveryFlag = (["PLAN", "DECOMPOSE", "SPLIT EPIC"] as const)[level];
+    steps.push(`Epic gates size=${sizeGate} index=${indexGate} structural=${structural} → max ${level} → ${deliveryFlag}`);
+  } else {
+    let sizeGate = 0;
+    if (input.selectedSp >= input.config.issueSplitSp) sizeGate = 2;
+    if (input.finalSprints > input.config.issueMaxRecommendedSprints) sizeGate = Math.max(sizeGate, 2);
+    else if (input.selectedSp >= input.config.issueReviewSp) sizeGate = Math.max(sizeGate, 1);
+    const indexGate = indexLevel(input.complexityIndex, input.config);
+    const structural = structuralGate(input.scores);
+    const level = Math.max(sizeGate, indexGate, structural);
+    deliveryFlag = (["READY", "REVIEW", "SPLIT"] as const)[level];
     steps.push(
-      `Readiness ${input.readinessScore} < ${input.config.readinessDiscoveryMax} → DISCOVERY REQUIRED`,
+      `Issue gates sprint/size=${sizeGate} index=${indexGate} structural=${structural} → max ${level} → ${deliveryFlag}`,
     );
-    return done("DISCOVERY REQUIRED", steps);
-  }
-  if (input.readinessScore < input.config.readinessSpikeMax) {
-    steps.push(
-      `Readiness ${input.readinessScore} < ${input.config.readinessSpikeMax} → SPIKE REQUIRED`,
-    );
-    return done("SPIKE REQUIRED", steps);
   }
 
-  if (input.workItemType === "EPIC") {
-    const splitThreshold = input.config.epicSplitSp;
-    const decomposeThreshold = input.config.epicDecomposeSp;
-    const mapped = input.config.epicMappings?.find((m) => m.tshirt === input.assessedTshirt);
-    if (input.selectedSp >= splitThreshold || mapped?.governance === "SPLIT EPIC") {
-      steps.push(`Epic ROM SP ${input.selectedSp} ≥ ${splitThreshold} (or mapping SPLIT EPIC)`);
-      return done("SPLIT EPIC", steps);
-    }
-    if (input.selectedSp >= decomposeThreshold || mapped?.governance === "DECOMPOSE") {
-      steps.push(`Epic ROM SP ${input.selectedSp} ≥ ${decomposeThreshold} (or mapping DECOMPOSE)`);
-      return done("DECOMPOSE", steps);
-    }
-    steps.push("Epic is below decompose threshold → PLAN");
-    return done(mapped?.governance ?? "PLAN", steps);
+  let decision: GovernanceDecision = deliveryFlag;
+  if (input.dorStatus === "Discovery Required") {
+    decision = "DISCOVERY REQUIRED";
+    steps.push("Final Planning Decision: DISCOVERY REQUIRED (DoR status)");
+  } else if (spike) {
+    decision = "SPIKE REQUIRED";
+  } else if (input.overrideEnabled && (!input.overrideReason || !input.overrideApprovedBy)) {
+    decision = "OVERRIDE INCOMPLETE";
+  } else if (input.projectOverrideRate && (!input.overrideReason || !input.overrideApprovedBy)) {
+    decision = "RATE OVERRIDE APPROVAL REQ.";
+  } else if (input.workItemType === "ISSUE" && input.costingBasis === "") {
+    decision = "COSTING BASIS REQUIRED";
+  } else if (input.workItemType === "ISSUE" && input.costingBasis === "TEAM" && !input.teamName) {
+    decision = "TEAM REQUIRED";
+  } else if (input.workItemType === "ISSUE" && input.costingBasis === "LOCATION" && !input.locationName) {
+    decision = "LOCATION REQUIRED";
+  } else if (input.workItemType === "ISSUE" && input.costingBasis && !input.costMethod) {
+    decision = "COST METHOD REQUIRED";
+  } else {
+    steps.push("Completeness gates passed → Final Planning Decision = Delivery Flag");
   }
 
-  const mapping =
-    input.config.issueMappings?.find((m) => m.tshirt === input.assessedTshirt) ??
-    input.config.issueStoryPointMappings.find((m) => m.tshirt === input.assessedTshirt);
-  const splitSp = input.config.issueSplitSp ?? 21;
-  const reviewSp = input.config.issueReviewSp ?? 13;
-  if (mapping && (mapping.governance === "SPLIT" || input.selectedSp >= splitSp)) {
-    steps.push(
-      `Issue ${input.assessedTshirt} mapping/threshold governance = SPLIT (split SP ${splitSp})`,
-    );
-    return done("SPLIT", steps);
-  }
-
-  if (input.finalSprints > input.config.issueMaxRecommendedSprints) {
-    steps.push(
-      `Elapsed ${input.finalSprints} sprints exceeds issue maximum recommended duration of ${input.config.issueMaxRecommendedSprints} → REVIEW`,
-    );
-    return done("REVIEW", steps);
-  }
-
-  if (mapping?.governance === "REVIEW" || input.selectedSp >= reviewSp) return done("REVIEW", steps);
-
-  steps.push("Issue is within size and duration thresholds → READY");
-  return done("READY", steps);
-}
-
-function done(decision: GovernanceDecision, steps: string[]) {
   return {
+    deliveryFlag,
     decision,
     explanation: {
       title: "Governance Decision",
-      summary: decision,
+      summary: `${deliveryFlag} / ${decision}`,
       steps,
-    } satisfies Explanation,
+    },
   };
+}
+
+function indexLevel(index: number, config: EstimationConfig) {
+  if (index >= (config.indexSplitMin ?? 81)) return 2;
+  if (index >= (config.indexReviewMin ?? 66)) return 1;
+  return 0;
+}
+
+function structuralGate(scores: ComplexityScoreInput[]) {
+  const ids = new Set(["functional", "technical", "integration", "data"]);
+  return scores.some((s) => ids.has(s.dimensionId) && s.score === 5) ? 1 : 0;
+}
+
+function uncertaintyTierIsSpike(score: number, config: EstimationConfig) {
+  const option = config.complexityDimensions.find((d) => d.id === "uncertainty")?.options?.[score - 1] ?? "";
+  return option.toLowerCase().includes("discovery") || option.toLowerCase().includes("spike");
 }

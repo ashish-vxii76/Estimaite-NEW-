@@ -66,28 +66,29 @@ async function main() {
   }
 
   for (const row of DEFAULT_CONFIG.costMappings) {
+    const daily = DEFAULT_CONFIG.locationDailyRates.find((r) => r.location === row.location);
     await prisma.location.upsert({
       where: { name: row.location },
       update: {
-        dailyRate: row.cost,
+        dailyRate: daily?.dailyRate ?? row.resourceSprintCost,
         currency: row.currency,
-        costMethod: row.costMethod,
-        standardTeamSize: row.standardTeamSize,
+        costMethod: "Resource Cost per Sprint",
+        standardTeamSize: row.standardTeamSize || 10,
         active: true,
       },
       create: {
         name: row.location,
-        dailyRate: row.cost,
+        dailyRate: daily?.dailyRate ?? row.resourceSprintCost,
         currency: row.currency,
-        costMethod: row.costMethod,
-        standardTeamSize: row.standardTeamSize,
+        costMethod: "Resource Cost per Sprint",
+        standardTeamSize: row.standardTeamSize || 10,
         active: true,
       },
     });
   }
 
   for (const row of DEFAULT_CONFIG.teamCostMappings) {
-    const resourceSprintRate = row.cost / row.standardTeamSize;
+    const resourceSprintRate = row.resourceSprintCost;
     const members = TEAM_MEMBERS[row.teamName] ?? [];
     const mix = MIX[row.teamName] ?? [];
     const existing = await prisma.team.findUnique({ where: { name: row.teamName } });
@@ -97,11 +98,11 @@ async function main() {
         where: { id: existing.id },
         data: {
           mappedLocation: row.teamLocation,
-          standardTeamSize: row.standardTeamSize,
+          standardTeamSize: row.standardTeamSize || 10,
           currency: row.currency,
-          teamSprintRate: row.cost,
+          teamSprintRate: row.teamSprintCost,
           resourceSprintRate,
-          costMethod: row.costMethod,
+          costMethod: "Resource Cost per Sprint",
           locationMixJson: JSON.stringify(mix),
           active: true,
           members: { create: members },
@@ -112,11 +113,11 @@ async function main() {
         data: {
           name: row.teamName,
           mappedLocation: row.teamLocation,
-          standardTeamSize: row.standardTeamSize,
+          standardTeamSize: row.standardTeamSize || 10,
           currency: row.currency,
-          teamSprintRate: row.cost,
+          teamSprintRate: row.teamSprintCost,
           resourceSprintRate,
-          costMethod: row.costMethod,
+          costMethod: "Resource Cost per Sprint",
           locationMixJson: JSON.stringify(mix),
           effectiveFrom: new Date("2026-01-01"),
           active: true,
@@ -137,7 +138,7 @@ async function main() {
     },
   });
 
-  console.log("Seeded Excel v7.1 admin mappings, Vikings/Spartans/Centurions/Praetorians.");
+  console.log("Seeded PRD v3 CHF mappings, Vikings/Spartans/Centurions/Praetorians.");
 }
 
 main()

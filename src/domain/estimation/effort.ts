@@ -1,4 +1,4 @@
-import { round2 } from "./math";
+import { round2, round3 } from "./math";
 import type { EstimationConfig, Explanation, TShirt } from "./types";
 import { getResourceLevel } from "./capacity";
 
@@ -6,7 +6,9 @@ export function calculateEffort(input: {
   totalSp: number;
   devSp: number;
   qaSp: number;
-  tshirt: TShirt;
+  assessedTshirt: TShirt;
+  refDevPd: number;
+  refQaPd: number;
   devLevelId: string;
   qaLevelId: string;
   devAiPct: number;
@@ -17,36 +19,36 @@ export function calculateEffort(input: {
   adjustedDevEffortPd: number;
   adjustedQaEffortPd: number;
   adjustedTotalEffortPd: number;
+  rawTotalEffortPd: number;
+  complexityMultiplier: number;
   explanation: Explanation;
 } {
-  const multiplier = input.config.complexityMultipliers[input.tshirt];
-  const senior = getResourceLevel("senior", input.config);
+  const multiplier = input.config.complexityMultipliers[input.assessedTshirt];
   const dev = getResourceLevel(input.devLevelId, input.config);
   const qa = getResourceLevel(input.qaLevelId, input.config);
-
-  const referenceEffortPd = round2(input.totalSp * senior.daysPerPoint);
-  const adjustedDevEffortPd = round2(
-    (input.devSp * dev.daysPerPoint * multiplier) / (1 + input.devAiPct),
-  );
-  const adjustedQaEffortPd = round2(
-    (input.qaSp * qa.daysPerPoint * multiplier) / (1 + input.qaAiPct),
-  );
-  const adjustedTotalEffortPd = round2(adjustedDevEffortPd + adjustedQaEffortPd);
+  const rawDev = (input.devSp * dev.daysPerPoint * multiplier) / (1 + input.devAiPct);
+  const rawQa = (input.qaSp * qa.daysPerPoint * multiplier) / (1 + input.qaAiPct);
+  const rawTotalEffortPd = rawDev + rawQa;
+  const adjustedDevEffortPd = round3(rawDev);
+  const adjustedQaEffortPd = round3(rawQa);
+  const adjustedTotalEffortPd = round3(rawTotalEffortPd);
+  const referenceEffortPd = round2(input.refDevPd + input.refQaPd);
 
   return {
     referenceEffortPd,
     adjustedDevEffortPd,
     adjustedQaEffortPd,
     adjustedTotalEffortPd,
+    rawTotalEffortPd,
+    complexityMultiplier: multiplier,
     explanation: {
       title: "Resource-Aware Engineering Effort",
-      summary: `${adjustedTotalEffortPd} person-days (distinct from SP-equivalent reference effort of ${referenceEffortPd} PD)`,
+      summary: `${adjustedTotalEffortPd} person-days`,
       steps: [
-        `SP-Equivalent Reference Effort = ${input.totalSp} SP × Senior ${senior.daysPerPoint} days/point = ${referenceEffortPd} PD`,
-        `These two models are not required to be numerically identical.`,
+        `Complexity multiplier (assessed T-shirt) = ${multiplier}`,
         `Adjusted Dev Effort = ${input.devSp} × ${dev.daysPerPoint} × ${multiplier} / (1 + ${input.devAiPct}) = ${adjustedDevEffortPd}`,
         `Adjusted QA Effort = ${input.qaSp} × ${qa.daysPerPoint} × ${multiplier} / (1 + ${input.qaAiPct}) = ${adjustedQaEffortPd}`,
-        `Adjusted Total Effort = ${adjustedDevEffortPd} + ${adjustedQaEffortPd} = ${adjustedTotalEffortPd}`,
+        `The multiplier also drove T-shirt/size; applying it again to effort is intentional (R3).`,
       ],
     },
   };

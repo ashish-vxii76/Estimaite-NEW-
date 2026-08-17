@@ -13,8 +13,21 @@ export type CostingModel = (typeof COSTING_MODELS)[number];
 export const ESTIMATE_STANCES = ["OPTIMISTIC", "NEUTRAL", "PESSIMISTIC"] as const;
 export type EstimateStance = (typeof ESTIMATE_STANCES)[number];
 
-export const READINESS_ANSWERS = ["YES", "PARTIAL", "NO"] as const;
+export const COSTING_BASES = ["TEAM", "LOCATION"] as const;
+export type CostingBasis = (typeof COSTING_BASES)[number];
+
+export const READINESS_ANSWERS = ["YES", "NO"] as const;
 export type ReadinessAnswer = (typeof READINESS_ANSWERS)[number];
+
+export const CONFIDENCE_LEVELS = ["Very Low", "Low", "Medium", "High"] as const;
+export type ConfidenceLevel = (typeof CONFIDENCE_LEVELS)[number];
+
+export const DOR_STATUSES = [
+  "Ready for Estimation",
+  "Estimate with Assumptions",
+  "Discovery Required",
+] as const;
+export type DorStatus = (typeof DOR_STATUSES)[number];
 
 export const GOVERNANCE_DECISIONS = [
   "READY",
@@ -25,11 +38,14 @@ export const GOVERNANCE_DECISIONS = [
   "PLAN",
   "DECOMPOSE",
   "SPLIT EPIC",
+  "OVERRIDE INCOMPLETE",
+  "RATE OVERRIDE APPROVAL REQ.",
+  "COSTING BASIS REQUIRED",
+  "TEAM REQUIRED",
+  "LOCATION REQUIRED",
+  "COST METHOD REQUIRED",
 ] as const;
 export type GovernanceDecision = (typeof GOVERNANCE_DECISIONS)[number];
-
-export const CONFIDENCE_LEVELS = ["HIGH", "MEDIUM", "LOW"] as const;
-export type ConfidenceLevel = (typeof CONFIDENCE_LEVELS)[number];
 
 export const ISSUE_FIBONACCI = [1, 2, 3, 5, 8, 13, 21] as const;
 
@@ -48,6 +64,7 @@ export type ComplexityDimensionConfig = {
   maxScore: number;
   guidance: string;
   active: boolean;
+  options: string[];
 };
 
 export type ComplexityBandConfig = {
@@ -120,19 +137,37 @@ export type AllowedIssueSpConfig = {
 
 export type CostMappingConfig = {
   location: string;
-  costMethod: string;
-  cost: number;
+  teamSprintCost: number;
+  resourceSprintCost: number;
   standardTeamSize: number;
   currency: string;
+  cost?: number;
+  costMethod?: string;
 };
 
 export type TeamCostMappingConfig = {
   teamLocation: string;
   teamName: string;
-  costMethod: string;
-  cost: number;
+  teamSprintCost: number;
+  resourceSprintCost: number;
   standardTeamSize: number;
   currency: string;
+  cost?: number;
+  costMethod?: string;
+};
+
+export type LocationDailyRateConfig = {
+  location: string;
+  dailyRate: number;
+  currency: string;
+};
+
+export type RosterMember = {
+  name?: string;
+  roleStream: string;
+  location: string;
+  seniority?: string;
+  headcount?: number;
 };
 
 export type LocationAllocation = {
@@ -158,6 +193,7 @@ export type EstimationConfig = {
   complexityMultipliers: Record<TShirt, number>;
   costMappings: CostMappingConfig[];
   teamCostMappings: TeamCostMappingConfig[];
+  locationDailyRates: LocationDailyRateConfig[];
   sprintWorkingDays: number;
   aiMinPct: number;
   aiMaxPct: number;
@@ -167,17 +203,11 @@ export type EstimationConfig = {
   epicDecomposeSp: number;
   epicSplitSp: number;
   fullTeamRateUtilisationWarning: number;
-  readinessDiscoveryMax: number;
-  readinessSpikeMax: number;
-  confidenceHighReadinessMin: number;
-  confidenceHighUncertaintyMax: number;
-  confidenceLowReadinessMax: number;
-  confidenceLowUncertaintyMin: number;
-  qaSplitBase: number;
-  qaSplitFromQaScore: number;
-  qaSplitFromNfrScore: number;
-  qaSplitMin: number;
-  qaSplitMax: number;
+  standardTeamSize: number;
+  dashboardMinEstimates: number;
+  calibrationMinSamples: number;
+  indexReviewMin: number;
+  indexSplitMin: number;
 };
 
 export type ComplexityScoreInput = {
@@ -197,6 +227,15 @@ export type EstimateCalculationInput = {
   stance: EstimateStance;
   overrideSp?: number | null;
   overrideEnabled?: boolean;
+  overrideReason?: string | null;
+  overrideApprovedBy?: string | null;
+  projectOverrideRate?: number | null;
+  costingBasis?: CostingBasis | "";
+  teamId?: string;
+  teamName?: string;
+  locationId?: string;
+  locationName?: string;
+  costMethod?: string;
   devResourceLevelId: string;
   qaResourceLevelId: string;
   devAiProductivityPct: number;
@@ -210,7 +249,9 @@ export type EstimateCalculationInput = {
   teamSprintRate: number;
   otherFixedCost: number;
   locationAllocations: LocationAllocation[];
+  roster?: RosterMember[];
   currency: string;
+  standardTeamSize?: number;
 };
 
 export type EstimateCalculationResult = {
@@ -220,9 +261,16 @@ export type EstimateCalculationResult = {
   effectiveTshirt: TShirt;
   baselineSp: number;
   selectedSp: number;
+  optimisticSp: number;
+  pessimisticSp: number;
+  governedTotalSp: number;
   qaShare: number;
   devSp: number;
   qaSp: number;
+  refDevPd: number;
+  refQaPd: number;
+  refTotalPd: number;
+  complexityMultiplier: number;
   devCapacity: number;
   qaCapacity: number;
   aiAdjustedDevCapacity: number;
@@ -231,6 +279,10 @@ export type EstimateCalculationResult = {
   requiredQa: number;
   plannedDev: number;
   plannedQa: number;
+  plannedResources: number;
+  utilisation: number;
+  applicability: string;
+  selectedRate: number;
   devSprints: number;
   qaSprints: number;
   calculatedSprints: number;
@@ -240,16 +292,23 @@ export type EstimateCalculationResult = {
   adjustedQaEffortPd: number;
   adjustedTotalEffortPd: number;
   blendedDailyRate: number;
-  effortBasedCost: number;
-  baselineResourceSprints: number;
-  aiAdjustedResourceSprints: number;
-  baselineDeliveryCost: number;
-  aiAdjustedDeliveryCost: number;
-  estimatedAiCostAvoidance: number;
-  aiCostSavingPct: number;
+  effortBasedCost: number | null;
+  baselineResourceSprints: number | null;
+  aiAdjustedResourceSprints: number | null;
+  baselineDeliveryCost: number | null;
+  aiAdjustedDeliveryCost: number | null;
+  estimatedAiCostAvoidance: number | null;
+  aiAdjustedTotalCost: number | null;
+  aiCostSavingPct: number | null;
+  costApplicability: string;
   confidence: ConfidenceLevel;
   readinessScore: number;
+  dorStatus: DorStatus;
+  deliveryFlag: GovernanceDecision;
   governanceDecision: GovernanceDecision;
+  epicStories: number | null;
+  epicSpPerStory: number | null;
+  epicSummary: string | null;
   currency: string;
   explanations: Record<string, Explanation>;
 };

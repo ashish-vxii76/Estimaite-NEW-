@@ -51,7 +51,7 @@ model Location {
   dailyRate Float
   currency  String
   costMethod String @default("Daily Rate (CHF / resource-day)")
-  standardTeamSize Int @default(6)
+  standardTeamSize Int @default(10)
   active    Boolean @default(true)
 }
 
@@ -80,7 +80,7 @@ model Estimate {
   stance                  String    @default("NEUTRAL")
   planningMode            String    @default("RESOURCE_CONSTRAINED")
   costingModel            String    @default("RESOURCE_SPRINT")
-  currency                String    @default("GBP")
+  currency                String    @default("CHF")
   devResourceLevel        String    @default("intermediate")
   qaResourceLevel         String    @default("experienced")
   devAiProductivity       Float     @default(0)

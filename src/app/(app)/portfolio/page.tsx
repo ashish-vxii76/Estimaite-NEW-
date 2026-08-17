@@ -85,6 +85,8 @@ export default async function PortfolioPage() {
         countByFlag={data.countByFlag}
         costByTshirt={data.costByTshirt}
         currency={currency}
+        sampleCount={data.totalEstimates}
+        minSamples={5}
       />
 
       <section className="card overflow-x-auto">
@@ -128,7 +130,7 @@ export default async function PortfolioPage() {
                   <td>{row.effectiveTshirt}</td>
                   <td>{row.selectedSp ?? "—"}</td>
                   <td>
-                    <StatusBadge status={row.governanceDecision} />
+                    <StatusBadge status={row.deliveryFlag ?? row.governanceDecision} />
                   </td>
                   <td>{formatMoney(row.baselineDeliveryCost, row.currency)}</td>
                   <td>{formatMoney(row.aiAdjustedDeliveryCost, row.currency)}</td>

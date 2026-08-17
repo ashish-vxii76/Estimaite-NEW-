@@ -6,6 +6,21 @@ import {
 } from "@/domain/estimation";
 import golden from "../golden/dataset.json";
 
+const CRITERIA = [
+  "business",
+  "acceptance",
+  "dependencies",
+  "architecture",
+  "test",
+] as const;
+
+function indiaRoster(): EstimateCalculationInput["roster"] {
+  return [
+    { roleStream: "DEV", location: "India", headcount: 1 },
+    { roleStream: "QA", location: "India", headcount: 1 },
+  ];
+}
+
 function inputFromCase(c: (typeof golden.cases)[number]): EstimateCalculationInput {
   return {
     workItemType: c.workItemType as EstimateCalculationInput["workItemType"],
@@ -13,12 +28,10 @@ function inputFromCase(c: (typeof golden.cases)[number]): EstimateCalculationInp
       dimensionId: d.id,
       score: c.scores[d.id as keyof typeof c.scores],
     })),
-    readiness: ["business", "acceptance", "dependencies", "architecture", "test"].map(
-      (criterionId) => ({
-        criterionId,
-        answer: c.readiness as "YES" | "PARTIAL" | "NO",
-      }),
-    ),
+    readiness: CRITERIA.map((criterionId, index) => ({
+      criterionId,
+      answer: index < c.readinessYesCount ? "YES" : "NO",
+    })),
     stance: c.stance as EstimateCalculationInput["stance"],
     devResourceLevelId: c.devLevel,
     qaResourceLevelId: c.qaLevel,
@@ -32,33 +45,23 @@ function inputFromCase(c: (typeof golden.cases)[number]): EstimateCalculationInp
     resourceSprintRate: c.resourceSprintRate,
     teamSprintRate: c.teamSprintRate,
     otherFixedCost: 0,
-    locationAllocations: [
-      {
-        locationId: "uk",
-        locationName: "United Kingdom",
-        allocationPct: 100,
-        dailyRate: 650,
-        currency: "GBP",
-      },
-    ],
-    currency: "GBP",
+    costingBasis: c.costingBasis as EstimateCalculationInput["costingBasis"],
+    teamName: c.teamName,
+    costMethod: c.costMethod,
+    roster: indiaRoster(),
+    locationAllocations: [],
+    currency: c.currency,
   };
 }
 
-describe("Golden Dataset regression", () => {
+describe("Golden Dataset regression (PRD Case A/B)", () => {
   for (const testCase of golden.cases) {
     it(testCase.id, () => {
       const result = calculateEstimate(inputFromCase(testCase), DEFAULT_CONFIG);
-      expect(result.assessedTshirt).toBe(testCase.expected.assessedTshirt);
-      expect(result.selectedSp).toBe(testCase.expected.selectedSp);
-      expect(result.devSp).toBe(testCase.expected.devSp);
-      expect(result.qaSp).toBe(testCase.expected.qaSp);
-      expect(result.requiredDev).toBe(testCase.expected.requiredDev);
-      expect(result.requiredQa).toBe(testCase.expected.requiredQa);
-      expect(result.finalSprints).toBe(testCase.expected.finalSprints);
-      expect(result.baselineDeliveryCost).toBe(testCase.expected.baselineDeliveryCost);
-      expect(result.aiAdjustedDeliveryCost).toBe(testCase.expected.aiAdjustedDeliveryCost);
-      expect(result.governanceDecision).toBe(testCase.expected.governanceDecision);
+      const expected = testCase.expected as Record<string, unknown>;
+      for (const [key, value] of Object.entries(expected)) {
+        expect(result[key as keyof typeof result], key).toBe(value);
+      }
     });
   }
 });

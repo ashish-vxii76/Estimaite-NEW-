@@ -41,21 +41,22 @@ export async function patchActiveConfig(
 
 async function syncOperationalTables(config: EstimationConfig) {
   for (const row of config.costMappings ?? []) {
+    const daily = config.locationDailyRates.find((r) => r.location === row.location);
     await prisma.location.upsert({
       where: { name: row.location },
       update: {
-        dailyRate: row.cost,
+        dailyRate: daily?.dailyRate ?? row.resourceSprintCost,
         currency: row.currency,
-        costMethod: row.costMethod,
-        standardTeamSize: row.standardTeamSize,
+        costMethod: "Resource Cost per Sprint",
+        standardTeamSize: row.standardTeamSize || 10,
         active: true,
       },
       create: {
         name: row.location,
-        dailyRate: row.cost,
+        dailyRate: daily?.dailyRate ?? row.resourceSprintCost,
         currency: row.currency,
-        costMethod: row.costMethod,
-        standardTeamSize: row.standardTeamSize,
+        costMethod: "Resource Cost per Sprint",
+        standardTeamSize: row.standardTeamSize || 10,
         active: true,
       },
     });
@@ -63,37 +64,23 @@ async function syncOperationalTables(config: EstimationConfig) {
 
   for (const row of config.teamCostMappings ?? []) {
     const existing = await prisma.team.findUnique({ where: { name: row.teamName } });
-    const resourceSprintRate =
-      row.costMethod.toLowerCase().includes("resource")
-        ? row.cost
-        : row.standardTeamSize > 0
-          ? row.cost / row.standardTeamSize
-          : row.cost;
-    const teamSprintRate = row.costMethod.toLowerCase().includes("team")
-      ? row.cost
-      : resourceSprintRate * row.standardTeamSize;
+    const resourceSprintRate = row.resourceSprintCost;
+    const teamSprintRate = row.teamSprintCost;
+    const data = {
+      mappedLocation: row.teamLocation,
+      standardTeamSize: row.standardTeamSize || 10,
+      currency: row.currency,
+      teamSprintRate,
+      resourceSprintRate,
+      costMethod: "Resource Cost per Sprint",
+    };
     if (existing) {
-      await prisma.team.update({
-        where: { name: row.teamName },
-        data: {
-          mappedLocation: row.teamLocation,
-          standardTeamSize: row.standardTeamSize,
-          currency: row.currency,
-          teamSprintRate,
-          resourceSprintRate,
-          costMethod: row.costMethod,
-        },
-      });
+      await prisma.team.update({ where: { name: row.teamName }, data });
     } else {
       await prisma.team.create({
         data: {
           name: row.teamName,
-          mappedLocation: row.teamLocation,
-          standardTeamSize: row.standardTeamSize,
-          currency: row.currency,
-          teamSprintRate,
-          resourceSprintRate,
-          costMethod: row.costMethod,
+          ...data,
           effectiveFrom: new Date(),
           active: true,
         },

@@ -1,7 +1,13 @@
 import type { EstimationConfig, EstimateCalculationInput, ResourceLevelConfig } from "./types";
 import { calculateEstimate } from "./calculate";
 
-export type WhatIfObjective = "LOWEST_COST" | "FASTEST_DELIVERY" | "CHEAPEST_WITHIN_N_SPRINTS";
+export type WhatIfObjective =
+  | "LOWEST_COST"
+  | "FEWEST_SPRINTS"
+  | "FASTEST_DELIVERY"
+  | "LEAST_EFFORT"
+  | "BEST_VALUE"
+  | "CHEAPEST_WITHIN_N_SPRINTS";
 
 export type TeamComposition = {
   teamId: string;
@@ -24,7 +30,7 @@ export function runWhatIf(input: {
   devCount: number;
   qaCount: number;
   sprints: number;
-  cost: number;
+  cost: number | null;
   effort: number;
   feasible: boolean;
   notes: string[];
@@ -40,7 +46,7 @@ export function runWhatIf(input: {
     notes.push("Senior is not recommended because this team has none configured.");
   }
 
-  let best: ReturnType<typeof scoreCandidate> | null = null;
+  const candidates: ReturnType<typeof scoreCandidate>[] = [];
   for (const devLevel of levels) {
     for (const qaLevel of levels) {
       for (let devCount = 1; devCount <= input.team.maxDev; devCount += 1) {
@@ -59,11 +65,22 @@ export function runWhatIf(input: {
           ) {
             continue;
           }
-          if (!best || better(candidate, best, input.objective)) {
-            best = candidate;
-          }
+          candidates.push(candidate);
         }
       }
+    }
+  }
+
+  let pool = candidates;
+  if (input.objective === "BEST_VALUE" && pool.length) {
+    const fastest = Math.min(...pool.map((c) => c.sprints));
+    pool = pool.filter((c) => c.sprints <= fastest + 1);
+  }
+
+  let best: ReturnType<typeof scoreCandidate> | null = null;
+  for (const candidate of pool) {
+    if (!best || better(candidate, best, input.objective)) {
+      best = candidate;
     }
   }
 
@@ -126,15 +143,24 @@ function scoreCandidate(
   };
 }
 
+function costOf(c: { cost: number | null }) {
+  return c.cost ?? Number.POSITIVE_INFINITY;
+}
+
 function better(
   a: ReturnType<typeof scoreCandidate>,
   b: ReturnType<typeof scoreCandidate>,
   objective: WhatIfObjective,
 ) {
-  if (objective === "FASTEST_DELIVERY") {
+  if (objective === "FASTEST_DELIVERY" || objective === "FEWEST_SPRINTS" || objective === "BEST_VALUE") {
     if (a.sprints !== b.sprints) return a.sprints < b.sprints;
-    return a.cost < b.cost;
+    if (costOf(a) !== costOf(b)) return costOf(a) < costOf(b);
+    return a.effort < b.effort;
   }
-  if (a.cost !== b.cost) return a.cost < b.cost;
+  if (objective === "LEAST_EFFORT") {
+    if (a.effort !== b.effort) return a.effort < b.effort;
+    return costOf(a) < costOf(b);
+  }
+  if (costOf(a) !== costOf(b)) return costOf(a) < costOf(b);
   return a.sprints < b.sprints;
 }

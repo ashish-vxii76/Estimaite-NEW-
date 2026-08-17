@@ -2,13 +2,14 @@ import { calculateAiEconomics } from "./aiEconomics";
 import { aiAdjustedCapacity, explainAiCapacity, getResourceLevel } from "./capacity";
 import { calculateConfidence } from "./confidence";
 import { calculateComplexityIndex, mapIndexToTshirt } from "./complexity";
-import { blendedDailyRate } from "./costing";
+import { blendedDailyRate, blendedDailyRateFromRoster, resolveSprintRates } from "./costing";
 import { splitDevQa } from "./devQaSplit";
 import { calculateEffort } from "./effort";
 import { decideGovernance } from "./governance";
+import { round2 } from "./math";
 import { planDelivery } from "./planning";
 import { calculateReadiness } from "./readiness";
-import { mapStoryPoints } from "./storyPoints";
+import { lookupMapping, mapStoryPoints } from "./storyPoints";
 import { applyStance } from "./tshirt";
 import type {
   EstimateCalculationInput,
@@ -22,6 +23,7 @@ export function calculateEstimate(
   config: EstimationConfig,
 ): EstimateCalculationResult {
   const explanations: Record<string, Explanation> = {};
+  const isEpic = input.workItemType === "EPIC";
 
   const complexity = calculateComplexityIndex(input.complexityScores, config);
   explanations.complexity = complexity.explanation;
@@ -55,6 +57,12 @@ export function calculateEstimate(
 
   const split = splitDevQa(selectedSp, effectiveTshirt, input.workItemType, config);
   explanations.devQa = split.explanation;
+  const lookup = lookupMapping(input.workItemType, effectiveTshirt, config);
+
+  const optTshirt = applyStance(assessedTshirt, "OPTIMISTIC");
+  const pesTshirt = applyStance(assessedTshirt, "PESSIMISTIC");
+  const optimisticSp = mapStoryPoints(input.workItemType, optTshirt, config).sp;
+  const pessimisticSp = mapStoryPoints(input.workItemType, pesTshirt, config).sp;
 
   const devLevel = getResourceLevel(input.devResourceLevelId, config);
   const qaLevel = getResourceLevel(input.qaResourceLevelId, config);
@@ -99,7 +107,9 @@ export function calculateEstimate(
     totalSp: selectedSp,
     devSp: split.devSp,
     qaSp: split.qaSp,
-    tshirt: effectiveTshirt,
+    assessedTshirt,
+    refDevPd: split.refDevPd,
+    refQaPd: split.refQaPd,
     devLevelId: input.devResourceLevelId,
     qaLevelId: input.qaResourceLevelId,
     devAiPct: input.devAiProductivityPct,
@@ -108,40 +118,61 @@ export function calculateEstimate(
   });
   explanations.effort = effort.explanation;
 
-  const blended = blendedDailyRate(input.locationAllocations);
+  const roster = input.roster ?? [];
+  const blended =
+    roster.length > 0
+      ? blendedDailyRateFromRoster(roster, config.locationDailyRates)
+      : blendedDailyRate(input.locationAllocations);
   explanations.blendedRate = blended.explanation;
-  const effortBasedCost = Math.round(effort.adjustedTotalEffortPd * blended.rate * 100) / 100;
+  const effortBasedNumeric = round2(effort.rawTotalEffortPd * blended.rate);
   explanations.effortCost = {
     title: "Effort-Based Analytical Cost",
-    summary: `${effortBasedCost}`,
+    summary: isEpic ? "Deferred" : `${effortBasedNumeric}`,
     steps: [
       "This analytical engineering-cost view is not required to reconcile to sprint-based commercial billing.",
-      `Effort-Based Delivery Cost = ${effort.adjustedTotalEffortPd} PD × blended daily rate ${blended.rate} = ${effortBasedCost}`,
+      `Effort-Based Delivery Cost = ${effort.rawTotalEffortPd} PD × blended daily rate ${blended.rate} = ${effortBasedNumeric}`,
     ],
   };
 
+  const rates = resolveSprintRates({
+    costingBasis: input.costingBasis,
+    teamName: input.teamName,
+    locationName: input.locationName,
+    resourceSprintRate: input.resourceSprintRate,
+    teamSprintRate: input.teamSprintRate,
+    config,
+  });
+  const selectedRate =
+    input.projectOverrideRate != null && input.projectOverrideRate > 0
+      ? input.projectOverrideRate
+      : input.resourceSprintRate || rates.resourceSprintRate;
+
+  const plannedResources = plan.plannedDev + plan.plannedQa;
+  const standardTeamSize = input.standardTeamSize || config.standardTeamSize || 10;
+  const utilisation = standardTeamSize === 0 ? 0 : round2((plannedResources / standardTeamSize) * 100);
+
   const economics = calculateAiEconomics({
-    model: input.costingModel,
+    isEpic,
     plannedDev: plan.plannedDev,
     plannedQa: plan.plannedQa,
     devSp: split.devSp,
     qaSp: split.qaSp,
     baseDevCapacity: devLevel.capacitySpPerSprint,
     baseQaCapacity: qaLevel.capacitySpPerSprint,
-    aiDevCapacity,
-    aiQaCapacity,
-    resourceSprintRate: input.resourceSprintRate,
-    teamSprintRate: input.teamSprintRate,
+    finalSprints: plan.finalSprints,
+    selectedRate,
+    refDevPd: split.refDevPd,
+    refQaPd: split.refQaPd,
+    devAiPct: input.devAiProductivityPct,
+    qaAiPct: input.qaAiProductivityPct,
     otherFixedCost: input.otherFixedCost,
-    planningMode: input.planningMode,
-    targetSprints: input.targetSprints,
   });
   explanations.cost = economics.explanation;
 
   const readiness = calculateReadiness(input.readiness);
   explanations.readiness = readiness.explanation;
   const confidence = calculateConfidence({
-    readinessScore: readiness.score,
+    dorStatus: readiness.status,
     scores: input.complexityScores,
     config,
   });
@@ -151,10 +182,32 @@ export function calculateEstimate(
     assessedTshirt,
     selectedSp,
     finalSprints: plan.finalSprints,
-    readinessScore: readiness.score,
+    complexityIndex: complexity.index,
+    scores: input.complexityScores,
+    dorStatus: readiness.status,
+    overrideEnabled: input.overrideEnabled,
+    overrideReason: input.overrideReason,
+    overrideApprovedBy: input.overrideApprovedBy,
+    projectOverrideRate: input.projectOverrideRate,
+    costingBasis: input.costingBasis,
+    teamName: input.teamName,
+    locationName: input.locationName,
+    costMethod: input.costMethod ?? (isEpic ? undefined : "Resource Cost per Sprint"),
     config,
   });
   explanations.governance = governance.explanation;
+
+  const epicStories = isEpic ? lookup.expectedStories : null;
+  const epicSpPerStory =
+    isEpic && lookup.expectedStories
+      ? Math.round(lookup.totalSp / lookup.expectedStories)
+      : null;
+  const epicSummary =
+    isEpic && lookup.expectedStories
+      ? `Split into ${lookup.expectedStories} stories of ~${epicSpPerStory} SP each`
+      : null;
+
+  const costOrNull = <T,>(value: T): T | null => (isEpic ? null : value);
 
   return {
     complexityIndex: complexity.index,
@@ -163,9 +216,16 @@ export function calculateEstimate(
     effectiveTshirt,
     baselineSp,
     selectedSp,
+    optimisticSp,
+    pessimisticSp,
+    governedTotalSp: selectedSp,
     qaShare: split.qaShare,
     devSp: split.devSp,
     qaSp: split.qaSp,
+    refDevPd: split.refDevPd,
+    refQaPd: split.refQaPd,
+    refTotalPd: round2(split.refDevPd + split.refQaPd),
+    complexityMultiplier: effort.complexityMultiplier,
     devCapacity: devLevel.capacitySpPerSprint,
     qaCapacity: qaLevel.capacitySpPerSprint,
     aiAdjustedDevCapacity: aiDevCapacity,
@@ -174,6 +234,10 @@ export function calculateEstimate(
     requiredQa: plan.requiredQa,
     plannedDev: plan.plannedDev,
     plannedQa: plan.plannedQa,
+    plannedResources,
+    utilisation,
+    applicability: utilisation < 100 ? "Partial team" : "Full team",
+    selectedRate,
     devSprints: plan.devSprints,
     qaSprints: plan.qaSprints,
     calculatedSprints: plan.calculatedSprints,
@@ -183,16 +247,23 @@ export function calculateEstimate(
     adjustedQaEffortPd: effort.adjustedQaEffortPd,
     adjustedTotalEffortPd: effort.adjustedTotalEffortPd,
     blendedDailyRate: blended.rate,
-    effortBasedCost,
+    effortBasedCost: costOrNull(effortBasedNumeric),
     baselineResourceSprints: economics.baselineResourceSprints,
     aiAdjustedResourceSprints: economics.aiAdjustedResourceSprints,
     baselineDeliveryCost: economics.baselineDeliveryCost,
     aiAdjustedDeliveryCost: economics.aiAdjustedDeliveryCost,
     estimatedAiCostAvoidance: economics.estimatedAiCostAvoidance,
+    aiAdjustedTotalCost: economics.aiAdjustedTotalCost,
     aiCostSavingPct: economics.aiCostSavingPct,
+    costApplicability: economics.costApplicability,
     confidence: confidence.confidence,
     readinessScore: readiness.score,
+    dorStatus: readiness.status,
+    deliveryFlag: governance.deliveryFlag,
     governanceDecision: governance.decision,
+    epicStories,
+    epicSpPerStory,
+    epicSummary,
     currency: input.currency,
     explanations,
   };

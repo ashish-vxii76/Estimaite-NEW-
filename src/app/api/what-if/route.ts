@@ -13,7 +13,14 @@ const schema = z.object({
     maxDev: z.number().int().min(1),
     maxQa: z.number().int().min(1),
   }),
-  objective: z.enum(["LOWEST_COST", "FASTEST_DELIVERY", "CHEAPEST_WITHIN_N_SPRINTS"]),
+  objective: z.enum([
+    "LOWEST_COST",
+    "FEWEST_SPRINTS",
+    "FASTEST_DELIVERY",
+    "LEAST_EFFORT",
+    "BEST_VALUE",
+    "CHEAPEST_WITHIN_N_SPRINTS",
+  ]),
   maxSprints: z.number().optional(),
 });
 

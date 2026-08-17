@@ -38,10 +38,11 @@ export async function getPortfolio() {
       status: estimate.status,
       workItemType: estimate.workItemType,
       governanceDecision: result?.governanceDecision ?? "—",
+      deliveryFlag: result?.deliveryFlag ?? result?.governanceDecision ?? "—",
       effectiveTshirt: result?.effectiveTshirt ?? "—",
       selectedSp: result?.selectedSp ?? null,
-      aiAdjustedDeliveryCost: result?.aiAdjustedDeliveryCost ?? 0,
-      baselineDeliveryCost: result?.baselineDeliveryCost ?? 0,
+      aiAdjustedDeliveryCost: result?.aiAdjustedDeliveryCost ?? null,
+      baselineDeliveryCost: result?.baselineDeliveryCost ?? null,
       adjustedTotalEffortPd: result?.adjustedTotalEffortPd ?? 0,
       currency: result?.currency ?? estimate.currency,
       hasActuals: Boolean(estimate.actuals),
@@ -52,6 +53,7 @@ export async function getPortfolio() {
   const rollup = rollupPortfolio(
     calculated.map((row) => ({
       governanceDecision: row.governanceDecision,
+      deliveryFlag: row.deliveryFlag,
       effectiveTshirt: row.effectiveTshirt,
       aiAdjustedDeliveryCost: row.aiAdjustedDeliveryCost,
       baselineDeliveryCost: row.baselineDeliveryCost,

@@ -11,12 +11,16 @@ import type { EstimateCalculationResult } from "@/domain/estimation/types";
 const STEPS = [
   "Work Item",
   "Definition of Ready",
+  "Scope",
   "Complexity",
-  "Team & Resources",
-  "AI & Planning",
-  "Costing",
-  "Results",
-  "Review & Approval",
+  "Costing & Commercial Basis",
+  "Resource & Planning",
+  "Automated Delivery Estimate",
+  "Cost Method & Estimation",
+  "Review & Override",
+  "Final Governed Summary",
+  "Actuals & Variance",
+  "Scenario / Stance / Effort",
 ];
 
 type Team = {
@@ -67,9 +71,16 @@ export function EstimateWizard({
     description: (initial?.description as string) ?? "",
     teamId: (initial?.teamId as string) ?? teams[0]?.id ?? "",
     requester: (initial?.requester as string) ?? "Alex Requester",
+    project: (initial?.project as string) ?? "",
+    programme: (initial?.programme as string) ?? "",
+    release: (initial?.release as string) ?? "",
+    jiraId: (initial?.jiraId as string) ?? "",
     stance: (initial?.stance as string) ?? "NEUTRAL",
     planningMode: (initial?.planningMode as string) ?? "RESOURCE_CONSTRAINED",
-    costingModel: (initial?.costingModel as string) ?? "RESOURCE_SPRINT",
+    costingModel: "RESOURCE_SPRINT",
+    costingBasis: "TEAM",
+    costMethod: "Resource Cost per Sprint",
+    projectOverrideRate: 0,
     currency: (initial?.currency as string) ?? teams[0]?.currency ?? "CHF",
     devResourceLevel: (initial?.devResourceLevel as string) ?? "intermediate",
     qaResourceLevel: (initial?.qaResourceLevel as string) ?? "experienced",
@@ -91,6 +102,7 @@ export function EstimateWizard({
       DEFAULT_READINESS_CRITERIA.map((c) => [c.id, "YES"]),
     ) as Record<string, string>,
     locationId: locations[0]?.id ?? "",
+    locationName: locations[0]?.name ?? "",
   });
 
   useEffect(() => {
@@ -114,9 +126,18 @@ export function EstimateWizard({
       description: form.description,
       teamId: form.teamId,
       requester: form.requester,
+      project: form.project,
+      programme: form.programme,
+      release: form.release,
+      jiraId: form.jiraId,
       stance: form.stance,
       planningMode: form.planningMode,
-      costingModel: form.costingModel,
+      costingModel: "RESOURCE_SPRINT",
+      costingBasis: form.workItemType === "EPIC" ? undefined : form.costingBasis,
+      locationName: form.costingBasis === "LOCATION" ? form.locationName : "",
+      costMethod: form.workItemType === "EPIC" ? "" : form.costMethod,
+      projectOverrideRate:
+        form.workItemType === "EPIC" || !form.projectOverrideRate ? null : form.projectOverrideRate,
       currency: form.currency,
       devResourceLevel: form.devResourceLevel,
       qaResourceLevel: form.qaResourceLevel,
@@ -125,7 +146,7 @@ export function EstimateWizard({
       availableDev: form.availableDev,
       availableQa: form.availableQa,
       targetSprints: form.targetSprints,
-      otherFixedCost: form.otherFixedCost,
+      otherFixedCost: form.workItemType === "EPIC" ? 0 : form.otherFixedCost,
       complexityScores: Object.entries(form.scores).map(([dimensionId, score]) => ({
         dimensionId,
         score,
@@ -248,6 +269,7 @@ export function EstimateWizard({
         </span>
         <span>Confidence {result?.confidence ?? "—"}</span>
         <span>Decision {result?.governanceDecision ?? "—"}</span>
+        <span>Flag {result?.deliveryFlag ?? "—"}</span>
       </div>
 
       <ol className="flex flex-wrap gap-2 text-xs">
@@ -270,7 +292,18 @@ export function EstimateWizard({
           <Field label="Work item type">
             <select
               value={form.workItemType}
-              onChange={(e) => setForm({ ...form, workItemType: e.target.value })}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  workItemType: e.target.value,
+                  ...(e.target.value === "EPIC"
+                    ? { otherFixedCost: 0, projectOverrideRate: 0, costMethod: "", costingBasis: "" }
+                    : {
+                        costingBasis: form.costingBasis || "TEAM",
+                        costMethod: "Resource Cost per Sprint",
+                      }),
+                })
+              }
             >
               <option value="ISSUE">Issue / Story</option>
               <option value="EPIC">Epic ROM</option>
@@ -313,7 +346,7 @@ export function EstimateWizard({
       {step === 1 && (
         <section className="card space-y-3 p-5">
           <p className="text-sm text-[var(--muted)]">
-            Yes / Partial / No. Low readiness can return DISCOVERY REQUIRED or SPIKE REQUIRED.
+            Yes or No only. Score is the count of Yes (0–5). Fewer than 3 Yes returns Discovery Required.
           </p>
           {DEFAULT_READINESS_CRITERIA.map((c) => (
             <Field key={c.id} label={c.label}>
@@ -323,9 +356,8 @@ export function EstimateWizard({
                   setForm({ ...form, readiness: { ...form.readiness, [c.id]: e.target.value } })
                 }
               >
-                <option>YES</option>
-                <option>PARTIAL</option>
-                <option>NO</option>
+                <option value="YES">Yes</option>
+                <option value="NO">No</option>
               </select>
             </Field>
           ))}
@@ -333,30 +365,112 @@ export function EstimateWizard({
       )}
 
       {step === 2 && (
-        <section className="card space-y-4 p-5">
-          {DEFAULT_CONFIG.complexityDimensions.map((d) => (
-            <label key={d.id} className="block">
-              <div className="flex justify-between text-sm">
-                <span>{d.name}</span>
-                <span className="text-teal-300">{form.scores[d.id]}</span>
-              </div>
-              <p className="text-xs text-[var(--muted)]">{d.guidance}</p>
-              <input
-                type="range"
-                min={1}
-                max={5}
-                value={form.scores[d.id]}
-                onChange={(e) =>
-                  setForm({ ...form, scores: { ...form.scores, [d.id]: Number(e.target.value) } })
-                }
-                className="mt-2 w-full"
-              />
-            </label>
-          ))}
+        <section className="card grid gap-4 p-5 md:grid-cols-2">
+          <Field label="Project">
+            <input value={form.project} onChange={(e) => setForm({ ...form, project: e.target.value })} />
+          </Field>
+          <Field label="Programme">
+            <input
+              value={form.programme}
+              onChange={(e) => setForm({ ...form, programme: e.target.value })}
+            />
+          </Field>
+          <Field label="Release">
+            <input value={form.release} onChange={(e) => setForm({ ...form, release: e.target.value })} />
+          </Field>
+          <Field label="Jira ID">
+            <input value={form.jiraId} onChange={(e) => setForm({ ...form, jiraId: e.target.value })} />
+          </Field>
         </section>
       )}
 
       {step === 3 && (
+        <section className="card space-y-4 p-5">
+          {DEFAULT_CONFIG.complexityDimensions.map((d) => (
+            <Field key={d.id} label={`${d.name} (weight ${d.weight})`}>
+              <select
+                value={form.scores[d.id]}
+                onChange={(e) =>
+                  setForm({ ...form, scores: { ...form.scores, [d.id]: Number(e.target.value) } })
+                }
+              >
+                {(d.options ?? []).map((label, index) => (
+                  <option key={label} value={index + 1}>
+                    {index + 1} — {label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          ))}
+        </section>
+      )}
+
+      {step === 4 && (
+        <section className="card grid gap-4 p-5 md:grid-cols-2">
+          {form.workItemType === "EPIC" ? (
+            <p className="md:col-span-2 text-sm text-amber-200">
+              COST DEFERRED — ROM Epic; cost at Story level. Commercial inputs are cleared.
+            </p>
+          ) : (
+            <>
+              <Field label="Costing basis">
+                <select
+                  value={form.costingBasis}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      costingBasis: e.target.value,
+                      locationName: e.target.value === "TEAM" ? "" : form.locationName,
+                    })
+                  }
+                >
+                  <option value="TEAM">Team</option>
+                  <option value="LOCATION">Location</option>
+                </select>
+              </Field>
+              <Field label="Cost method">
+                <input value={form.costMethod} readOnly />
+              </Field>
+              <Field label="Location rate card">
+                <select
+                  disabled={form.costingBasis !== "LOCATION"}
+                  value={form.costingBasis === "LOCATION" ? form.locationName : ""}
+                  onChange={(e) => {
+                    const loc = locations.find((l) => l.name === e.target.value);
+                    setForm({
+                      ...form,
+                      locationName: e.target.value,
+                      locationId: loc?.id ?? "",
+                    });
+                  }}
+                >
+                  <option value="">Select location</option>
+                  {locations.map((l) => (
+                    <option key={l.id} value={l.name}>
+                      {l.name} — {l.dailyRate} {l.currency}/day
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Project override rate (optional)">
+                <input
+                  type="number"
+                  min={0}
+                  value={form.projectOverrideRate || ""}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      projectOverrideRate: e.target.value === "" ? 0 : Number(e.target.value),
+                    })
+                  }
+                />
+              </Field>
+            </>
+          )}
+        </section>
+      )}
+
+      {step === 5 && (
         <section className="card grid gap-4 p-5 md:grid-cols-2">
           <Field label="Dev seniority">
             <select
@@ -389,32 +503,26 @@ export function EstimateWizard({
               <option value="PESSIMISTIC">Pessimistic (one T-shirt higher)</option>
             </select>
           </Field>
-          <p className="md:col-span-2 text-sm text-[var(--muted)]">
-            Seniority changes capacity and effort, not the story-point estimate.
-          </p>
-        </section>
-      )}
-
-      {step === 4 && (
-        <section className="card grid gap-4 p-5 md:grid-cols-2">
-          <Field label="Dev AI productivity (0–0.5)">
+          <Field label="Dev AI productivity %">
             <input
               type="number"
               min={0}
-              max={0.5}
-              step={0.05}
-              value={form.devAiProductivity}
-              onChange={(e) => setForm({ ...form, devAiProductivity: Number(e.target.value) })}
+              max={100}
+              step={1}
+              value={Math.round(form.devAiProductivity * 100)}
+              onChange={(e) =>
+                setForm({ ...form, devAiProductivity: Number(e.target.value) / 100 })
+              }
             />
           </Field>
-          <Field label="QA AI productivity (0–0.5)">
+          <Field label="QA AI productivity %">
             <input
               type="number"
               min={0}
-              max={0.5}
-              step={0.05}
-              value={form.qaAiProductivity}
-              onChange={(e) => setForm({ ...form, qaAiProductivity: Number(e.target.value) })}
+              max={100}
+              step={1}
+              value={Math.round(form.qaAiProductivity * 100)}
+              onChange={(e) => setForm({ ...form, qaAiProductivity: Number(e.target.value) / 100 })}
             />
           </Field>
           <Field label="Planning mode">
@@ -451,71 +559,53 @@ export function EstimateWizard({
             />
           </Field>
           <p className="md:col-span-2 text-sm text-[var(--muted)]">
-            AI never silently uplifts an approved estimate. Leave at 0 unless explicitly assumed.
+            AI is 0–100% in the form and 0–1 in the engine. It increases capacity; it never reduces SP.
           </p>
         </section>
       )}
 
-      {step === 5 && (
-        <section className="card grid gap-4 p-5 md:grid-cols-2">
-          <Field label="Commercial model">
-            <select
-              value={form.costingModel}
-              onChange={(e) => setForm({ ...form, costingModel: e.target.value })}
-            >
-              <option value="RESOURCE_SPRINT">Resource cost per sprint</option>
-              <option value="TEAM_SPRINT">Team cost per sprint</option>
-            </select>
-          </Field>
-          <Field label="Location (100% allocation)">
-            <select
-              value={form.locationId}
-              onChange={(e) => setForm({ ...form, locationId: e.target.value })}
-            >
-              {locations.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name} — {l.dailyRate} {l.currency}/day
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Other / fixed cost">
-            <input
-              type="number"
-              min={0}
-              value={form.otherFixedCost}
-              onChange={(e) => setForm({ ...form, otherFixedCost: Number(e.target.value) })}
-            />
-          </Field>
-          <p className="md:col-span-2 text-sm text-[var(--muted)]">
-            Changing a commercial rate does not alter complexity, T-shirt, SP or engineering effort.
-          </p>
-        </section>
-      )}
-
-      {step >= 6 && result && (
+      {(step === 6 || step === 7 || step === 9 || step === 11) && result && (
         <section className="space-y-4">
           <div className="grid gap-4 md:grid-cols-4">
+            <Stat label="Index" value={String(result.complexityIndex)} />
             <Stat label="Assessed / effective" value={`${result.assessedTshirt} → ${result.effectiveTshirt}`} />
             <Stat label="Selected SP" value={String(result.selectedSp)} />
             <Stat label="Dev / QA SP" value={`${result.devSp} / ${result.qaSp}`} />
             <Stat label="Final sprints" value={String(result.finalSprints)} />
+            <Stat label="Utilisation" value={`${result.utilisation}%`} />
             <Stat label="Baseline cost" value={formatMoney(result.baselineDeliveryCost, result.currency)} />
             <Stat label="AI-adjusted cost" value={formatMoney(result.aiAdjustedDeliveryCost, result.currency)} />
             <Stat
               label="AI avoidance"
               value={formatMoney(result.estimatedAiCostAvoidance, result.currency)}
             />
-            <Stat label="Governance" value={result.governanceDecision} />
+            <Stat label="Effort PD" value={String(result.adjustedTotalEffortPd)} />
+            <Stat label="Blended daily" value={String(result.blendedDailyRate)} />
+            <Stat label="Effort-based cost" value={formatMoney(result.effortBasedCost, result.currency)} />
+            <Stat label="Delivery flag" value={result.deliveryFlag} />
+            <Stat label="Final decision" value={result.governanceDecision} />
+            <Stat label="DoR" value={`${result.readinessScore} / ${result.dorStatus}`} />
+            <Stat label="Opt / Pes SP" value={`${result.optimisticSp} / ${result.pessimisticSp}`} />
           </div>
+          {result.epicSummary ? <p className="text-sm text-teal-200">{result.epicSummary}</p> : null}
+          {result.costApplicability !== "OK" ? (
+            <p className="text-sm text-amber-200">{result.costApplicability}</p>
+          ) : null}
           <div className="flex flex-wrap gap-2">
             <StatusBadge status={result.confidence} />
+            <StatusBadge status={result.deliveryFlag} />
             <StatusBadge status={result.governanceDecision} />
           </div>
-          <p className="text-sm text-[var(--muted)]">
-            SP-equivalent reference effort {result.referenceEffortPd} PD vs resource-aware effort{" "}
-            {result.adjustedTotalEffortPd} PD. These models are not required to match.
-          </p>
+          {step === 7 && form.workItemType !== "EPIC" ? (
+            <Field label="Other / fixed cost">
+              <input
+                type="number"
+                min={0}
+                value={form.otherFixedCost}
+                onChange={(e) => setForm({ ...form, otherFixedCost: Number(e.target.value) })}
+              />
+            </Field>
+          ) : null}
           <div className="space-y-2">
             {Object.values(result.explanations).map((ex) => (
               <ExplanationPanel key={ex.title} {...ex} />
@@ -524,7 +614,7 @@ export function EstimateWizard({
         </section>
       )}
 
-      {step === 7 && (
+      {step === 8 && (
         <section className="card space-y-4 p-5">
           <p className="text-sm text-[var(--muted)]">
             DRAFT → READY FOR REVIEW → REVIEWED → APPROVED. Automated SP stays immutable when
@@ -562,6 +652,13 @@ export function EstimateWizard({
         </section>
       )}
 
+      {step === 10 && (
+        <section className="card p-5 text-sm text-[var(--muted)]">
+          Capture actuals after delivery from the estimate record. Variance is actual versus the
+          snapshot, not a live recalculation.
+        </section>
+      )}
+
       <div className="flex justify-between">
         <button
           className="rounded-lg border border-[var(--line)] px-4 py-2"
@@ -578,9 +675,9 @@ export function EstimateWizard({
           >
             {step === 5 ? "Calculate" : "Continue"}
           </button>
-        ) : step === 6 ? (
-          <button className="rounded-lg bg-teal-400 px-4 py-2 text-slate-950" onClick={() => setStep(7)}>
-            Review & approval
+        ) : step < 11 ? (
+          <button className="rounded-lg bg-teal-400 px-4 py-2 text-slate-950" onClick={() => setStep(step + 1)}>
+            Continue
           </button>
         ) : null}
       </div>

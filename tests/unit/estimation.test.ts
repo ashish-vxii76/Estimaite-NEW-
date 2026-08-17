@@ -16,9 +16,12 @@ function scores(fill: number, overrides: Record<string, number> = {}) {
   }));
 }
 
-function ready(answer: "YES" | "PARTIAL" | "NO" = "YES") {
+function ready(yesCount: number) {
   return ["business", "acceptance", "dependencies", "architecture", "test"].map(
-    (criterionId) => ({ criterionId, answer }),
+    (criterionId, index) => ({
+      criterionId,
+      answer: (index < yesCount ? "YES" : "NO") as "YES" | "NO",
+    }),
   );
 }
 
@@ -26,7 +29,7 @@ function baseInput(partial: Partial<EstimateCalculationInput> = {}): EstimateCal
   return {
     workItemType: "ISSUE",
     complexityScores: scores(3),
-    readiness: ready("YES"),
+    readiness: ready(5),
     stance: "NEUTRAL",
     devResourceLevelId: "intermediate",
     qaResourceLevelId: "experienced",
@@ -46,29 +49,32 @@ function baseInput(partial: Partial<EstimateCalculationInput> = {}): EstimateCal
         locationName: "United Kingdom",
         allocationPct: 100,
         dailyRate: 650,
-        currency: "GBP",
+        currency: "CHF",
       },
     ],
-    currency: "GBP",
+    currency: "CHF",
     ...partial,
   };
 }
 
 describe("complexity scoring", () => {
-  it("uses SUM(score x weight) / SUM(maxScore x weight)", () => {
-    const result = calculateComplexityIndex(scores(5), DEFAULT_CONFIG);
-    expect(result.index).toBe(1);
-    const mid = calculateComplexityIndex(scores(1), DEFAULT_CONFIG);
-    expect(mid.index).toBe(0.2);
+  it("uses round(20 × Σ(score × weight), 0) with weights summing to 1", () => {
+    const allFive = calculateComplexityIndex(scores(5), DEFAULT_CONFIG);
+    expect(allFive.index).toBe(100);
+    const allOne = calculateComplexityIndex(scores(1), DEFAULT_CONFIG);
+    expect(allOne.index).toBe(20);
+    const caseA = calculateComplexityIndex(scores(4, { functional: 3, data: 3 }), DEFAULT_CONFIG);
+    expect(caseA.index).toBe(75);
   });
 
-  it("maps index to configured T-shirt bands", () => {
-    expect(mapIndexToTshirt(0.1, DEFAULT_CONFIG)).toBe("XS");
-    expect(mapIndexToTshirt(0.2, DEFAULT_CONFIG)).toBe("S");
-    expect(mapIndexToTshirt(0.4, DEFAULT_CONFIG)).toBe("M");
-    expect(mapIndexToTshirt(0.55, DEFAULT_CONFIG)).toBe("L");
-    expect(mapIndexToTshirt(0.7, DEFAULT_CONFIG)).toBe("XL");
-    expect(mapIndexToTshirt(0.9, DEFAULT_CONFIG)).toBe("XXL");
+  it("maps index to inclusive T-shirt bands", () => {
+    expect(mapIndexToTshirt(20, DEFAULT_CONFIG)).toBe("XS");
+    expect(mapIndexToTshirt(21, DEFAULT_CONFIG)).toBe("S");
+    expect(mapIndexToTshirt(36, DEFAULT_CONFIG)).toBe("M");
+    expect(mapIndexToTshirt(51, DEFAULT_CONFIG)).toBe("L");
+    expect(mapIndexToTshirt(66, DEFAULT_CONFIG)).toBe("XL");
+    expect(mapIndexToTshirt(81, DEFAULT_CONFIG)).toBe("XXL");
+    expect(mapIndexToTshirt(75, DEFAULT_CONFIG)).toBe("XL");
   });
 });
 
@@ -128,22 +134,41 @@ describe("calculateEstimate principles", () => {
     expect(result.selectedSp).toBe(13);
   });
 
-  it("uses team sprint rate without proration", () => {
+  it("never prorates the selected resource-sprint rate by utilisation", () => {
     const result = calculateEstimate(
       baseInput({
-        costingModel: "TEAM_SPRINT",
         availableDev: 1,
         availableQa: 1,
       }),
       DEFAULT_CONFIG,
     );
-    expect(result.aiAdjustedDeliveryCost).toBe(result.finalSprints * 12000);
+    expect(result.utilisation).toBe(20);
+    expect(result.selectedRate).toBe(4000);
+    expect(result.baselineDeliveryCost).toBe(
+      result.plannedResources * result.finalSprints * result.selectedRate,
+    );
   });
 
   it("flags discovery when readiness is low", () => {
-    const result = calculateEstimate(baseInput({ readiness: ready("NO") }), DEFAULT_CONFIG);
+    const result = calculateEstimate(baseInput({ readiness: ready(0) }), DEFAULT_CONFIG);
+    expect(result.dorStatus).toBe("Discovery Required");
     expect(result.governanceDecision).toBe("DISCOVERY REQUIRED");
-    expect(result.confidence).toBe("LOW");
+    expect(result.confidence).toBe("Low");
+  });
+
+  it("defers commercial cost on epics", () => {
+    const result = calculateEstimate(
+      baseInput({
+        workItemType: "EPIC",
+        complexityScores: scores(4, { applications: 3 }),
+      }),
+      DEFAULT_CONFIG,
+    );
+    expect(result.assessedTshirt).toBe("XL");
+    expect(result.selectedSp).toBe(120);
+    expect(result.baselineDeliveryCost).toBeNull();
+    expect(result.aiAdjustedDeliveryCost).toBeNull();
+    expect(result.costApplicability).toContain("COST DEFERRED");
   });
 });
 
@@ -154,6 +179,7 @@ describe("portfolio roll-up", () => {
       [
         {
           governanceDecision: "READY",
+          deliveryFlag: "READY",
           effectiveTshirt: "M",
           aiAdjustedDeliveryCost: 9361,
           baselineDeliveryCost: 10000,
@@ -161,6 +187,7 @@ describe("portfolio roll-up", () => {
         },
         {
           governanceDecision: "SPLIT",
+          deliveryFlag: "SPLIT",
           effectiveTshirt: "XL",
           aiAdjustedDeliveryCost: 5000,
           baselineDeliveryCost: 5000,
@@ -168,9 +195,10 @@ describe("portfolio roll-up", () => {
         },
         {
           governanceDecision: "DECOMPOSE",
+          deliveryFlag: "DECOMPOSE",
           effectiveTshirt: "XL",
-          aiAdjustedDeliveryCost: 0,
-          baselineDeliveryCost: 0,
+          aiAdjustedDeliveryCost: null,
+          baselineDeliveryCost: null,
           adjustedTotalEffortPd: 67.2,
         },
       ],
@@ -186,6 +214,13 @@ describe("portfolio roll-up", () => {
     expect(result.costByTshirt.M).toBe(9361);
     expect(result.costByTshirt.XL).toBe(5000);
     expect(result.budgetRag).toBe("GREEN");
+  });
+
+  it("marks AMBER when total is within 10% over budget", async () => {
+    const { budgetStatus } = await import("@/domain/estimation/portfolio");
+    expect(budgetStatus(100, 100).rag).toBe("GREEN");
+    expect(budgetStatus(105, 100).rag).toBe("AMBER");
+    expect(budgetStatus(111, 100).rag).toBe("RED");
   });
 });
 

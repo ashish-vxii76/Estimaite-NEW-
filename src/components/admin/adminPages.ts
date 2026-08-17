@@ -7,5 +7,6 @@ export const ADMIN_PAGES = [
   ["/admin/complexity-mapping", "5. Complexity Mapping"],
   ["/admin/cost-mapping", "6. Cost Mapping"],
   ["/admin/team-cost-mapping", "7. Team Cost Mapping"],
-  ["/admin/estimation-config", "8. Estimation Config"],
+  ["/admin/daily-rates", "8. Location Daily Rates"],
+  ["/admin/estimation-config", "9. Estimation Config"],
 ] as const;

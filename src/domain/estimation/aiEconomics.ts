@@ -1,32 +1,52 @@
 import { round2 } from "./math";
-import type { CostingModel, Explanation } from "./types";
-import { calculateCommercialCost } from "./costing";
+import type { Explanation } from "./types";
 import { calculateRequiredSprints } from "./planning";
 
 export function calculateAiEconomics(input: {
-  model: CostingModel;
+  isEpic: boolean;
   plannedDev: number;
   plannedQa: number;
   devSp: number;
   qaSp: number;
   baseDevCapacity: number;
   baseQaCapacity: number;
-  aiDevCapacity: number;
-  aiQaCapacity: number;
-  resourceSprintRate: number;
-  teamSprintRate: number;
+  finalSprints: number;
+  selectedRate: number;
+  refDevPd: number;
+  refQaPd: number;
+  devAiPct: number;
+  qaAiPct: number;
   otherFixedCost: number;
-  planningMode: "RESOURCE_CONSTRAINED" | "SPRINT_CONSTRAINED";
-  targetSprints: number;
 }): {
-  baselineResourceSprints: number;
-  aiAdjustedResourceSprints: number;
-  baselineDeliveryCost: number;
-  aiAdjustedDeliveryCost: number;
-  estimatedAiCostAvoidance: number;
-  aiCostSavingPct: number;
+  baselineResourceSprints: number | null;
+  aiAdjustedResourceSprints: number | null;
+  baselineDeliveryCost: number | null;
+  aiAdjustedDeliveryCost: number | null;
+  estimatedAiCostAvoidance: number | null;
+  aiAdjustedTotalCost: number | null;
+  aiCostSavingPct: number | null;
+  costApplicability: string;
   explanation: Explanation;
 } {
+  if (input.isEpic) {
+    return {
+      baselineResourceSprints: null,
+      aiAdjustedResourceSprints: null,
+      baselineDeliveryCost: null,
+      aiAdjustedDeliveryCost: null,
+      estimatedAiCostAvoidance: null,
+      aiAdjustedTotalCost: null,
+      aiCostSavingPct: null,
+      costApplicability: "COST DEFERRED — ROM Epic; cost at Story level",
+      explanation: {
+        title: "Epic cost deferral",
+        summary: "Cost deferred to Story level",
+        steps: ["R6: an Epic is sized and governed, but commercial cost is blank until decomposed."],
+      },
+    };
+  }
+
+  const plannedResources = input.plannedDev + input.plannedQa;
   const baselineDuration = calculateRequiredSprints({
     devSP: input.devSp,
     qaSP: input.qaSp,
@@ -35,67 +55,39 @@ export function calculateAiEconomics(input: {
     devCapacity: input.baseDevCapacity,
     qaCapacity: input.baseQaCapacity,
   });
-  const aiDuration = calculateRequiredSprints({
-    devSP: input.devSp,
-    qaSP: input.qaSp,
-    devResources: input.plannedDev,
-    qaResources: input.plannedQa,
-    devCapacity: input.aiDevCapacity,
-    qaCapacity: input.aiQaCapacity,
-  });
-
-  const baselineSprints =
-    input.planningMode === "SPRINT_CONSTRAINED"
-      ? input.targetSprints
-      : baselineDuration.finalSprints;
-  const aiSprints =
-    input.planningMode === "SPRINT_CONSTRAINED"
-      ? input.targetSprints
-      : aiDuration.finalSprints;
-
-  const baseline = calculateCommercialCost({
-    model: input.model,
-    plannedDev: input.plannedDev,
-    plannedQa: input.plannedQa,
-    sprints: baselineSprints,
-    resourceSprintRate: input.resourceSprintRate,
-    teamSprintRate: input.teamSprintRate,
-    otherFixedCost: input.otherFixedCost,
-  });
-  const adjusted = calculateCommercialCost({
-    model: input.model,
-    plannedDev: input.plannedDev,
-    plannedQa: input.plannedQa,
-    sprints: aiSprints,
-    resourceSprintRate: input.resourceSprintRate,
-    teamSprintRate: input.teamSprintRate,
-    otherFixedCost: input.otherFixedCost,
-  });
-
-  const estimatedAiCostAvoidance = round2(
-    baseline.deliveryCost - adjusted.deliveryCost,
-  );
-  const aiCostSavingPct =
-    baseline.deliveryCost === 0
-      ? 0
-      : round2((estimatedAiCostAvoidance / baseline.deliveryCost) * 100);
+  const baselineResourceSprints = plannedResources * baselineDuration.finalSprints;
+  const baselineDeliveryCost = baselineResourceSprints * input.selectedRate;
+  const refTotal = input.refDevPd + input.refQaPd;
+  const effortRatio =
+    refTotal === 0
+      ? 1
+      : (input.refDevPd / (1 + input.devAiPct) + input.refQaPd / (1 + input.qaAiPct)) / refTotal;
+  const wholeSprintRs = plannedResources * input.finalSprints;
+  const continuousRs = baselineResourceSprints * effortRatio;
+  const aiResourceSprints = Math.min(wholeSprintRs, continuousRs);
+  const aiAdjustedDeliveryCost = aiResourceSprints * input.selectedRate;
+  const estimatedAiCostAvoidance = baselineDeliveryCost - aiAdjustedDeliveryCost;
+  const aiAdjustedTotalCost = aiAdjustedDeliveryCost + input.otherFixedCost;
 
   return {
-    baselineResourceSprints: baseline.resourceSprints,
-    aiAdjustedResourceSprints: adjusted.resourceSprints,
-    baselineDeliveryCost: baseline.deliveryCost,
-    aiAdjustedDeliveryCost: adjusted.deliveryCost,
-    estimatedAiCostAvoidance,
-    aiCostSavingPct,
+    baselineResourceSprints: round2(baselineResourceSprints),
+    aiAdjustedResourceSprints: round2(aiResourceSprints),
+    baselineDeliveryCost: round2(baselineDeliveryCost),
+    aiAdjustedDeliveryCost: round2(aiAdjustedDeliveryCost),
+    estimatedAiCostAvoidance: round2(estimatedAiCostAvoidance),
+    aiAdjustedTotalCost: round2(aiAdjustedTotalCost),
+    aiCostSavingPct:
+      baselineDeliveryCost === 0 ? 0 : round2((estimatedAiCostAvoidance / baselineDeliveryCost) * 100),
+    costApplicability: "OK",
     explanation: {
-      title: "AI-Adjusted Economics",
-      summary: `Avoidance ${estimatedAiCostAvoidance} (${aiCostSavingPct}%)`,
+      title: "AI-Adjusted Economics (MIN rule)",
+      summary: `AI-adjusted ${round2(aiAdjustedDeliveryCost)}`,
       steps: [
-        "AI savings are applied once: via capacity → duration/resource-sprints → commercial cost.",
-        "AI is not also subtracted from baseline SP.",
-        `Baseline sprints (no AI capacity) = ${baselineSprints}; cost = ${baseline.deliveryCost}`,
-        `AI-adjusted sprints = ${aiSprints}; cost = ${adjusted.deliveryCost}`,
-        `Estimated AI Cost Avoidance = ${baseline.deliveryCost} − ${adjusted.deliveryCost} = ${estimatedAiCostAvoidance}`,
+        `Baseline sprints (no AI) = ${baselineDuration.finalSprints}; resource-sprints = ${plannedResources} × ${baselineDuration.finalSprints} = ${baselineResourceSprints}`,
+        `Baseline cost = ${baselineResourceSprints} × ${input.selectedRate} = ${round2(baselineDeliveryCost)}`,
+        `effort_ratio = (refDevPd/(1+DevAI) + refQaPd/(1+QaAI)) / (refDevPd+refQaPd) = ${effortRatio}`,
+        `ai_resource_sprints = MIN(${wholeSprintRs}, ${continuousRs}) = ${aiResourceSprints}`,
+        `AI-adjusted cost = ${aiResourceSprints} × ${input.selectedRate} = ${round2(aiAdjustedDeliveryCost)}`,
       ],
     },
   };

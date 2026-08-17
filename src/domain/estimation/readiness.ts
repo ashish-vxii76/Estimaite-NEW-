@@ -1,7 +1,4 @@
-import type { Explanation, ReadinessInput } from "./types";
-import { round4 } from "./math";
-
-const ANSWER_VALUE = { YES: 1, PARTIAL: 0.5, NO: 0 } as const;
+import type { DorStatus, Explanation, ReadinessInput } from "./types";
 
 export const DEFAULT_READINESS_CRITERIA = [
   { id: "business", label: "Business requirements understood" },
@@ -13,23 +10,29 @@ export const DEFAULT_READINESS_CRITERIA = [
 
 export function calculateReadiness(readiness: ReadinessInput[]): {
   score: number;
+  status: DorStatus;
   explanation: Explanation;
 } {
   if (readiness.length === 0) {
     throw new Error("Definition of Ready answers are required");
   }
-  const total = readiness.reduce((sum, item) => sum + ANSWER_VALUE[item.answer], 0);
-  const score = round4(total / readiness.length);
+  const score = readiness.filter((item) => item.answer === "YES").length;
+  const status: DorStatus =
+    score === 5
+      ? "Ready for Estimation"
+      : score >= 3
+        ? "Estimate with Assumptions"
+        : "Discovery Required";
   return {
     score,
+    status,
     explanation: {
       title: "Definition of Ready",
-      summary: `Readiness score ${score}`,
+      summary: `${score}/5 — ${status}`,
       steps: [
-        ...readiness.map(
-          (r) => `${r.criterionId}: ${r.answer} → ${ANSWER_VALUE[r.answer]}`,
-        ),
-        `Average = ${total} / ${readiness.length} = ${score}`,
+        ...readiness.map((r) => `${r.criterionId}: ${r.answer}`),
+        `DoR Score = count of Yes = ${score}`,
+        `DoR Status = ${status}`,
       ],
     },
   };

@@ -53,7 +53,11 @@ export default async function CalibrationPage() {
                 <td>{row.currentDaysPerPoint.toFixed(2)}</td>
                 <td>{row.avgActualEstRatio == null ? "" : row.avgActualEstRatio.toFixed(2)}</td>
                 <td className="font-medium text-teal-200">
-                  {row.suggestedDaysPerPoint == null ? "" : row.suggestedDaysPerPoint.toFixed(2)}
+                  {row.samples < 3 || row.suggestedDaysPerPoint == null
+                    ? row.samples < 3
+                      ? `Insufficient data — ${row.samples} of 3`
+                      : ""
+                    : row.suggestedDaysPerPoint.toFixed(2)}
                 </td>
                 <td>{row.samples}</td>
               </tr>

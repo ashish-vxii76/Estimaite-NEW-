@@ -15,6 +15,14 @@ export function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+export function round3(value: number): number {
+  return Math.round(value * 1000) / 1000;
+}
+
+export function round0(value: number): number {
+  return Math.round(value);
+}
+
 export function round4(value: number): number {
   return Math.round(value * 10000) / 10000;
 }

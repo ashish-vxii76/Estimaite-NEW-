@@ -14,8 +14,10 @@ export function EstimationConfigForm({ config }: { config: EstimationConfig }) {
     fullTeamRateUtilisationWarning: config.fullTeamRateUtilisationWarning,
     aiMinPct: config.aiMinPct,
     aiMaxPct: config.aiMaxPct,
-    readinessDiscoveryMax: config.readinessDiscoveryMax,
-    readinessSpikeMax: config.readinessSpikeMax,
+    dashboardMinEstimates: config.dashboardMinEstimates,
+    calibrationMinSamples: config.calibrationMinSamples,
+    indexReviewMin: config.indexReviewMin,
+    indexSplitMin: config.indexSplitMin,
     xs: config.complexityMultipliers.XS,
     s: config.complexityMultipliers.S,
     m: config.complexityMultipliers.M,
@@ -41,8 +43,10 @@ export function EstimationConfigForm({ config }: { config: EstimationConfig }) {
           fullTeamRateUtilisationWarning: form.fullTeamRateUtilisationWarning,
           aiMinPct: form.aiMinPct,
           aiMaxPct: form.aiMaxPct,
-          readinessDiscoveryMax: form.readinessDiscoveryMax,
-          readinessSpikeMax: form.readinessSpikeMax,
+          dashboardMinEstimates: form.dashboardMinEstimates,
+          calibrationMinSamples: form.calibrationMinSamples,
+          indexReviewMin: form.indexReviewMin,
+          indexSplitMin: form.indexSplitMin,
           complexityMultipliers: {
             XS: form.xs,
             S: form.s,
@@ -92,8 +96,10 @@ export function EstimationConfigForm({ config }: { config: EstimationConfig }) {
         {num("fullTeamRateUtilisationWarning", "Full team rate utilisation warning (ratio)")}
         {num("aiMinPct", "AI productivity minimum")}
         {num("aiMaxPct", "AI productivity maximum")}
-        {num("readinessDiscoveryMax", "Readiness: discovery required below")}
-        {num("readinessSpikeMax", "Readiness: spike required below")}
+        {num("dashboardMinEstimates", "Dashboard min estimates")}
+        {num("calibrationMinSamples", "Calibration min samples / level")}
+        {num("indexReviewMin", "Index review minimum")}
+        {num("indexSplitMin", "Index split minimum")}
       </section>
       <section className="card grid gap-4 p-5 md:grid-cols-3">
         <h2 className="md:col-span-3 font-medium">Complexity effort multipliers</h2>
