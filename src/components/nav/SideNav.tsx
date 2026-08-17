@@ -1,0 +1,266 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { ChevronRight, Menu, Plus, X } from "lucide-react";
+import {
+  NAV_TREE,
+  canCreate,
+  canSeeNav,
+  containsActive,
+  isNodeActive,
+  type NavNode,
+} from "@/components/nav/navConfig";
+
+export function SideNav({
+  role,
+  userName,
+  userRole,
+  signOut,
+}: {
+  role: string;
+  userName?: string | null;
+  userRole?: string | null;
+  signOut: React.ReactNode;
+}) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const search = searchParams.toString() ? `?${searchParams.toString()}` : "";
+  const [hash, setHash] = useState("");
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [open, setOpen] = useState<Record<string, boolean>>({ estimates: true });
+
+  useEffect(() => {
+    const apply = () => setHash(window.location.hash);
+    apply();
+    window.addEventListener("hashchange", apply);
+    return () => window.removeEventListener("hashchange", apply);
+  }, [pathname]);
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname, search, hash]);
+
+  const tree = useMemo(() => filterTree(NAV_TREE, role), [role]);
+
+  useEffect(() => {
+    setOpen((current) => {
+      const next = { ...current };
+      const visit = (nodes: NavNode[]) => {
+        for (const node of nodes) {
+          if (node.children?.length && containsActive(node, pathname, search, hash)) {
+            next[node.id] = true;
+          }
+          if (node.children) visit(node.children);
+        }
+      };
+      visit(tree);
+      return next;
+    });
+  }, [pathname, search, hash, tree]);
+
+  function toggle(id: string) {
+    setOpen((current) => ({ ...current, [id]: !current[id] }));
+  }
+
+  const nav = (
+    <nav className="mt-6 space-y-0.5 text-sm">
+      {tree.map((node) => (
+        <NavBranch
+          key={node.id}
+          node={node}
+          depth={0}
+          role={role}
+          open={open}
+          toggle={toggle}
+          pathname={pathname}
+          search={search}
+          hash={hash}
+        />
+      ))}
+    </nav>
+  );
+
+  return (
+    <>
+      <header className="flex items-center justify-between border-b border-[var(--line)] px-4 py-3 md:hidden">
+        <p className="text-sm font-medium">Estimaite</p>
+        <button
+          type="button"
+          className="rounded-lg p-2 hover:bg-[var(--panel-2)]"
+          aria-label="Open navigation"
+          onClick={() => setMobileOpen(true)}
+        >
+          <Menu size={18} />
+        </button>
+      </header>
+
+      {mobileOpen ? (
+        <div className="fixed inset-0 z-40 md:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/50"
+            aria-label="Close navigation"
+            onClick={() => setMobileOpen(false)}
+          />
+          <div className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r border-[var(--line)] bg-[var(--panel)] p-4">
+            <div className="flex items-start justify-between gap-3">
+              <Brand />
+              <button
+                type="button"
+                className="rounded-lg p-1 hover:bg-[var(--panel-2)]"
+                aria-label="Close navigation"
+                onClick={() => setMobileOpen(false)}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto">{nav}</div>
+            <UserBlock name={userName} role={userRole} signOut={signOut} />
+          </div>
+        </div>
+      ) : null}
+
+      <aside className="hidden w-72 shrink-0 flex-col border-r border-[var(--line)] bg-[var(--panel)] p-4 md:flex">
+        <Brand />
+        <div className="min-h-0 flex-1 overflow-y-auto">{nav}</div>
+        <UserBlock name={userName} role={userRole} signOut={signOut} />
+      </aside>
+    </>
+  );
+}
+
+function Brand() {
+  return (
+    <Link href="/" className="block px-1">
+      <p className="text-xs uppercase tracking-[0.22em] text-teal-300">Estimaite</p>
+      <h1 className="mt-1 text-lg font-semibold">Estimation Platform</h1>
+      <p className="mt-1 text-xs text-[var(--muted)]">Estimate → Plan → Govern → Measure</p>
+    </Link>
+  );
+}
+
+function UserBlock({
+  name,
+  role,
+  signOut,
+}: {
+  name?: string | null;
+  role?: string | null;
+  signOut: React.ReactNode;
+}) {
+  return (
+    <div className="mt-6 border-t border-[var(--line)] pt-4 text-xs text-[var(--muted)]">
+      <p>{name}</p>
+      <p>{role}</p>
+      {signOut}
+    </div>
+  );
+}
+
+function NavBranch({
+  node,
+  depth,
+  role,
+  open,
+  toggle,
+  pathname,
+  search,
+  hash,
+}: {
+  node: NavNode;
+  depth: number;
+  role: string;
+  open: Record<string, boolean>;
+  toggle: (id: string) => void;
+  pathname: string;
+  search: string;
+  hash: string;
+}) {
+  const children = node.children?.filter((child) => canSeeNav(child, role)) ?? [];
+  const hasChildren = children.length > 0;
+  const isOpen = hasChildren && Boolean(open[node.id]);
+  const active = isNodeActive(node, pathname, search, hash) && !hasChildren;
+  const showCreate = canCreate(node, role);
+  const padding = { paddingLeft: `${8 + depth * 12}px` };
+
+  return (
+    <div>
+      <div
+        className={`group flex items-center gap-0.5 rounded-lg ${
+          active ? "bg-teal-400/15 text-teal-100" : "text-slate-200 hover:bg-[var(--panel-2)]"
+        }`}
+        style={padding}
+      >
+        {hasChildren ? (
+          <button
+            type="button"
+            className="flex min-w-0 flex-1 items-center gap-1 py-1.5 pr-1 text-left"
+            onClick={() => toggle(node.id)}
+            aria-expanded={isOpen}
+          >
+            <ChevronRight
+              size={14}
+              className={`shrink-0 text-[var(--muted)] transition-transform ${isOpen ? "rotate-90" : ""}`}
+            />
+            {node.href && depth > 0 ? (
+              <Link
+                href={node.href}
+                className="min-w-0 flex-1 truncate"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {node.label}
+              </Link>
+            ) : (
+              <span className="min-w-0 flex-1 truncate">{node.label}</span>
+            )}
+          </button>
+        ) : node.href ? (
+          <Link href={node.href} className="min-w-0 flex-1 truncate py-1.5 pr-1">
+            {node.label}
+          </Link>
+        ) : (
+          <span className="min-w-0 flex-1 truncate py-1.5">{node.label}</span>
+        )}
+        {showCreate ? (
+          <Link
+            href={node.createHref!}
+            aria-label={node.createLabel ?? `Create ${node.label}`}
+            title={node.createLabel ?? `Create ${node.label}`}
+            className="mr-1 rounded-md p-1 text-teal-300 hover:bg-teal-400/20"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Plus size={14} />
+          </Link>
+        ) : null}
+      </div>
+      {hasChildren && isOpen ? (
+        <div className="mb-1">
+          {children.map((child) => (
+            <NavBranch
+              key={child.id}
+              node={child}
+              depth={depth + 1}
+              role={role}
+              open={open}
+              toggle={toggle}
+              pathname={pathname}
+              search={search}
+              hash={hash}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function filterTree(nodes: NavNode[], role: string): NavNode[] {
+  return nodes
+    .filter((node) => canSeeNav(node, role))
+    .map((node) => ({
+      ...node,
+      children: node.children ? filterTree(node.children, role) : undefined,
+    }));
+}

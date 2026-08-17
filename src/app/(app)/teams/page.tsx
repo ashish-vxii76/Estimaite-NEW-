@@ -1,10 +1,23 @@
 import { prisma } from "@/lib/prisma";
+import Link from "next/link";
+import { auth } from "@/auth";
 
 export default async function TeamsPage() {
-  const teams = await prisma.team.findMany({ include: { members: true }, orderBy: { name: "asc" } });
+  const [teams, session] = await Promise.all([
+    prisma.team.findMany({ include: { members: true }, orderBy: { name: "asc" } }),
+    auth(),
+  ]);
+  const canCreate = session?.user.role === "ADMINISTRATOR";
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-semibold">Teams</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold">Teams</h1>
+        {canCreate ? (
+          <Link href="/teams/new" className="rounded-lg bg-teal-400 px-4 py-2 text-sm text-slate-950">
+            New team
+          </Link>
+        ) : null}
+      </div>
       <div className="grid gap-4 md:grid-cols-2">
         {teams.map((team) => (
           <article key={team.id} className="card p-5">

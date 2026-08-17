@@ -8,18 +8,25 @@ export default async function EstimatesPage({
   searchParams: Promise<{ status?: string }>;
 }) {
   const { status } = await searchParams;
+  const where =
+    status === "DRAFT"
+      ? { status: { in: ["DRAFT", "RETURNED"] } }
+      : status
+        ? { status }
+        : undefined;
   const estimates = await prisma.estimate.findMany({
-    where: status ? { status } : undefined,
+    where,
     include: { team: true },
     orderBy: { updatedAt: "desc" },
   });
   const filters = [
-    ["", "All"],
+    ["", "All estimates"],
     ["DRAFT", "Drafts"],
-    ["READY_FOR_REVIEW", "Pending review"],
+    ["READY_FOR_REVIEW", "Ready for review"],
     ["APPROVED", "Approved"],
     ["COMPLETED", "Completed"],
   ];
+  const current = status ?? "";
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
@@ -33,7 +40,9 @@ export default async function EstimatesPage({
           <Link
             key={label}
             href={value ? `/estimates?status=${value}` : "/estimates"}
-            className="rounded-full bg-[var(--panel-2)] px-3 py-1 text-sm"
+            className={`rounded-full px-3 py-1 text-sm ${
+              current === value ? "bg-teal-400 text-slate-950" : "bg-[var(--panel-2)]"
+            }`}
           >
             {label}
           </Link>

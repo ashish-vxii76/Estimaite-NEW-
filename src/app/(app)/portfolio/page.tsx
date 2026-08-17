@@ -44,7 +44,7 @@ export default async function PortfolioPage() {
         </div>
       </div>
 
-      <section className="card p-5">
+      <section id="budget" className="card scroll-mt-6 p-5">
         <BudgetForm budget={data.budget} currency={currency} />
       </section>
 
