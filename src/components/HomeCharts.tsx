@@ -5,6 +5,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  LabelList,
   Legend,
   Pie,
   PieChart,
@@ -16,6 +17,12 @@ import {
 
 const COLORS = ["#1e3a5f", "#0f766e", "#b45309", "#5c6b80", "#b42318", "#047857"];
 const TOOLTIP = { background: "#fffcf7", border: "1px solid #ddd6c8", color: "#1b2a4a" };
+
+function percentLabel({ percent }: { percent?: number }) {
+  const value = Math.round((percent ?? 0) * 100);
+  if (value <= 0) return "";
+  return `${value}%`;
+}
 
 export function HomeCharts({
   byStatus,
@@ -44,9 +51,11 @@ export function HomeCharts({
                 data={byStatus}
                 dataKey="count"
                 nameKey="name"
-                innerRadius={50}
-                outerRadius={90}
+                innerRadius={52}
+                outerRadius={88}
                 paddingAngle={2}
+                label={percentLabel}
+                labelLine
               >
                 {byStatus.map((row, index) => (
                   <Cell key={row.name} fill={COLORS[index % COLORS.length]} />
@@ -54,41 +63,30 @@ export function HomeCharts({
               </Pie>
               <Tooltip
                 contentStyle={TOOLTIP}
-                formatter={(value, name) => [`${value} (${Math.round((Number(value) / statusTotal) * 100)}%)`, String(name)]}
+                formatter={(value) => [`${value} estimates`, "Count"]}
               />
               <Legend
                 verticalAlign="bottom"
                 iconType="circle"
+                formatter={(value) => <span className="text-[var(--text)]">{value}</span>}
                 wrapperStyle={{ fontSize: 12, color: "#1b2a4a" }}
               />
             </PieChart>
           </ResponsiveContainer>
         </div>
-        <ul className="mt-2 grid gap-1 text-xs text-[var(--muted)] sm:grid-cols-2">
-          {byStatus.map((row, index) => (
-            <li key={row.name} className="flex items-center gap-2">
-              <span
-                className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
-                style={{ background: COLORS[index % COLORS.length] }}
-                aria-hidden
-              />
-              <span>
-                {row.name}: {row.count}
-              </span>
-            </li>
-          ))}
-        </ul>
       </section>
       <section className="card p-5">
         <h2 className="font-medium">Volume by team</h2>
-        <div className="mt-4 h-72">
+        <div className="mt-4 h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={byTeam}>
+            <BarChart data={byTeam} margin={{ top: 18, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#ddd6c8" />
               <XAxis dataKey="name" tick={{ fill: "#5c6b80", fontSize: 11 }} />
               <YAxis allowDecimals={false} tick={{ fill: "#5c6b80", fontSize: 12 }} />
               <Tooltip contentStyle={TOOLTIP} />
-              <Bar dataKey="count" fill="#1e3a5f" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="count" fill="#1e3a5f" radius={[6, 6, 0, 0]}>
+                <LabelList dataKey="count" position="top" fill="#1b2a4a" fontSize={12} fontWeight={600} />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
