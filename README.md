@@ -8,12 +8,27 @@ Scope → Complexity → T-Shirt → SP / ROM → Dev & QA → Capacity → Reso
 
 ## Quick start
 
+The app is on branch `cursor/agile-estimator-mvp-cce6`. GitHub `main` is only a stub README — cloning `main` and running `npm run dev` will fail.
+
 ```bash
+git clone -b cursor/agile-estimator-mvp-cce6 https://github.com/ashish-vxii76/Estimaite-NEW-.git estimaite
+cd estimaite
 npm install
 npm run dev
 ```
 
-Open **http://localhost:3456**. `npm run dev` binds port **3456**, creates `.env` from `.env.example` if needed, syncs the SQLite schema, and seeds demo users when the database is empty.
+If you already cloned the repo:
+
+```bash
+git fetch origin
+git checkout cursor/agile-estimator-mvp-cce6
+npm install
+npm run dev
+```
+
+Open **http://localhost:3456** in a browser **on the same computer that is running `npm run dev`**. The Cursor Cloud Agent machine is not your Mac; typing that URL in Safari/Chrome on your laptop will not reach this remote VM.
+
+`npm run dev` binds port **3456**, creates `.env` if needed, syncs SQLite, and seeds demo users when the database is empty.
 
 Sign in with `admin@estimaite.local` / `demo1234`.
 

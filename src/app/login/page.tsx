@@ -2,12 +2,19 @@ import { signIn } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { roleLabel } from "@/lib/roles";
 
+const LOGIN_ERRORS: Record<string, string> = {
+  CredentialsSignin: "That profile or password was not accepted.",
+  Configuration: "Auth is misconfigured. Remove AUTH_URL from .env and restart npm run dev.",
+  AccessDenied: "Access denied.",
+  Default: "Sign-in failed. Confirm you opened http://localhost:3456 on the computer running the app.",
+};
+
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ profile?: string }>;
+  searchParams: Promise<{ profile?: string; error?: string }>;
 }) {
-  const { profile } = await searchParams;
+  const { profile, error } = await searchParams;
   let profiles: { email: string; name: string; role: string; team: { name: string } | null }[] = [];
   try {
     profiles = await prisma.user.findMany({
@@ -46,6 +53,11 @@ export default async function LoginPage({
           Choose a profile. The whole app follows that role and team — a Vikings Approver only sees
           Vikings, as Approver. Admin sees every team.
         </p>
+        {error ? (
+          <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+            {LOGIN_ERRORS[error] ?? LOGIN_ERRORS.Default}
+          </p>
+        ) : null}
         <form className="mt-6 space-y-4" action={authenticate}>
           <label className="block text-sm">
             Profile
