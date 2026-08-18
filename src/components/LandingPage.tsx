@@ -325,8 +325,12 @@ export function LandingPage() {
               Open the ledger
             </Link>
           </div>
-          <div className="mt-16 flex justify-center rounded-3xl bg-black py-12">
-            <EstimAIteLogo variant="stacked" />
+          <div className="mt-16 flex justify-center">
+            <img
+              src="/brand/estimaite-lockup-dark.png"
+              alt="estimAIte — AI powered. Agile. Accurate. Estimate smarter. Deliver better."
+              className="h-auto w-full max-w-[28rem]"
+            />
           </div>
           <div className="mt-12 flex flex-wrap items-center justify-between gap-6 border-t border-white/10 pt-6 text-xs text-white/45">
             <div className="flex flex-wrap gap-4">
