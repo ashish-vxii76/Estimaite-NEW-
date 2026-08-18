@@ -112,7 +112,7 @@ export function LandingPage() {
       <header className="sticky top-0 z-20 border-b border-[#eadfce]/80 bg-[var(--landing-cream)]/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
           <Link href="/" aria-label="estimAIte home">
-            <EstimAIteLogo variant="lockup" />
+            <EstimAIteLogo tone="light" className="h-24 w-auto object-contain sm:h-28" />
           </Link>
           <nav className="hidden items-center gap-7 text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-[var(--landing-navy)] md:flex">
             <a href="#product">Product</a>
@@ -326,11 +326,7 @@ export function LandingPage() {
             </Link>
           </div>
           <div className="mt-16 flex justify-center">
-            <img
-              src="/brand/estimaite-lockup-dark.png"
-              alt="estimAIte — AI powered. Agile. Accurate. Estimate smarter. Deliver better."
-              className="h-auto w-full max-w-[28rem]"
-            />
+            <EstimAIteLogo tone="dark" className="h-auto w-full max-w-[28rem] object-contain" />
           </div>
           <div className="mt-12 flex flex-wrap items-center justify-between gap-6 border-t border-white/10 pt-6 text-xs text-white/45">
             <div className="flex flex-wrap gap-4">

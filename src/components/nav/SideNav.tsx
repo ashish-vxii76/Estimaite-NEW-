@@ -151,7 +151,7 @@ export function SideNav({
 function Brand() {
   return (
     <Link href="/home" className="block px-1">
-      <EstimAIteLogo variant="nav" />
+      <EstimAIteLogo tone="light" className="h-auto w-full max-w-[11rem] object-contain" />
     </Link>
   );
 }

@@ -50,7 +50,7 @@ export default async function LoginPage({
     <main className="flex min-h-screen items-center justify-center px-6">
       <div className="card w-full max-w-md p-8">
         <Link href="/" className="inline-block">
-          <EstimAIteLogo variant="lockup" />
+          <EstimAIteLogo tone="light" className="h-auto w-full max-w-[14rem] object-contain" />
         </Link>
         <h1 className="mt-5 font-display text-2xl font-semibold text-[var(--navy)]">Sign in</h1>
         <p className="mt-2 text-sm text-[var(--muted)]">
