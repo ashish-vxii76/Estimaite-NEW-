@@ -5,8 +5,7 @@ const SRC: Record<LogoTone, string> = {
   dark: "/brand/estimaite-lockup-dark.png",
 };
 
-const ALT =
-  "estimAIte — AI powered. Agile. Accurate. Estimate smarter. Deliver better.";
+const ALT = "estimAIte";
 
 export function EstimAIteLogo({
   tone = "light",
