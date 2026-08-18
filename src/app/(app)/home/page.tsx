@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { LandingPage } from "@/components/LandingPage";
+import { redirect } from "next/navigation";
 import { HomeCharts } from "@/components/HomeCharts";
 import { can } from "@/lib/access";
 import { estimateScope, fromSession } from "@/lib/scope";
@@ -44,7 +44,7 @@ function nextAction(
 
 export default async function HomePage() {
   const session = await auth();
-  if (!session?.user) return <LandingPage />;
+  if (!session?.user) redirect("/login");
   const scope = estimateScope(fromSession(session.user));
   const [total, drafts, pendingReview, pendingApprove, approved, completed, byTeamRows, byStatusRows, resultRows, team] =
     await Promise.all([
@@ -65,7 +65,7 @@ export default async function HomePage() {
         _count: { _all: true },
       }),
       prisma.estimate.findMany({ where: scope, select: { resultJson: true } }),
-      session?.user.teamId
+      session.user.teamId
         ? prisma.team.findUnique({ where: { id: session.user.teamId }, select: { name: true } })
         : Promise.resolve(null),
     ]);
@@ -89,7 +89,7 @@ export default async function HomePage() {
   }).length;
 
   const teams = await prisma.team.findMany({
-    where: session?.user.role === "ADMINISTRATOR" ? undefined : session?.user.teamId ? { id: session.user.teamId } : { id: "__none__" },
+    where: session.user.role === "ADMINISTRATOR" ? undefined : session.user.teamId ? { id: session.user.teamId } : { id: "__none__" },
     select: { id: true, name: true },
   });
   const teamNames = Object.fromEntries(teams.map((t) => [t.id, t.name]));
@@ -111,8 +111,8 @@ export default async function HomePage() {
     count: row._count._all,
   }));
 
-  const action = nextAction(session?.user.role, drafts, pendingReview, pendingApprove, discovery);
-  const teamName = session?.user.role === "ADMINISTRATOR" ? "All teams" : team?.name;
+  const action = nextAction(session.user.role, drafts, pendingReview, pendingApprove, discovery);
+  const teamName = session.user.role === "ADMINISTRATOR" ? "All teams" : team?.name;
   const situation =
     total === 0
       ? "No estimates in this scope yet. The next action is to size the first work item."
@@ -127,10 +127,10 @@ export default async function HomePage() {
       <div>
         <p className="kicker">Home</p>
         <h1 className="font-display text-2xl font-semibold text-[var(--navy)]">
-          {welcomeLine(session?.user.name, session?.user.role, teamName)}
+          {welcomeLine(session.user.name, session.user.role, teamName)}
         </h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Signed in as {session?.user.email}. Menus, numbers and actions follow this profile
+          Signed in as {session.user.email}. Menus, numbers and actions follow this profile
           {teamName ? ` for ${teamName}` : ""}.
         </p>
       </div>

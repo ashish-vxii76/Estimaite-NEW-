@@ -13,7 +13,7 @@ export type NavNode = {
 };
 
 export const NAV_TREE: NavNode[] = [
-  { id: "home", label: "Home", href: "/", feature: "home" },
+  { id: "home", label: "Home", href: "/home", feature: "home" },
   {
     id: "estimates",
     label: "Estimates",
@@ -218,7 +218,7 @@ export function isNodeActive(
   if (target.hash) {
     return pathname === target.pathname && hash === target.hash;
   }
-  if (node.href === "/") return pathname === "/";
+  if (node.href === "/home") return pathname === "/home";
   if (node.id === "estimates") {
     return pathname === "/estimates" || pathname.startsWith("/estimates/");
   }

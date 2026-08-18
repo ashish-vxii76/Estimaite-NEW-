@@ -263,7 +263,7 @@ export const PATH_FEATURES: { prefix: string; feature: FeatureId; mode: "R" | "R
   { prefix: "/portfolio", feature: "portfolio.view", mode: "R" },
   { prefix: "/estimates/new", feature: "estimates.create", mode: "RW" },
   { prefix: "/estimates", feature: "estimates.list", mode: "R" },
-  { prefix: "/", feature: "home", mode: "R" },
+  { prefix: "/home", feature: "home", mode: "R" },
 ];
 
 export function featureForPath(pathname: string): { feature: FeatureId; mode: "R" | "RW" } | null {

@@ -22,9 +22,9 @@ function find(id: string, nodes: NavNode[] = NAV_TREE): NavNode | undefined {
 describe("left navigation tree", () => {
   it("makes Home the dashboard route with no nested Dashboard page", () => {
     const home = find("home");
-    expect(home?.href).toBe("/");
+    expect(home?.href).toBe("/home");
     expect(home?.children).toBeUndefined();
-    expect(isNodeActive(home!, "/", "", "")).toBe(true);
+    expect(isNodeActive(home!, "/home", "", "")).toBe(true);
     expect(isNodeActive(home!, "/estimates", "", "")).toBe(false);
   });
 

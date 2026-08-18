@@ -120,14 +120,9 @@ export function LandingPage() {
             <a href="#governance">Governance</a>
             <a href="#proof">Proof</a>
           </nav>
-          <div className="flex items-center gap-2">
-            <Link href={LOGIN} className="landing-btn-ghost hidden sm:inline-flex">
-              Sign in
-            </Link>
-            <Link href={LOGIN} className="landing-btn-navy">
-              Open the ledger
-            </Link>
-          </div>
+          <Link href={LOGIN} className="landing-btn-navy">
+            Sign in
+          </Link>
         </div>
       </header>
 

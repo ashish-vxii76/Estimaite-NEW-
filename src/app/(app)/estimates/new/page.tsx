@@ -7,7 +7,7 @@ import { fromSession, teamsForUser } from "@/lib/scope";
 
 export default async function NewEstimatePage() {
   const session = await auth();
-  if (!can(session?.user.role, "estimates.create", "RW")) redirect("/");
+  if (!can(session?.user.role, "estimates.create", "RW")) redirect("/home");
   const [teams, locations] = await Promise.all([
     teamsForUser(fromSession(session!.user)),
     prisma.location.findMany({ where: { active: true } }),

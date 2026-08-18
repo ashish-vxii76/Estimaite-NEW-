@@ -13,6 +13,6 @@ export async function switchProfile(email: string) {
   await signIn("credentials", {
     email: user.email,
     switchKey: process.env.AUTH_SECRET,
-    redirectTo: "/",
+    redirectTo: "/home",
   });
 }

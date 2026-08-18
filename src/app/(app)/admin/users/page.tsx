@@ -6,7 +6,7 @@ import { can } from "@/lib/access";
 
 export default async function UsersPage() {
   const session = await auth();
-  if (!can(session?.user.role, "config.users", "RW")) redirect("/");
+  if (!can(session?.user.role, "config.users", "RW")) redirect("/home");
   const [users, teams] = await Promise.all([
     prisma.user.findMany({
       orderBy: { name: "asc" },

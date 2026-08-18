@@ -42,7 +42,7 @@ export default async function LoginPage({
     await signIn("credentials", {
       email: String(formData.get("email") ?? ""),
       password: String(formData.get("password") ?? ""),
-      redirectTo: "/",
+      redirectTo: "/home",
     });
   }
 

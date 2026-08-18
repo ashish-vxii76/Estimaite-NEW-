@@ -26,7 +26,7 @@ npm install
 npm run dev
 ```
 
-Open **http://localhost:3456** in a browser **on the same computer that is running `npm run dev`**. The Cursor Cloud Agent machine is not your Mac; typing that URL in Safari/Chrome on your laptop will not reach this remote VM.
+Open **http://localhost:3456** for the landing page (same computer as `npm run dev`). After sign-in you land on **http://localhost:3456/home**.
 
 `npm run dev` binds port **3456**, creates `.env` if needed, syncs SQLite, and seeds demo users when the database is empty.
 
