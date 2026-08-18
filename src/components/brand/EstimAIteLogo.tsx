@@ -95,13 +95,34 @@ export function EstimAIteLogo({
   onDark = false,
   className = "",
 }: {
-  variant?: "mark" | "nav" | "lockup" | "full";
+  variant?: "mark" | "nav" | "lockup" | "full" | "stacked";
   onDark?: boolean;
   className?: string;
 }) {
   const ink = onDark ? "text-slate-100" : "text-slate-900";
   if (variant === "mark") {
     return <EstimAIteMark className={className || "h-11 w-12"} />;
+  }
+  if (variant === "stacked") {
+    return (
+      <div className={`flex flex-col items-center text-center ${className}`}>
+        <EstimAIteMark className="h-28 w-32" />
+        <EstimAIteWordmark onDark className="mt-5 text-4xl sm:text-5xl" />
+        <span
+          className="mt-4 h-px w-48"
+          style={{ backgroundImage: `linear-gradient(90deg, ${PURPLE}, ${CYAN})` }}
+        />
+        <p className="mt-3 text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-white">
+          AI powered. Agile. Accurate.
+        </p>
+        <p
+          className="mt-3 bg-clip-text text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-transparent"
+          style={{ backgroundImage: `linear-gradient(90deg, ${CYAN}, ${BLUE}, ${PURPLE})` }}
+        >
+          Estimate smarter. Deliver better.
+        </p>
+      </div>
+    );
   }
   return (
     <div className={`flex items-center gap-3 ${className}`}>

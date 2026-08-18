@@ -315,18 +315,20 @@ export function LandingPage() {
         </div>
       </section>
 
-      <footer className="bg-[var(--landing-navy)] px-6 pt-16 pb-8 text-[var(--landing-cream)]">
+      <footer className="bg-black px-6 pt-16 pb-10 text-white">
         <div className="mx-auto max-w-6xl">
-          <p className="max-w-xl font-landing text-3xl leading-snug sm:text-4xl">
+          <p className="mx-auto max-w-xl text-center font-landing text-3xl leading-snug sm:text-4xl">
             Built for PMO, finance, and delivery leads who have to defend the number.
           </p>
-          <div className="mt-8">
+          <div className="mt-8 flex justify-center">
             <Link href={LOGIN} className="landing-btn-gold">
               Open the ledger
             </Link>
           </div>
-          <div className="mt-16 flex flex-wrap items-end justify-between gap-6 border-t border-white/10 pt-6 text-xs text-white/55">
-            <EstimAIteLogo variant="nav" onDark />
+          <div className="mt-16 flex justify-center rounded-3xl bg-black py-12">
+            <EstimAIteLogo variant="stacked" />
+          </div>
+          <div className="mt-12 flex flex-wrap items-center justify-between gap-6 border-t border-white/10 pt-6 text-xs text-white/45">
             <div className="flex flex-wrap gap-4">
               <span>Privacy</span>
               <span>Security</span>
@@ -338,7 +340,7 @@ export function LandingPage() {
               <span aria-hidden>🇨🇭</span> Made in Switzerland
             </p>
           </div>
-          <p className="mt-4 text-[0.7rem] text-white/35">© 2026 estimAIte. All rights reserved.</p>
+          <p className="mt-4 text-center text-[0.7rem] text-white/30">© 2026 estimAIte. All rights reserved.</p>
         </div>
       </footer>
     </div>
