@@ -112,7 +112,7 @@ export function LandingPage() {
       <header className="sticky top-0 z-20 border-b border-[#eadfce]/80 bg-[var(--landing-cream)]/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
           <Link href="/" aria-label="estimAIte home">
-            <EstimAIteLogo tone="light" className="h-24 w-auto object-contain sm:h-28" />
+            <EstimAIteLogo tone="light" className="h-14 w-14 max-h-14 max-w-14 object-contain sm:h-16 sm:w-16 sm:max-h-16 sm:max-w-16" />
           </Link>
           <nav className="hidden items-center gap-7 text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-[var(--landing-navy)] md:flex">
             <a href="#product">Product</a>

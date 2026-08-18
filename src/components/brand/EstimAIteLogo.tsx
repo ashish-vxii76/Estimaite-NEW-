@@ -14,5 +14,13 @@ export function EstimAIteLogo({
   tone?: LogoTone;
   className?: string;
 }) {
-  return <img src={SRC[tone]} alt={ALT} className={className} />;
+  return (
+    <img
+      src={SRC[tone]}
+      alt={ALT}
+      width={1024}
+      height={1024}
+      className={className}
+    />
+  );
 }
