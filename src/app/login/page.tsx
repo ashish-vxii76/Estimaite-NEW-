@@ -47,7 +47,11 @@ export default async function LoginPage({
   return (
     <main className="flex min-h-screen items-center justify-center px-6">
       <div className="card w-full max-w-md p-8">
-        <p className="kicker">Estimaite</p>
+        <p className="kicker">
+          <a href="/" className="hover:underline">
+            Estimaite
+          </a>
+        </p>
         <h1 className="mt-2 font-display text-2xl font-semibold text-[var(--navy)]">Sign in</h1>
         <p className="mt-2 text-sm text-[var(--muted)]">
           Choose a profile. The whole app follows that role and team — a Vikings Approver only sees

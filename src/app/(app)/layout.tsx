@@ -8,9 +8,12 @@ import { canAccessPath } from "@/lib/access";
 
 export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
-  if (!session?.user) redirect("/login");
-  const matrix = await getRbacMatrix();
   const pathname = (await headers()).get("x-estimaite-pathname") ?? "/";
+  if (!session?.user) {
+    if (pathname === "/" || pathname === "") return children;
+    redirect("/login");
+  }
+  const matrix = await getRbacMatrix();
   if (pathname !== "/" && !canAccessPath(session.user.role, pathname)) {
     redirect("/");
   }

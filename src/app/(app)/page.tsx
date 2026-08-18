@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
+import { LandingPage } from "@/components/LandingPage";
 import { HomeCharts } from "@/components/HomeCharts";
 import { can } from "@/lib/access";
 import { estimateScope, fromSession } from "@/lib/scope";
@@ -43,7 +44,8 @@ function nextAction(
 
 export default async function HomePage() {
   const session = await auth();
-  const scope = estimateScope(fromSession(session!.user));
+  if (!session?.user) return <LandingPage />;
+  const scope = estimateScope(fromSession(session.user));
   const [total, drafts, pendingReview, pendingApprove, approved, completed, byTeamRows, byStatusRows, resultRows, team] =
     await Promise.all([
       prisma.estimate.count({ where: scope }),

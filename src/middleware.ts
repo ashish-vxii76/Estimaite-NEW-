@@ -3,8 +3,9 @@ import { NextResponse } from "next/server";
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
-  const isPublic = pathname.startsWith("/login") || pathname.startsWith("/api/auth");
-  if (isPublic) return NextResponse.next();
+  const isAuthPublic = pathname.startsWith("/login") || pathname.startsWith("/api/auth");
+  if (isAuthPublic) return NextResponse.next();
+  if (pathname === "/" && !req.auth) return NextResponse.next();
   if (!req.auth && !pathname.startsWith("/_next")) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
