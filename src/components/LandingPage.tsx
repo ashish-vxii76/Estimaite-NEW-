@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { EstimAIteLogo } from "@/components/brand/EstimAIteLogo";
 import {
   BarChart3,
   Calendar,
@@ -52,21 +53,6 @@ const CHAIN = [
   { label: "Actuals", Icon: BarChart3 },
   { label: "Calibration", Icon: Eye },
 ];
-
-function Wordmark({ light = false }: { light?: boolean }) {
-  return (
-    <div>
-      <p className={`font-landing text-xl tracking-wide ${light ? "text-[var(--landing-cream)]" : "text-[var(--landing-navy)]"}`}>
-        ESTIMAITE
-      </p>
-      <p
-        className={`font-landing text-[0.7rem] italic ${light ? "text-white/55" : "text-[var(--landing-gold)]"}`}
-      >
-        Governed estimation
-      </p>
-    </div>
-  );
-}
 
 function WaxSeal({
   label,
@@ -125,8 +111,8 @@ export function LandingPage() {
     <div className="landing min-h-screen">
       <header className="sticky top-0 z-20 border-b border-[#eadfce]/80 bg-[var(--landing-cream)]/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
-          <Link href="/" aria-label="Estimaite home">
-            <Wordmark />
+          <Link href="/" aria-label="estimAIte home">
+            <EstimAIteLogo variant="lockup" />
           </Link>
           <nav className="hidden items-center gap-7 text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-[var(--landing-navy)] md:flex">
             <a href="#product">Product</a>
@@ -345,7 +331,7 @@ export function LandingPage() {
             </Link>
           </div>
           <div className="mt-16 flex flex-wrap items-end justify-between gap-6 border-t border-white/10 pt-6 text-xs text-white/55">
-            <Wordmark light />
+            <EstimAIteLogo variant="nav" onDark />
             <div className="flex flex-wrap gap-4">
               <span>Privacy</span>
               <span>Security</span>
@@ -357,7 +343,7 @@ export function LandingPage() {
               <span aria-hidden>🇨🇭</span> Made in Switzerland
             </p>
           </div>
-          <p className="mt-4 text-[0.7rem] text-white/35">© 2026 Estimaite. All rights reserved.</p>
+          <p className="mt-4 text-[0.7rem] text-white/35">© 2026 estimAIte. All rights reserved.</p>
         </div>
       </footer>
     </div>

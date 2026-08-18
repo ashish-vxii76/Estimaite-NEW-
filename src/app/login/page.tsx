@@ -1,6 +1,8 @@
 import { signIn } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { roleLabel } from "@/lib/roles";
+import Link from "next/link";
+import { EstimAIteLogo } from "@/components/brand/EstimAIteLogo";
 
 const LOGIN_ERRORS: Record<string, string> = {
   CredentialsSignin: "That profile or password was not accepted.",
@@ -47,12 +49,10 @@ export default async function LoginPage({
   return (
     <main className="flex min-h-screen items-center justify-center px-6">
       <div className="card w-full max-w-md p-8">
-        <p className="kicker">
-          <a href="/" className="hover:underline">
-            Estimaite
-          </a>
-        </p>
-        <h1 className="mt-2 font-display text-2xl font-semibold text-[var(--navy)]">Sign in</h1>
+        <Link href="/" className="inline-block">
+          <EstimAIteLogo variant="lockup" />
+        </Link>
+        <h1 className="mt-5 font-display text-2xl font-semibold text-[var(--navy)]">Sign in</h1>
         <p className="mt-2 text-sm text-[var(--muted)]">
           Choose a profile. The whole app follows that role and team — a Vikings Approver only sees
           Vikings, as Approver. Admin sees every team.

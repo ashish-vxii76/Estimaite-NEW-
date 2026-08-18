@@ -18,8 +18,8 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Estimaite — Enterprise Agile Estimation",
-  description: "Governed estimation, delivery economics, and calibration platform",
+  title: "estimAIte — AI powered. Agile. Accurate.",
+  description: "AI-powered governed estimation, delivery economics, and calibration",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

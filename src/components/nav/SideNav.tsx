@@ -13,6 +13,7 @@ import {
   type NavNode,
 } from "@/components/nav/navConfig";
 import type { RbacMatrix } from "@/lib/rbac";
+import { EstimAIteLogo } from "@/components/brand/EstimAIteLogo";
 
 export function SideNav({
   role,
@@ -150,9 +151,7 @@ export function SideNav({
 function Brand() {
   return (
     <Link href="/" className="block px-1">
-      <p className="kicker">Estimaite</p>
-      <h1 className="mt-1 text-lg font-semibold text-[var(--navy)]">Estimation Platform</h1>
-      <p className="mt-1 text-xs text-[var(--muted)]">Estimate → Plan → Govern → Measure</p>
+      <EstimAIteLogo variant="nav" />
     </Link>
   );
 }
