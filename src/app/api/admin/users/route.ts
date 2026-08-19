@@ -11,6 +11,8 @@ const userSelect = {
   role: true,
   active: true,
   teamId: true,
+  pendingApproval: true,
+  resetRequestedAt: true,
   createdAt: true,
 } as const;
 
@@ -85,12 +87,17 @@ export async function PUT(request: Request) {
     name?: string;
     role?: string;
     active?: boolean;
+    pendingApproval?: boolean;
+    resetRequestedAt?: Date | null;
     passwordHash?: string;
     teamId?: string | null;
   } = {};
   if (body.name) data.name = String(body.name).trim();
   if (body.role) data.role = role;
-  if (typeof body.active === "boolean") data.active = body.active;
+  if (typeof body.active === "boolean") {
+    data.active = body.active;
+    if (body.active) data.pendingApproval = false;
+  }
   if ("teamId" in body) {
     data.teamId = role === "ADMINISTRATOR" ? null : body.teamId ? String(body.teamId) : null;
   }
@@ -99,6 +106,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
     }
     data.passwordHash = await bcrypt.hash(String(body.password), 10);
+    data.resetRequestedAt = null;
   }
   const updated = await prisma.user.update({
     where: { id },

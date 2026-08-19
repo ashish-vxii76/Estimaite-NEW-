@@ -10,7 +10,16 @@ export default async function UsersPage() {
   const [users, teams] = await Promise.all([
     prisma.user.findMany({
       orderBy: { name: "asc" },
-      select: { id: true, email: true, name: true, role: true, active: true, teamId: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        active: true,
+        teamId: true,
+        pendingApproval: true,
+        resetRequestedAt: true,
+      },
     }),
     prisma.team.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);

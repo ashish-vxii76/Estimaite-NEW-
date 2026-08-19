@@ -10,6 +10,8 @@ type UserRow = {
   role: string;
   active: boolean;
   teamId?: string | null;
+  pendingApproval?: boolean;
+  resetRequestedAt?: string | Date | null;
 };
 
 export function UsersAdmin({
@@ -127,6 +129,7 @@ export function UsersAdmin({
               <th>Role</th>
               <th>Team</th>
               <th>Active</th>
+              <th>Status</th>
               <th>Reset password</th>
             </tr>
           </thead>
@@ -169,6 +172,20 @@ export function UsersAdmin({
                   >
                     {row.active ? "Active" : "Disabled"}
                   </button>
+                </td>
+                <td className="text-xs text-[var(--muted)]">
+                  {row.pendingApproval ? (
+                    <button
+                      className="text-[var(--navy)] underline"
+                      onClick={() => updateUser(row.id, { active: true })}
+                    >
+                      Approve request
+                    </button>
+                  ) : row.resetRequestedAt ? (
+                    "Reset requested"
+                  ) : (
+                    "—"
+                  )}
                 </td>
                 <td>
                   <button

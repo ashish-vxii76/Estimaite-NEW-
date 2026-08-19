@@ -16,6 +16,8 @@ model User {
   teamId       String?
   team         Team?      @relation(fields: [teamId], references: [id])
   active       Boolean    @default(true)
+  pendingApproval Boolean @default(false)
+  resetRequestedAt DateTime?
   createdAt    DateTime   @default(now())
   estimates    Estimate[] @relation("CreatedBy")
   auditEvents  AuditEvent[]

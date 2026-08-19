@@ -18,7 +18,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const email = String(credentials?.email ?? "").trim().toLowerCase();
         if (!email) return null;
         const user = await prisma.user.findUnique({ where: { email } });
-        if (!user || user.active === false) return null;
+        if (!user || user.active === false || user.pendingApproval) return null;
 
         const switchKey = String(credentials?.switchKey ?? "");
         if (switchKey && switchKey === process.env.AUTH_SECRET) {
