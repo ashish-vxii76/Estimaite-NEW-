@@ -153,7 +153,7 @@ function Brand() {
     <Link href="/home" className="mx-auto flex w-full items-center justify-center px-1">
       <EstimAIteLogo
         tone="light"
-        className="h-auto w-[4.4rem] max-w-[4.4rem] object-contain"
+        className="h-auto w-[5.28rem] max-w-[5.28rem] object-contain"
       />
     </Link>
   );

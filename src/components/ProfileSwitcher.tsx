@@ -60,9 +60,7 @@ export function ProfileSwitcher({
           </option>
         ))}
       </select>
-      {isAdmin ? (
-        <p className="text-[10px] text-[var(--muted)]">Admin can switch instantly. Access follows the selected role.</p>
-      ) : (
+      {isAdmin ? null : (
         <p className="text-[10px] text-[var(--muted)]">Switching signs you in as that profile.</p>
       )}
       {error ? <p className="text-[10px] text-[var(--danger)]">{error}</p> : null}
