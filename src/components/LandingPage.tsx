@@ -1,6 +1,6 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
 import { EstimAIteLogo } from "@/components/brand/EstimAIteLogo";
+import { WaxSeal } from "@/components/brand/WaxSeal";
 import {
   ArrowRight,
   BarChart3,
@@ -20,22 +20,6 @@ import {
 
 const LOGIN = "/login";
 
-function Seal({
-  label,
-  tone,
-  className = "",
-}: {
-  label: ReactNode;
-  tone: "gold" | "red" | "green";
-  className?: string;
-}) {
-  return (
-    <div className={`lp-seal lp-seal-${tone} ${className}`}>
-      <span>{label}</span>
-    </div>
-  );
-}
-
 export function LandingPage() {
   return (
     <div className="lp">
@@ -47,13 +31,13 @@ export function LandingPage() {
               className="block h-8 w-auto max-h-8 max-w-[4rem] object-contain object-left sm:h-[2.6rem] sm:max-h-[2.6rem] sm:max-w-[5.2rem] lg:h-[2.875rem] lg:max-h-[2.875rem] lg:max-w-[5.75rem]"
             />
           </Link>
-          <nav className="lp-nav">
-            <a href="#product">Product</a>
-            <a href="#moments">Moments</a>
-            <a href="#governance">Governance</a>
-            <a href="#proof">Proof</a>
-          </nav>
-          <div className="lp-header-actions">
+          <div className="lp-header-end">
+            <nav className="lp-nav">
+              <a href="#product">Product</a>
+              <a href="#moments">Moments</a>
+              <a href="#governance">Governance</a>
+              <a href="#proof">Proof</a>
+            </nav>
             <Link href={LOGIN} className="lp-link-signin">
               Sign in
             </Link>
@@ -141,16 +125,7 @@ export function LandingPage() {
                 </div>
               </div>
               <p className="lp-ledger-foot">Status · Governed</p>
-              <Seal
-                tone="gold"
-                className="lp-ledger-seal"
-                label={
-                  <>
-                    Governed
-                    <i>★★★</i>
-                  </>
-                }
-              />
+              <WaxSeal tone="gold" label="Governed" stars className="lp-ledger-seal" />
             </article>
           </div>
         </div>
@@ -217,8 +192,8 @@ export function LandingPage() {
                 </p>
               </article>
               <div className="lp-role-seals">
-                <Seal tone="red" label="Rejected" />
-                <Seal tone="green" label="Governed" />
+                <WaxSeal tone="red" label="Rejected" className="lp-wax-red" />
+                <WaxSeal tone="green" label="Governed" className="lp-wax-green" />
               </div>
             </div>
             <div>
@@ -295,7 +270,7 @@ export function LandingPage() {
       <footer className="lp-footer">
         <div className="lp-wrap">
           <div className="lp-footer-top">
-            <EstimAIteLogo tone="white" className="h-auto w-[9.5rem] object-contain object-left sm:w-[11rem]" />
+            <EstimAIteLogo tone="dark" className="h-auto w-[11rem] max-w-full object-contain object-left sm:w-[13rem]" />
             <p className="lp-footer-quote">
               Built for PMO, finance, and delivery leads who have to defend the number.
             </p>
