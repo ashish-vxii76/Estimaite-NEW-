@@ -110,32 +110,22 @@ export function LandingPage() {
   return (
     <div className="landing min-h-screen">
       <header className="sticky top-0 z-20 border-b border-[#eadfce]/80 bg-[var(--landing-cream)]/90 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-8 px-6 py-3.5">
-          <Link href="/" aria-label="estimAIte home" className="flex shrink-0 items-center">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
+          <Link href="/" aria-label="estimAIte home">
             <EstimAIteLogo
               tone="light"
-              className="block h-8 w-auto max-h-8 max-w-[4rem] object-contain object-left sm:h-[2.6rem] sm:max-h-[2.6rem] sm:max-w-[5.2rem] lg:h-[2.875rem] lg:max-h-[2.875rem] lg:max-w-[5.75rem]"
+              className="h-14 w-auto max-h-14 object-contain object-left sm:h-16 sm:max-h-16"
             />
           </Link>
-          <div className="ml-auto flex items-center justify-end gap-8">
-            <nav className="hidden items-center justify-end gap-8 text-[0.81rem] font-semibold uppercase leading-none tracking-[0.14em] text-[var(--landing-navy)] md:flex">
-              <a href="#product" className="py-1 hover:opacity-70">
-                Product
-              </a>
-              <a href="#moments" className="py-1 hover:opacity-70">
-                Moments
-              </a>
-              <a href="#governance" className="py-1 hover:opacity-70">
-                Governance
-              </a>
-              <a href="#proof" className="py-1 hover:opacity-70">
-                Proof
-              </a>
-            </nav>
-            <Link href={LOGIN} className="landing-btn-navy">
-              Sign in
-            </Link>
-          </div>
+          <nav className="hidden items-center gap-7 text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-[var(--landing-navy)] md:flex">
+            <a href="#product">Product</a>
+            <a href="#moments">Moments</a>
+            <a href="#governance">Governance</a>
+            <a href="#proof">Proof</a>
+          </nav>
+          <Link href={LOGIN} className="landing-btn-navy">
+            Sign in
+          </Link>
         </div>
       </header>
 
