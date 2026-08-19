@@ -1,15 +1,13 @@
-type LogoTone = "light" | "dark" | "white";
+type LogoTone = "light" | "dark";
 
 const SRC: Record<LogoTone, string> = {
   light: `/brand/${encodeURIComponent("EstimAIte - Transparent.PNG")}`,
   dark: `/brand/${encodeURIComponent("EstimAIte -Black.png")}`,
-  white: `/brand/${encodeURIComponent("EstimAIte - White.png")}`,
 };
 
 const SIZE: Record<LogoTone, { width: number; height: number }> = {
   light: { width: 1037, height: 669 },
   dark: { width: 1254, height: 1254 },
-  white: { width: 1254, height: 1254 },
 };
 
 const ALT = "estimAIte";
