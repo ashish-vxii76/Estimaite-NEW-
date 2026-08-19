@@ -1,8 +1,8 @@
 type LogoTone = "light" | "dark";
 
 const SRC: Record<LogoTone, string> = {
-  light: "/brand/estimaite-lockup-light.png",
-  dark: "/brand/estimaite-lockup-dark.png",
+  light: `/brand/${encodeURIComponent("EstimAIte - White.png")}`,
+  dark: `/brand/${encodeURIComponent("EstimAIte -Black.png")}`,
 };
 
 const ALT = "estimAIte";
@@ -18,8 +18,8 @@ export function EstimAIteLogo({
     <img
       src={SRC[tone]}
       alt={ALT}
-      width={1024}
-      height={1024}
+      width={1254}
+      height={1254}
       className={className}
     />
   );
