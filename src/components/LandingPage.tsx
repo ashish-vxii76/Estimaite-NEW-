@@ -333,11 +333,6 @@ export function LandingPage() {
           <p className="mx-auto max-w-xl text-center font-landing text-3xl leading-snug sm:text-4xl">
             Built for PMO, finance, and delivery leads who have to defend the number.
           </p>
-          <div className="mt-8 flex justify-center">
-            <Link href={LOGIN} className="landing-btn-gold">
-              Open the ledger
-            </Link>
-          </div>
           <div className="mt-16 flex justify-center">
             <EstimAIteLogo tone="dark" className="h-auto w-full max-w-[28rem] object-contain" />
           </div>
