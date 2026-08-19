@@ -59,52 +59,46 @@ function WaxSeal({
   tone,
   className = "",
 }: {
-  label: ReactNode;
+  label: string;
   tone: "gold" | "red" | "green";
   className?: string;
 }) {
-  const toneClass =
-    tone === "gold" ? "landing-seal-gold" : tone === "red" ? "landing-seal-red" : "landing-seal-green";
+  const fill =
+    tone === "gold"
+      ? "from-[#d4b06a] via-[#b89a67] to-[#8a6d3a]"
+      : tone === "red"
+        ? "from-[#c45c5c] via-[#9f1239] to-[#6b0f24]"
+        : "from-[#3d9b78] via-[#047857] to-[#065f46]";
   return (
     <div
-      className={`landing-seal ${toneClass} flex rotate-[-8deg] items-center justify-center rounded-full text-center font-extrabold uppercase tracking-[0.14em] text-white ${className}`}
+      className={`landing-seal flex h-[5.6rem] w-[5.6rem] rotate-[-8deg] items-center justify-center rounded-full bg-gradient-to-br ${fill} text-center text-[0.58rem] font-extrabold uppercase tracking-[0.14em] text-white ${className}`}
     >
       {label}
     </div>
   );
 }
 
-function RoleLedger({
+function LedgerCard({
   status,
   visibility,
-  raised,
   seals,
 }: {
   status: string;
   visibility: string;
-  raised?: boolean;
   seals?: ReactNode;
 }) {
   return (
-    <article
-      className={`landing-paper relative rounded-[1.35rem] px-5 pb-5 pt-5 ${
-        raised ? "landing-paper-raised -translate-y-3 pb-6 md:-translate-y-5" : ""
-      }`}
-    >
-      <p className="text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
-        Estimate ledger
-      </p>
-      <p className="font-landing mt-5 text-[1.85rem] leading-none text-[var(--landing-navy)]">
-        CHF 180,000
-      </p>
-      <dl className="mt-6 space-y-3 text-xs">
+    <article className="relative rounded-2xl border border-[#e6ddd0] bg-[var(--landing-cream)] p-5 shadow-[0_18px_50px_rgba(10,25,47,0.08)]">
+      <p className="text-[0.65rem] uppercase tracking-[0.18em] text-[var(--muted)]">Estimate ledger</p>
+      <p className="mt-3 font-landing text-3xl text-[var(--landing-navy)]">CHF 180,000</p>
+      <dl className="mt-4 grid grid-cols-2 gap-2 text-xs">
         <div>
-          <dt className="uppercase tracking-[0.14em] text-[var(--muted)]">Status</dt>
-          <dd className="mt-1 font-semibold text-[var(--landing-navy)]">{status}</dd>
+          <dt className="text-[var(--muted)]">Status</dt>
+          <dd className="mt-0.5 font-semibold text-[var(--landing-navy)]">{status}</dd>
         </div>
         <div>
-          <dt className="uppercase tracking-[0.14em] text-[var(--muted)]">Visibility</dt>
-          <dd className="mt-1 font-semibold text-[var(--landing-navy)]">{visibility}</dd>
+          <dt className="text-[var(--muted)]">Visibility</dt>
+          <dd className="mt-0.5 font-semibold text-[var(--landing-navy)]">{visibility}</dd>
         </div>
       </dl>
       {seals}
@@ -115,7 +109,7 @@ function RoleLedger({
 export function LandingPage() {
   return (
     <div className="landing min-h-screen">
-      <header className="sticky top-0 z-20 border-b border-[#eadfce]/70 bg-[#fbf7ef]/80 backdrop-blur">
+      <header className="sticky top-0 z-20 border-b border-[#eadfce]/80 bg-[var(--landing-cream)]/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-8 px-6 py-3.5">
           <Link href="/" aria-label="estimAIte home" className="flex shrink-0 items-center">
             <EstimAIteLogo
@@ -145,7 +139,7 @@ export function LandingPage() {
         </div>
       </header>
 
-      <section id="product" className="landing-hero-grid relative overflow-visible">
+      <section id="product" className="landing-hero-grid relative overflow-hidden">
         <div className="mx-auto grid max-w-6xl items-center gap-12 px-6 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:py-24">
           <div>
             <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-[var(--landing-gold)]">
@@ -173,141 +167,125 @@ export function LandingPage() {
             </ul>
           </div>
 
-          <div className="relative mx-auto mt-6 w-full max-w-[26rem] overflow-visible lg:mx-0 lg:mt-0 lg:justify-self-end">
-            <span className="landing-paper absolute -left-3 top-10 hidden rounded-full px-3 py-1 text-[0.62rem] uppercase tracking-[0.16em] text-[var(--landing-navy)] sm:block">
+          <div className="relative mx-auto w-full max-w-md lg:mx-0 lg:justify-self-end">
+            <span className="absolute -left-2 top-8 hidden rounded-full border border-[#eadfce] bg-white px-3 py-1 text-[0.65rem] uppercase tracking-[0.14em] text-[var(--landing-navy)] shadow-sm sm:block">
               Ready
             </span>
-            <span className="landing-paper absolute -right-2 top-28 hidden rounded-full px-3 py-1 text-[0.62rem] uppercase tracking-[0.16em] text-[var(--landing-navy)] sm:block">
+            <span className="absolute -right-4 top-24 hidden rounded-full border border-[#eadfce] bg-white px-3 py-1 text-[0.65rem] uppercase tracking-[0.14em] text-[var(--landing-navy)] shadow-sm sm:block">
               Size
             </span>
-            <span className="landing-paper absolute -left-8 bottom-32 hidden rounded-full px-3 py-1 text-[0.62rem] uppercase tracking-[0.16em] text-[var(--landing-navy)] sm:block">
+            <span className="absolute -left-6 bottom-28 hidden rounded-full border border-[#eadfce] bg-white px-3 py-1 text-[0.65rem] uppercase tracking-[0.14em] text-[var(--landing-navy)] shadow-sm sm:block">
               Plan
             </span>
-            <span className="landing-paper absolute right-2 bottom-10 hidden rounded-full px-3 py-1 text-[0.62rem] uppercase tracking-[0.16em] text-[var(--landing-navy)] sm:block">
+            <span className="absolute right-0 bottom-8 hidden rounded-full border border-[#eadfce] bg-white px-3 py-1 text-[0.65rem] uppercase tracking-[0.14em] text-[var(--landing-navy)] shadow-sm sm:block">
               Govern
             </span>
 
-            <div className="landing-paper landing-paper-raised relative rotate-[1.5deg] rounded-[1.75rem] px-7 pb-6 pt-7">
-              <WaxSeal
-                label={
-                  <>
-                    Governed
-                    <span className="mt-0.5 block text-[0.7rem] tracking-[0.2em]">★</span>
-                  </>
-                }
-                tone="gold"
-                className="absolute -right-5 -top-6 z-10 h-[5.8rem] w-[5.8rem] flex-col text-[0.58rem] leading-tight"
-              />
-              <p className="text-[0.62rem] font-semibold uppercase tracking-[0.22em] text-[var(--muted)]">
-                Estimate ledger
-              </p>
-              <p className="mt-1 text-[0.7rem] tracking-[0.18em] text-[var(--muted)]">EST-2024-00187</p>
-              <p className="font-landing mt-8 text-[2.85rem] leading-none text-[var(--landing-navy)]">
-                CHF 180,000
-              </p>
-              <p className="mt-3 text-[0.62rem] uppercase tracking-[0.18em] text-[var(--muted)]">
-                Cost trend (CHF)
-              </p>
-              <svg viewBox="0 0 280 72" className="mt-3 h-[4.5rem] w-full" aria-hidden>
-                <defs>
-                  <linearGradient id="trendFill" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stopColor="#0f766e" stopOpacity="0.22" />
-                    <stop offset="100%" stopColor="#0f766e" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
-                <path
-                  fill="url(#trendFill)"
-                  d="M0 72 L0 50 L40 46 L80 48 L120 34 L160 30 L200 24 L240 20 L280 14 L280 72 Z"
-                />
-                <path
+            <div className="landing-glass relative rotate-[2deg] rounded-3xl p-6">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-[0.65rem] uppercase tracking-[0.18em] text-[var(--muted)]">
+                    Estimate ledger
+                  </p>
+                  <p className="mt-1 font-mono text-xs text-[var(--muted)]">EST-2024-00187</p>
+                </div>
+                <WaxSeal label="Governed ★" tone="gold" className="absolute -right-3 -top-4 z-10" />
+              </div>
+              <p className="mt-8 font-landing text-5xl leading-none text-[var(--landing-navy)]">CHF 180,000</p>
+              <p className="mt-2 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">Cost trend (CHF)</p>
+              <svg viewBox="0 0 280 64" className="mt-2 h-16 w-full" aria-hidden>
+                <polyline
                   fill="none"
                   stroke="#0f766e"
-                  strokeWidth="2.75"
-                  strokeLinecap="round"
-                  d="M0 50 L40 46 L80 48 L120 34 L160 30 L200 24 L240 20 L280 14"
+                  strokeWidth="2.5"
+                  points="0,48 40,44 80,46 120,32 160,28 200,22 240,18 280,12"
+                />
+                <polyline
+                  fill="rgba(15,118,110,0.12)"
+                  stroke="none"
+                  points="0,64 0,48 40,44 80,46 120,32 160,28 200,22 240,18 280,12 280,64"
                 />
               </svg>
-              <div className="mt-5 grid grid-cols-3 gap-3 border-t border-[#eadfce] pt-5 text-sm">
+              <div className="mt-4 grid grid-cols-3 gap-3 border-t border-[#eadfce] pt-4 text-sm">
                 <div>
-                  <p className="text-[0.62rem] uppercase tracking-[0.14em] text-[var(--muted)]">T-shirt</p>
-                  <p className="mt-1 font-semibold text-[var(--landing-navy)]">XL</p>
+                  <p className="text-[0.65rem] uppercase tracking-wide text-[var(--muted)]">T-shirt</p>
+                  <p className="font-semibold text-[var(--landing-navy)]">XL</p>
                 </div>
                 <div>
-                  <p className="text-[0.62rem] uppercase tracking-[0.14em] text-[var(--muted)]">Story points</p>
-                  <p className="mt-1 font-semibold text-[var(--landing-navy)]">34 SP</p>
+                  <p className="text-[0.65rem] uppercase tracking-wide text-[var(--muted)]">Story points</p>
+                  <p className="font-semibold text-[var(--landing-navy)]">34 SP</p>
                 </div>
                 <div>
-                  <p className="text-[0.62rem] uppercase tracking-[0.14em] text-[var(--muted)]">Duration</p>
-                  <p className="mt-1 font-semibold text-[var(--landing-navy)]">3 sprints</p>
+                  <p className="text-[0.65rem] uppercase tracking-wide text-[var(--muted)]">Duration</p>
+                  <p className="font-semibold text-[var(--landing-navy)]">3 sprints</p>
                 </div>
               </div>
-              <p className="mt-5 text-[0.68rem] tracking-wide text-[var(--muted)]">
-                Status · Governed &nbsp;&nbsp; Approval · Two-person &nbsp;&nbsp; Updated · 21 May 2024
-              </p>
+              <div className="mt-4 flex flex-wrap gap-3 text-xs text-[var(--muted)]">
+                <span>Status · Governed</span>
+                <span>Approval · Two-person</span>
+                <span>Updated · 21 May 2024</span>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section id="moments" className="py-20">
+      <section id="moments" className="border-t border-[#eadfce] bg-[#f7f1e6] py-20">
         <div className="mx-auto max-w-6xl px-6">
           <h2 className="font-landing text-3xl text-[var(--landing-navy)] sm:text-4xl">
             Four moments, one number.
           </h2>
-          <div className="relative mt-14 grid gap-6 md:grid-cols-4">
-            <div className="pointer-events-none absolute top-[1.35rem] right-[10%] left-[10%] hidden h-[2px] bg-[linear-gradient(90deg,transparent,#c4a15c_8%,#c4a15c_92%,transparent)] md:block" />
+          <div className="relative mt-12 grid gap-4 md:grid-cols-4">
+            <div className="pointer-events-none absolute top-[1.15rem] right-[8%] left-[8%] hidden h-px bg-[var(--landing-gold)] md:block" />
             {MOMENTS.map((moment) => (
-              <article key={moment.n} className="landing-paper relative rounded-[1.35rem] p-6">
-                <span className="relative z-10 mb-5 flex h-10 w-10 items-center justify-center rounded-full border border-[var(--landing-gold)] bg-[#fffcf7] font-landing text-sm text-[var(--landing-navy)] shadow-[0_8px_18px_rgba(10,25,47,0.08)]">
+              <article key={moment.n} className="relative rounded-2xl border border-[#eadfce] bg-[var(--landing-cream)] p-5">
+                <span className="relative z-10 mb-4 flex h-9 w-9 items-center justify-center rounded-full border border-[var(--landing-gold)] bg-[var(--landing-cream)] font-landing text-sm text-[var(--landing-navy)]">
                   {moment.n}
                 </span>
-                <h3 className="font-landing text-2xl text-[var(--landing-navy)]">{moment.title}</h3>
-                <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">{moment.body}</p>
+                <h3 className="font-landing text-xl text-[var(--landing-navy)]">{moment.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">{moment.body}</p>
               </article>
             ))}
           </div>
         </div>
       </section>
 
-      <section id="governance" className="py-8 pb-24">
-        <div className="mx-auto grid max-w-6xl items-center gap-12 px-6 lg:grid-cols-[0.9fr_1.7fr]">
+      <section id="governance" className="py-20">
+        <div className="mx-auto grid max-w-6xl items-start gap-10 px-6 lg:grid-cols-[0.7fr_1.3fr]">
           <div>
-            <h2 className="font-landing text-4xl leading-tight text-[var(--landing-navy)] sm:text-5xl">
-              Who sees what.
-            </h2>
-            <p className="mt-5 max-w-md text-base leading-relaxed text-[var(--muted)]">
+            <h2 className="font-landing text-3xl text-[var(--landing-navy)] sm:text-4xl">Who sees what.</h2>
+            <p className="mt-4 text-base leading-relaxed text-[var(--muted)]">
               Admin sees every team. Everyone else sees their team — as that role. A Vikings
               Approver works the whole product as Approver, for Vikings only.
             </p>
           </div>
-          <div className="grid items-end gap-5 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-3">
             <div>
-              <p className="mb-3 text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+              <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
                 Requester view
               </p>
-              <RoleLedger status="Submitted" visibility="My team only" />
+              <LedgerCard status="Submitted" visibility="My team only" />
             </div>
             <div>
-              <p className="mb-3 text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+              <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
                 Approver view
               </p>
-              <RoleLedger
-                raised
+              <LedgerCard
                 status="Pending approval"
                 visibility="My team only"
                 seals={
-                  <div className="mt-5 flex justify-center gap-3">
-                    <WaxSeal label="Rejected" tone="red" className="h-[4.6rem] w-[4.6rem] text-[0.52rem]" />
-                    <WaxSeal label="Governed" tone="green" className="h-[4.6rem] w-[4.6rem] text-[0.52rem]" />
+                  <div className="mt-3 flex justify-end gap-2">
+                    <WaxSeal label="Rejected" tone="red" className="h-16 w-16 text-[0.48rem]" />
+                    <WaxSeal label="Governed" tone="green" className="h-16 w-16 text-[0.48rem]" />
                   </div>
                 }
               />
             </div>
             <div>
-              <p className="mb-3 text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+              <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
                 Finance view
               </p>
-              <RoleLedger status="Governed" visibility="My team only" />
+              <LedgerCard status="Governed" visibility="My team only" />
             </div>
           </div>
         </div>

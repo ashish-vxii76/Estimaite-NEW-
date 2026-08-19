@@ -129,31 +129,10 @@ input, select, textarea, button {
 
 .landing {
   --landing-navy: #0a192f;
-  --landing-cream: #f7f1e6;
-  --landing-paper: #fffcf7;
-  --landing-gold: #c4a15c;
-  --landing-ink: #0a192f;
-  position: relative;
-  background:
-    radial-gradient(920px 480px at 92% -8%, rgba(196, 161, 92, 0.18), transparent 55%),
-    radial-gradient(700px 380px at 0% 18%, rgba(10, 25, 47, 0.05), transparent 50%),
-    linear-gradient(180deg, #fbf7ef 0%, #f3ead9 42%, #f7f1e6 100%);
-  color: var(--landing-ink);
-}
-
-.landing::before {
-  content: "";
-  pointer-events: none;
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  opacity: 0.22;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
-}
-
-.landing > * {
-  position: relative;
-  z-index: 1;
+  --landing-cream: #fdfcf8;
+  --landing-gold: #b89a67;
+  background: var(--landing-cream);
+  color: var(--text);
 }
 
 .font-landing {
@@ -161,58 +140,24 @@ input, select, textarea, button {
 }
 
 .landing-hero-grid {
-  background: transparent;
-}
-
-.landing-paper {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.72) 0%, rgba(255, 252, 247, 0.96) 38%, #f8f1e6 100%);
-  border: 1px solid rgba(184, 154, 103, 0.28);
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.9) inset,
-    0 18px 40px rgba(10, 25, 47, 0.08),
-    0 40px 80px rgba(10, 25, 47, 0.1);
+    radial-gradient(720px 380px at 88% 8%, rgba(184, 154, 103, 0.16), transparent 58%),
+    linear-gradient(180deg, #fdfcf8 0%, #f4eee4 100%);
 }
 
-.landing-paper-raised {
+.landing-glass {
+  background: color-mix(in srgb, var(--landing-cream) 82%, white);
+  border: 1px solid rgba(10, 25, 47, 0.08);
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.95) inset,
-    0 22px 28px rgba(10, 25, 47, 0.08),
-    0 48px 90px rgba(10, 25, 47, 0.16);
+    0 30px 80px rgba(10, 25, 47, 0.12),
+    0 1px 0 rgba(255, 255, 255, 0.8) inset;
+  backdrop-filter: blur(10px);
 }
 
 .landing-seal {
-  position: relative;
-  isolation: isolate;
   box-shadow:
-    0 14px 28px rgba(10, 25, 47, 0.28),
-    0 2px 0 rgba(255, 255, 255, 0.45) inset,
-    0 -10px 14px rgba(0, 0, 0, 0.22) inset;
-}
-
-.landing-seal::before {
-  content: "";
-  position: absolute;
-  inset: 9%;
-  border-radius: inherit;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  opacity: 0.7;
-  z-index: -1;
-}
-
-.landing-seal-gold {
-  background:
-    radial-gradient(circle at 32% 26%, #f6e2b2 0%, #d4b06a 34%, #b0893c 68%, #7a5a24 100%);
-}
-
-.landing-seal-red {
-  background:
-    radial-gradient(circle at 32% 26%, #e58a8a 0%, #c45c5c 32%, #9f1239 68%, #5c0c1c 100%);
-}
-
-.landing-seal-green {
-  background:
-    radial-gradient(circle at 32% 26%, #7dcaa8 0%, #3d9b78 34%, #047857 68%, #064e3b 100%);
+    0 8px 18px rgba(10, 25, 47, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
 .landing-btn-navy,
