@@ -146,18 +146,39 @@ input, select, textarea, button {
 }
 
 .landing-glass {
-  background: color-mix(in srgb, var(--landing-cream) 82%, white);
-  border: 1px solid rgba(10, 25, 47, 0.08);
+  background: linear-gradient(
+    165deg,
+    rgba(255, 255, 255, 0.72) 0%,
+    rgba(255, 255, 255, 0.38) 48%,
+    rgba(253, 252, 248, 0.55) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.85);
   box-shadow:
-    0 30px 80px rgba(10, 25, 47, 0.12),
-    0 1px 0 rgba(255, 255, 255, 0.8) inset;
-  backdrop-filter: blur(10px);
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 18px 40px rgba(10, 25, 47, 0.1),
+    0 40px 80px rgba(10, 25, 47, 0.12);
+  backdrop-filter: blur(18px) saturate(1.25);
+  -webkit-backdrop-filter: blur(18px) saturate(1.25);
 }
 
 .landing-seal {
+  flex-shrink: 0;
   box-shadow:
-    0 8px 18px rgba(10, 25, 47, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    0 10px 22px rgba(10, 25, 47, 0.28),
+    inset 0 2px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -8px 12px rgba(0, 0, 0, 0.22);
+}
+
+.landing-seal-gold {
+  background: radial-gradient(circle at 32% 28%, #f3d89a 0%, #d4b06a 38%, #8a6d3a 100%);
+}
+
+.landing-seal-red {
+  background: radial-gradient(circle at 32% 28%, #e8a0a0 0%, #c45c5c 36%, #6b0f24 100%);
+}
+
+.landing-seal-green {
+  background: radial-gradient(circle at 32% 28%, #7dcaa8 0%, #3d9b78 40%, #065f46 100%);
 }
 
 .landing-btn-navy,

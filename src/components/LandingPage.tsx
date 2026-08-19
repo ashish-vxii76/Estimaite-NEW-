@@ -63,15 +63,9 @@ function WaxSeal({
   tone: "gold" | "red" | "green";
   className?: string;
 }) {
-  const fill =
-    tone === "gold"
-      ? "from-[#d4b06a] via-[#b89a67] to-[#8a6d3a]"
-      : tone === "red"
-        ? "from-[#c45c5c] via-[#9f1239] to-[#6b0f24]"
-        : "from-[#3d9b78] via-[#047857] to-[#065f46]";
   return (
     <div
-      className={`landing-seal flex h-[5.6rem] w-[5.6rem] rotate-[-8deg] items-center justify-center rounded-full bg-gradient-to-br ${fill} text-center text-[0.58rem] font-extrabold uppercase tracking-[0.14em] text-white ${className}`}
+      className={`landing-seal landing-seal-${tone} flex h-[5.6rem] w-[5.6rem] rotate-[-8deg] items-center justify-center rounded-full text-center text-[0.58rem] font-extrabold uppercase tracking-[0.14em] text-white ${className}`}
     >
       {label}
     </div>
@@ -129,7 +123,7 @@ export function LandingPage() {
         </div>
       </header>
 
-      <section id="product" className="landing-hero-grid relative overflow-hidden">
+      <section id="product" className="landing-hero-grid relative overflow-visible">
         <div className="mx-auto grid max-w-6xl items-center gap-12 px-6 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:py-24">
           <div>
             <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-[var(--landing-gold)]">
@@ -157,7 +151,7 @@ export function LandingPage() {
             </ul>
           </div>
 
-          <div className="relative mx-auto w-full max-w-md lg:mx-0 lg:justify-self-end">
+          <div className="relative mx-auto w-full max-w-md overflow-visible pt-8 pr-6 lg:mx-0 lg:justify-self-end">
             <span className="absolute -left-2 top-8 hidden rounded-full border border-[#eadfce] bg-white px-3 py-1 text-[0.65rem] uppercase tracking-[0.14em] text-[var(--landing-navy)] shadow-sm sm:block">
               Ready
             </span>
