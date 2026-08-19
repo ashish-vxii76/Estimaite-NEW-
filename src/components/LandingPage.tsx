@@ -110,16 +110,27 @@ export function LandingPage() {
   return (
     <div className="landing min-h-screen">
       <header className="sticky top-0 z-20 border-b border-[#eadfce]/80 bg-[var(--landing-cream)]/90 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-6 py-3">
-          <Link href="/" aria-label="estimAIte home" className="shrink-0">
-            <EstimAIteLogo tone="light" className="h-7 w-auto max-h-7 max-w-[3.5rem] object-contain sm:h-[2.25rem] sm:max-h-[2.25rem] sm:max-w-[4.5rem] lg:h-10 lg:max-h-10 lg:max-w-[5rem]" />
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-8 px-6 py-3.5">
+          <Link href="/" aria-label="estimAIte home" className="flex shrink-0 items-center">
+            <EstimAIteLogo
+              tone="light"
+              className="block h-8 w-auto max-h-8 max-w-[4rem] object-contain object-left sm:h-[2.6rem] sm:max-h-[2.6rem] sm:max-w-[5.2rem] lg:h-[2.875rem] lg:max-h-[2.875rem] lg:max-w-[5.75rem]"
+            />
           </Link>
-          <div className="ml-auto flex items-center justify-end gap-6">
-            <nav className="hidden items-center justify-end gap-7 text-[0.9rem] font-semibold uppercase tracking-[0.16em] text-[var(--landing-navy)] md:flex">
-              <a href="#product">Product</a>
-              <a href="#moments">Moments</a>
-              <a href="#governance">Governance</a>
-              <a href="#proof">Proof</a>
+          <div className="ml-auto flex items-center justify-end gap-8">
+            <nav className="hidden items-center justify-end gap-8 text-[0.81rem] font-semibold uppercase leading-none tracking-[0.14em] text-[var(--landing-navy)] md:flex">
+              <a href="#product" className="py-1 hover:opacity-70">
+                Product
+              </a>
+              <a href="#moments" className="py-1 hover:opacity-70">
+                Moments
+              </a>
+              <a href="#governance" className="py-1 hover:opacity-70">
+                Governance
+              </a>
+              <a href="#proof" className="py-1 hover:opacity-70">
+                Proof
+              </a>
             </nav>
             <Link href={LOGIN} className="landing-btn-navy">
               Sign in
