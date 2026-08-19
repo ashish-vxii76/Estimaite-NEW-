@@ -130,8 +130,10 @@ input, select, textarea, button {
 .landing {
   --landing-navy: #0a192f;
   --landing-cream: #fdfcf8;
-  --landing-gold: #b89a67;
-  background: var(--landing-cream);
+  --landing-gold: #c4a15c;
+  background:
+    radial-gradient(900px 480px at 88% -10%, rgba(196, 161, 92, 0.2), transparent 58%),
+    linear-gradient(180deg, #fdfcf8 0%, #f4eee4 48%, #fdfcf8 100%);
   color: var(--text);
 }
 
@@ -140,24 +142,86 @@ input, select, textarea, button {
 }
 
 .landing-hero-grid {
-  background:
-    radial-gradient(720px 380px at 88% 8%, rgba(184, 154, 103, 0.16), transparent 58%),
-    linear-gradient(180deg, #fdfcf8 0%, #f4eee4 100%);
+  background: transparent;
 }
 
-.landing-glass {
-  background: color-mix(in srgb, var(--landing-cream) 82%, white);
-  border: 1px solid rgba(10, 25, 47, 0.08);
+.landing-plaque {
+  position: relative;
+  overflow: visible;
+  border-radius: 1.6rem;
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.78) 0%, rgba(253, 252, 248, 0.55) 42%, rgba(247, 241, 230, 0.72) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.72);
   box-shadow:
-    0 30px 80px rgba(10, 25, 47, 0.12),
-    0 1px 0 rgba(255, 255, 255, 0.8) inset;
-  backdrop-filter: blur(10px);
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 18px 40px rgba(10, 25, 47, 0.08),
+    0 40px 80px rgba(10, 25, 47, 0.12);
+  backdrop-filter: blur(18px) saturate(1.15);
+}
+
+.landing-plaque-hero {
+  transform: rotate(1.6deg);
+  padding-bottom: 2.4rem;
+}
+
+.landing-plaque-raised {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 28px 50px rgba(10, 25, 47, 0.14),
+    0 50px 90px rgba(10, 25, 47, 0.12);
+}
+
+.landing-float {
+  position: absolute;
+  z-index: 2;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(184, 154, 103, 0.35);
+  background: rgba(255, 255, 255, 0.86);
+  padding: 0.35rem 0.7rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--landing-navy);
+  box-shadow: 0 10px 24px rgba(10, 25, 47, 0.08);
+  backdrop-filter: blur(8px);
 }
 
 .landing-seal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: #fff;
+  text-align: center;
   box-shadow:
-    0 8px 18px rgba(10, 25, 47, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    0 14px 28px rgba(10, 25, 47, 0.28),
+    0 2px 0 rgba(255, 255, 255, 0.45) inset,
+    0 -10px 16px rgba(0, 0, 0, 0.22) inset;
+}
+
+.landing-seal-label {
+  position: relative;
+  z-index: 1;
+  max-width: 78%;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  line-height: 1.15;
+}
+
+.landing-seal-gold {
+  background: radial-gradient(circle at 32% 26%, #f6e2b2 0%, #d4b06a 34%, #b0893c 68%, #7a5a24 100%);
+}
+
+.landing-seal-red {
+  background: radial-gradient(circle at 32% 26%, #e58a8a 0%, #c45c5c 32%, #9f1239 68%, #5c0c1c 100%);
+}
+
+.landing-seal-green {
+  background: radial-gradient(circle at 32% 26%, #7dcaa8 0%, #3d9b78 34%, #047857 68%, #064e3b 100%);
 }
 
 .landing-btn-navy,
