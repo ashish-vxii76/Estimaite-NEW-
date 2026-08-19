@@ -1,0 +1,195 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #f3efe6;
+  --panel: #fffcf7;
+  --panel-2: #f6f1e8;
+  --line: #ddd6c8;
+  --text: #1b2a4a;
+  --muted: #5c6b80;
+  --accent: #0f766e;
+  --accent-2: #0d9488;
+  --navy: #1e3a5f;
+  --warn: #b45309;
+  --danger: #b42318;
+  --ok: #047857;
+}
+
+body {
+  background:
+    radial-gradient(900px 420px at 100% -10%, #e7eef6 0%, transparent 55%),
+    var(--bg);
+  color: var(--text);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+input, select, textarea, button {
+  font: inherit;
+}
+
+@layer base {
+  a {
+    color: inherit;
+  }
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 1px 0 rgba(27, 42, 74, 0.04);
+}
+
+.sticky-summary {
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+
+.btn-primary {
+  background: var(--navy);
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.08);
+}
+
+.btn-secondary {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+}
+
+.stamp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 7.5rem;
+  padding: 0.45rem 0.7rem;
+  border: 2px solid currentColor;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transform: rotate(-6deg);
+}
+
+.stamp-danger {
+  color: #9f1239;
+  background: color-mix(in srgb, #9f1239 8%, white);
+}
+
+.stamp-navy {
+  color: var(--navy);
+  background: color-mix(in srgb, var(--navy) 8%, white);
+}
+
+.stamp-ok {
+  color: #047857;
+  background: color-mix(in srgb, #047857 8%, white);
+}
+
+.stamp-warn {
+  color: #b45309;
+  background: color-mix(in srgb, #b45309 8%, white);
+}
+
+.situation {
+  background: #f8ead3;
+  border: 1px solid #e8c48a;
+  color: #7c4a12;
+}
+
+.kicker {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.font-display {
+  font-family: var(--font-geist-sans), ui-serif, Georgia, serif;
+}
+
+.btn-ghost {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--navy);
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+}
+
+.landing {
+  --landing-navy: #0a192f;
+  --landing-cream: #fdfcf8;
+  --landing-gold: #b89a67;
+  background: var(--landing-cream);
+  color: var(--text);
+}
+
+.font-landing {
+  font-family: var(--font-landing-serif), ui-serif, Georgia, "Times New Roman", serif;
+}
+
+.landing-hero-grid {
+  background:
+    radial-gradient(720px 380px at 88% 8%, rgba(184, 154, 103, 0.16), transparent 58%),
+    linear-gradient(180deg, #fdfcf8 0%, #f4eee4 100%);
+}
+
+.landing-glass {
+  background: color-mix(in srgb, var(--landing-cream) 82%, white);
+  border: 1px solid rgba(10, 25, 47, 0.08);
+  box-shadow:
+    0 30px 80px rgba(10, 25, 47, 0.12),
+    0 1px 0 rgba(255, 255, 255, 0.8) inset;
+  backdrop-filter: blur(10px);
+}
+
+.landing-seal {
+  box-shadow:
+    0 8px 18px rgba(10, 25, 47, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.landing-btn-navy,
+.landing-btn-ghost,
+.landing-btn-gold {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  padding: 0.55rem 1rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.landing-btn-navy {
+  background: var(--landing-navy);
+  color: #fff;
+}
+
+.landing-btn-navy:hover {
+  filter: brightness(1.12);
+}
+
+.landing-btn-ghost {
+  border: 1px solid var(--landing-navy);
+  color: var(--landing-navy);
+  background: transparent;
+}
+
+.landing-btn-gold {
+  background: var(--landing-gold);
+  color: var(--landing-navy);
+}

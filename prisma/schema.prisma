@@ -1,0 +1,177 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  name         String
+  passwordHash String
+  role         String
+  teamId       String?
+  team         Team?      @relation(fields: [teamId], references: [id])
+  active       Boolean    @default(true)
+  pendingApproval Boolean @default(false)
+  resetRequestedAt DateTime?
+  createdAt    DateTime   @default(now())
+  estimates    Estimate[] @relation("CreatedBy")
+  auditEvents  AuditEvent[]
+}
+
+model Team {
+  id               String       @id @default(cuid())
+  name             String       @unique
+  mappedLocation   String
+  standardTeamSize Int
+  currency         String
+  teamSprintRate   Float
+  resourceSprintRate Float
+  costMethod       String    @default("Team Sprint Rate")
+  locationMixJson  String    @default("[]")
+  effectiveFrom    DateTime
+  effectiveTo      DateTime?
+  active           Boolean      @default(true)
+  members          TeamMember[]
+  users            User[]
+  estimates        Estimate[]
+}
+
+model TeamMember {
+  id           String  @id @default(cuid())
+  teamId       String
+  team         Team    @relation(fields: [teamId], references: [id])
+  name         String
+  roleStream   String
+  resourceLevel String
+  location      String @default("India")
+}
+
+model Location {
+  id        String  @id @default(cuid())
+  name      String  @unique
+  dailyRate Float
+  currency  String
+  costMethod String @default("Daily Rate (CHF / resource-day)")
+  standardTeamSize Int @default(10)
+  active    Boolean @default(true)
+}
+
+model ConfigurationVersion {
+  id        String   @id
+  payload   String
+  createdAt DateTime @default(now())
+  active    Boolean  @default(false)
+}
+
+model Estimate {
+  id                      String    @id @default(cuid())
+  workItemType            String
+  reference               String
+  title                   String
+  description             String    @default("")
+  teamId                  String
+  team                    Team      @relation(fields: [teamId], references: [id])
+  status                  String    @default("DRAFT")
+  requester               String
+  jiraId                  String?
+  project                 String?
+  programme               String?
+  release                 String?
+  targetDeliveryDate      DateTime?
+  stance                  String    @default("NEUTRAL")
+  planningMode            String    @default("RESOURCE_CONSTRAINED")
+  costingModel            String    @default("RESOURCE_SPRINT")
+  currency                String    @default("CHF")
+  devResourceLevel        String    @default("intermediate")
+  qaResourceLevel         String    @default("experienced")
+  devAiProductivity       Float     @default(0)
+  qaAiProductivity        Float     @default(0)
+  availableDev            Int       @default(1)
+  availableQa             Int       @default(1)
+  targetSprints           Int       @default(1)
+  otherFixedCost          Float     @default(0)
+  overrideEnabled         Boolean   @default(false)
+  overrideSp              Float?
+  overrideReason          String?
+  overrideRequestedBy     String?
+  overrideApprovedBy      String?
+  overrideAt              DateTime?
+  complexityScoresJson    String    @default("[]")
+  readinessJson           String    @default("[]")
+  locationMixJson         String    @default("[]")
+  resultJson              String?
+  configurationVersionId  String
+  rateVersionId           String
+  createdById             String
+  createdBy               User      @relation("CreatedBy", fields: [createdById], references: [id])
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  versions                EstimateVersion[]
+  approvals               Approval[]
+  actuals                 ActualDelivery?
+  auditEvents             AuditEvent[]
+}
+
+model EstimateVersion {
+  id         String   @id @default(cuid())
+  estimateId String
+  estimate   Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  snapshot   String
+  createdAt  DateTime @default(now())
+}
+
+model Approval {
+  id         String   @id @default(cuid())
+  estimateId String
+  estimate   Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  action     String
+  comment    String   @default("")
+  actorEmail String
+  createdAt  DateTime @default(now())
+}
+
+model ActualDelivery {
+  id               String   @id @default(cuid())
+  estimateId       String   @unique
+  estimate         Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  actualDevPd      Float
+  actualQaPd       Float
+  actualSprints    Float
+  actualDevResources Int
+  actualQaResources  Int
+  actualOtherCost  Float
+  completionDate   DateTime?
+  varianceJson     String
+  createdAt        DateTime @default(now())
+}
+
+model PortfolioSettings {
+  id        String   @id @default("default")
+  budget    Float?
+  currency  String   @default("CHF")
+  updatedAt DateTime @updatedAt
+}
+
+model RbacSettings {
+  id         String   @id @default("default")
+  matrixJson String
+  updatedAt  DateTime @updatedAt
+}
+
+
+model AuditEvent {
+  id         String    @id @default(cuid())
+  estimateId String?
+  estimate   Estimate? @relation(fields: [estimateId], references: [id], onDelete: SetNull)
+  userId     String?
+  user       User?     @relation(fields: [userId], references: [id])
+  action     String
+  previousValue String @default("")
+  newValue      String @default("")
+  createdAt  DateTime  @default(now())
+}

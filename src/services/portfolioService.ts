@@ -1,0 +1,115 @@
+import { prisma } from "@/lib/prisma";
+import { getActiveConfig } from "@/services/configService";
+import {
+  calibrateDaysPerPoint,
+  rollupPortfolio,
+  type EstimateCalculationResult,
+} from "@/domain/estimation";
+import type { Prisma } from "@prisma/client";
+
+function parseResult(json: string | null): EstimateCalculationResult | null {
+  if (!json) return null;
+  try {
+    return JSON.parse(json) as EstimateCalculationResult;
+  } catch {
+    return null;
+  }
+}
+
+export async function getPortfolio(scope?: Prisma.EstimateWhereInput) {
+  const [estimates, settings] = await Promise.all([
+    prisma.estimate.findMany({
+      where: scope,
+      include: { team: true, actuals: true },
+      orderBy: { updatedAt: "desc" },
+    }),
+    prisma.portfolioSettings.upsert({
+      where: { id: "default" },
+      update: {},
+      create: { id: "default", currency: "CHF" },
+    }),
+  ]);
+
+  const register = estimates.map((estimate) => {
+    const result = parseResult(estimate.resultJson);
+    return {
+      id: estimate.id,
+      reference: estimate.reference,
+      title: estimate.title,
+      team: estimate.team.name,
+      status: estimate.status,
+      workItemType: estimate.workItemType,
+      governanceDecision: result?.governanceDecision ?? "—",
+      deliveryFlag: result?.deliveryFlag ?? result?.governanceDecision ?? "—",
+      effectiveTshirt: result?.effectiveTshirt ?? "—",
+      selectedSp: result?.selectedSp ?? null,
+      aiAdjustedDeliveryCost: result?.aiAdjustedDeliveryCost ?? null,
+      baselineDeliveryCost: result?.baselineDeliveryCost ?? null,
+      adjustedTotalEffortPd: result?.adjustedTotalEffortPd ?? 0,
+      currency: result?.currency ?? estimate.currency,
+      hasActuals: Boolean(estimate.actuals),
+    };
+  });
+
+  const calculated = register.filter((row) => row.effectiveTshirt !== "—");
+  const rollup = rollupPortfolio(
+    calculated.map((row) => ({
+      governanceDecision: row.governanceDecision,
+      deliveryFlag: row.deliveryFlag,
+      effectiveTshirt: row.effectiveTshirt,
+      aiAdjustedDeliveryCost: row.aiAdjustedDeliveryCost,
+      baselineDeliveryCost: row.baselineDeliveryCost,
+      adjustedTotalEffortPd: row.adjustedTotalEffortPd,
+    })),
+    settings.budget,
+  );
+
+  return {
+    ...rollup,
+    currency: settings.currency,
+    register,
+  };
+}
+
+export async function setPortfolioBudget(budget: number | null, currency: string) {
+  return prisma.portfolioSettings.upsert({
+    where: { id: "default" },
+    update: { budget, currency },
+    create: { id: "default", budget, currency },
+  });
+}
+
+export async function getCalibration(scope?: Prisma.EstimateWhereInput) {
+  const [config, estimates] = await Promise.all([
+    getActiveConfig(),
+    prisma.estimate.findMany({
+      where: { actuals: { isNot: null }, ...scope },
+      include: { actuals: true },
+    }),
+  ]);
+
+  const samples = estimates.flatMap((estimate) => {
+    if (!estimate.actuals) return [];
+    const variance = JSON.parse(estimate.actuals.varianceJson) as {
+      actualEstimatedEffortRatio?: number | null;
+    };
+    if (!variance.actualEstimatedEffortRatio) return [];
+    return [
+      {
+        resourceLevelId: estimate.devResourceLevel,
+        actualEstimatedEffortRatio: variance.actualEstimatedEffortRatio,
+      },
+    ];
+  });
+
+  const calibration = calibrateDaysPerPoint({
+    levels: config.resourceLevels,
+    samples,
+  });
+
+  return {
+    ...calibration,
+    sampleCount: samples.length,
+    configVersionId: config.versionId,
+  };
+}

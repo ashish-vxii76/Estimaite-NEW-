@@ -1,0 +1,15 @@
+export const ADMIN_PAGES = [
+  ["/admin", "Overview"],
+  ["/admin/users", "Login credentials"],
+  ["/admin/rbac", "RBAC"],
+  ["/teams", "Teams"],
+  ["/admin/team-composition", "Team composition"],
+  ["/admin/issue-mapping", "Issue mapping"],
+  ["/admin/epic-mapping", "Epic mapping"],
+  ["/admin/resource-mapping", "Resource mapping"],
+  ["/admin/complexity-mapping", "Complexity mapping"],
+  ["/admin/cost-mapping", "Location sprint rates"],
+  ["/admin/team-cost-mapping", "Team sprint rates"],
+  ["/admin/daily-rates", "Location daily rates"],
+  ["/admin/estimation-config", "Estimation config"],
+] as const;
