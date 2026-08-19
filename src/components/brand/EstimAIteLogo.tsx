@@ -1,7 +1,7 @@
 type LogoTone = "light" | "dark";
 
 const SRC: Record<LogoTone, string> = {
-  light: `/brand/${encodeURIComponent("EstimAIte - White.png")}`,
+  light: `/brand/${encodeURIComponent("EstimAIte-header.png")}`,
   dark: `/brand/${encodeURIComponent("EstimAIte -Black.png")}`,
 };
 
