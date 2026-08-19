@@ -110,19 +110,21 @@ export function LandingPage() {
   return (
     <div className="landing min-h-screen">
       <header className="sticky top-0 z-20 border-b border-[#eadfce]/80 bg-[var(--landing-cream)]/90 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-6 py-3">
           <Link href="/" aria-label="estimAIte home" className="shrink-0">
-            <EstimAIteLogo tone="light" className="h-14 w-auto max-h-14 max-w-[7rem] object-contain sm:h-[4.5rem] sm:max-h-[4.5rem] sm:max-w-[9rem] lg:h-20 lg:max-h-20 lg:max-w-[10rem]" />
+            <EstimAIteLogo tone="light" className="h-7 w-auto max-h-7 max-w-[3.5rem] object-contain sm:h-[2.25rem] sm:max-h-[2.25rem] sm:max-w-[4.5rem] lg:h-10 lg:max-h-10 lg:max-w-[5rem]" />
           </Link>
-          <nav className="hidden items-center gap-7 text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-[var(--landing-navy)] md:flex">
-            <a href="#product">Product</a>
-            <a href="#moments">Moments</a>
-            <a href="#governance">Governance</a>
-            <a href="#proof">Proof</a>
-          </nav>
-          <Link href={LOGIN} className="landing-btn-navy">
-            Sign in
-          </Link>
+          <div className="ml-auto flex items-center justify-end gap-6">
+            <nav className="hidden items-center justify-end gap-7 text-[0.9rem] font-semibold uppercase tracking-[0.16em] text-[var(--landing-navy)] md:flex">
+              <a href="#product">Product</a>
+              <a href="#moments">Moments</a>
+              <a href="#governance">Governance</a>
+              <a href="#proof">Proof</a>
+            </nav>
+            <Link href={LOGIN} className="landing-btn-navy">
+              Sign in
+            </Link>
+          </div>
         </div>
       </header>
 
