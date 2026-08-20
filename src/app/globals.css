@@ -146,13 +146,35 @@ input, select, textarea, button {
 }
 
 .landing-glass {
-  background: color-mix(in srgb, var(--landing-cream) 82%, white);
-  border: 1px solid rgba(10, 25, 47, 0.08);
+  background: linear-gradient(
+    165deg,
+    rgba(255, 255, 255, 0.72) 0%,
+    rgba(255, 255, 255, 0.36) 48%,
+    rgba(253, 252, 248, 0.5) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.85);
   box-shadow:
-    0 30px 80px rgba(10, 25, 47, 0.12),
-    0 1px 0 rgba(255, 255, 255, 0.8) inset;
-  backdrop-filter: blur(10px);
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 22px 50px rgba(10, 25, 47, 0.12),
+    0 48px 90px rgba(10, 25, 47, 0.1);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
 }
+
+.landing-pin {
+  position: absolute;
+  z-index: 2;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: radial-gradient(circle at 35% 30%, #f3d89a, #b89a67 55%, #7a5a24);
+  box-shadow: 0 1px 3px rgba(10, 25, 47, 0.35);
+}
+
+.landing-pin-tl { top: 0.7rem; left: 0.7rem; }
+.landing-pin-tr { top: 0.7rem; right: 0.7rem; }
+.landing-pin-bl { bottom: 0.7rem; left: 0.7rem; }
+.landing-pin-br { bottom: 0.7rem; right: 0.7rem; }
 
 .landing-seal {
   box-shadow:
