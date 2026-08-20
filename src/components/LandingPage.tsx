@@ -1,4 +1,5 @@
 import Link from "next/link";
+import "@/app/landing.css";
 import {
   ArrowRight,
   BarChart3,

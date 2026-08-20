@@ -34,17 +34,11 @@ export function WaxSeal({
           <stop offset="45%" stopColor={c.mid} />
           <stop offset="100%" stopColor={c.lo} />
         </radialGradient>
-        <filter id={`${gid}-t`} x="-20%" y="-20%" width="140%" height="140%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" seed="4" result="n" />
-          <feDisplacementMap in="SourceGraphic" in2="n" scale="1.4" />
-        </filter>
       </defs>
-      <g filter={`url(#${gid}-t)`}>
-        <circle cx="50" cy="50" r="39.5" fill={`url(#${gid}-g)`} />
-        {bumps.map((b, i) => (
-          <circle key={i} cx={b.x} cy={b.y} r={b.tooth} fill={`url(#${gid}-g)`} />
-        ))}
-      </g>
+      <circle cx="50" cy="50" r="39.5" fill={`url(#${gid}-g)`} />
+      {bumps.map((b, i) => (
+        <circle key={i} cx={b.x} cy={b.y} r={b.tooth} fill={`url(#${gid}-g)`} />
+      ))}
       <ellipse cx="38" cy="34" rx="16" ry="10" fill="rgba(255,255,255,0.22)" />
       <circle cx="50" cy="50" r="29.5" fill="none" stroke="rgba(255,255,255,0.28)" strokeWidth="1.15" />
       <circle cx="50" cy="50" r="27.2" fill="none" stroke="rgba(0,0,0,0.16)" strokeWidth="0.7" />
