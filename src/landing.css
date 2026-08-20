@@ -28,13 +28,14 @@
   --estimate-border: rgba(21, 37, 46, 0.18);
 
   --serif:
+    var(--font-landing-serif),
     "Cormorant Garamond",
-    "Bodoni Moda",
     "Times New Roman",
     Georgia,
     serif;
 
   --sans:
+    var(--font-geist-sans),
     ui-sans-serif,
     system-ui,
     sans-serif;
