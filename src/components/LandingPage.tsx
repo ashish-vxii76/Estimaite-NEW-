@@ -163,9 +163,18 @@ export function LandingPage() {
               </a>
             </div>
             <ul className="mt-10 flex flex-wrap gap-x-6 gap-y-2 text-sm text-[var(--muted)]">
-              <li>Two-person approval</li>
-              <li>Team-scoped RBAC</li>
-              <li>Post-delivery calibration</li>
+              <li className="flex items-center gap-2">
+                <Shield className="h-4 w-4 text-[var(--landing-navy)]" strokeWidth={1.5} />
+                Two-person approval
+              </li>
+              <li className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-[var(--landing-navy)]" strokeWidth={1.5} />
+                Team-scoped RBAC
+              </li>
+              <li className="flex items-center gap-2">
+                <Eye className="h-4 w-4 text-[var(--landing-navy)]" strokeWidth={1.5} />
+                Post-delivery calibration
+              </li>
             </ul>
           </div>
 
