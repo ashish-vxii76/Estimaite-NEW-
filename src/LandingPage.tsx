@@ -29,17 +29,17 @@ const MOMENTS = [
 ] as const;
 
 const CHAIN = [
-  "Scope",
-  "Complexity",
-  "T-Shirt",
-  "SP",
-  "Capacity",
-  "Sprints",
-  "Cost",
-  "AI",
-  "Governance",
-  "Actuals",
-  "Calibration",
+  { label: "Scope", hint: "Bound the work" },
+  { label: "Complexity", hint: "Score the risk" },
+  { label: "T-Shirt", hint: "Size the ask" },
+  { label: "SP", hint: "Point the effort" },
+  { label: "Capacity", hint: "Check the team" },
+  { label: "Sprints", hint: "Set the calendar" },
+  { label: "Cost", hint: "Derive CHF" },
+  { label: "AI", hint: "Note the impact" },
+  { label: "Governance", hint: "Two-person sign" },
+  { label: "Actuals", hint: "Capture delivery" },
+  { label: "Calibration", hint: "Learn the delta" },
 ] as const;
 
 function MiniTrend() {
@@ -114,41 +114,45 @@ function HeroLedger() {
   );
 }
 
-function RoleCard({
+function RolePanel({
   role,
   status,
-  visibility,
+  note,
   seals,
+  emphasis,
 }: {
   role: string;
   status: string;
-  visibility: string;
+  note: string;
   seals?: Array<"red" | "green">;
+  emphasis?: boolean;
 }) {
   return (
-    <article className="bp-role-card">
-      <p className="bp-role-label">{role}</p>
-      <div className="bp-role-sheet">
+    <article className={`bp-role-panel${emphasis ? " bp-role-panel-emphasis" : ""}`}>
+      <header className="bp-role-panel-head">
+        <p className="bp-role-label">{role}</p>
+        <p className="bp-role-status">{status}</p>
+      </header>
+
+      <div className="bp-role-panel-body">
         <p className="bp-role-cost">CHF 180,000</p>
-        <dl>
-          <div>
-            <dt>Status</dt>
-            <dd>{status}</dd>
-          </div>
-          <div>
-            <dt>Visibility</dt>
-            <dd>{visibility}</dd>
-          </div>
-          <div>
-            <dt>T-shirt</dt>
-            <dd>XL</dd>
-          </div>
-          <div>
-            <dt>Story points</dt>
-            <dd>34 SP</dd>
-          </div>
-        </dl>
+        <p className="bp-role-note">{note}</p>
+        <ul className="bp-role-meta">
+          <li>
+            <span>Visibility</span>
+            <strong>My team only</strong>
+          </li>
+          <li>
+            <span>T-shirt</span>
+            <strong>XL</strong>
+          </li>
+          <li>
+            <span>Story points</span>
+            <strong>34 SP</strong>
+          </li>
+        </ul>
       </div>
+
       {seals?.map((seal) => (
         <WaxSeal
           key={seal}
@@ -171,16 +175,17 @@ export default function LandingPage() {
             <EstimAIteLogo tone="light" className="bp-logo" />
           </Link>
 
-          <nav className="bp-nav" aria-label="Main">
-            <a href="#product">Product</a>
-            <a href="#moments">Moments</a>
-            <a href="#governance">Governance</a>
-            <a href="#proof">Proof</a>
-          </nav>
-
-          <Link href={LOGIN} className="bp-btn bp-btn-ghost">
-            Sign in
-          </Link>
+          <div className="bp-header-right">
+            <nav className="bp-nav" aria-label="Main">
+              <a href="#product">Product</a>
+              <a href="#moments">Moments</a>
+              <a href="#governance">Governance</a>
+              <a href="#proof">Proof</a>
+            </nav>
+            <Link href={LOGIN} className="bp-btn bp-btn-ghost">
+              Sign in
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -201,7 +206,7 @@ export default function LandingPage() {
               </Link>
             </div>
 
-            <div className="bp-hero-art" aria-hidden={false}>
+            <div className="bp-hero-art">
               <HeroLedger />
             </div>
           </div>
@@ -209,13 +214,26 @@ export default function LandingPage() {
 
         <section className="bp-moments" id="moments">
           <div className="bp-section-inner">
-            <h2>Four moments, one number.</h2>
-            <ol className="bp-moments-grid">
-              {MOMENTS.map((m) => (
+            <div className="bp-section-head">
+              <p className="bp-kicker">The path</p>
+              <h2>Four moments, one number.</h2>
+              <p className="bp-lede">
+                From readiness to governance — each step leaves evidence on the
+                ledger.
+              </p>
+            </div>
+
+            <ol className="bp-moments-track">
+              {MOMENTS.map((m, i) => (
                 <li key={m.n} className="bp-moment">
-                  <span className="bp-moment-n">{m.n}</span>
-                  <h3>{m.title}</h3>
-                  <p>{m.body}</p>
+                  <div className="bp-moment-rail" aria-hidden>
+                    <span className="bp-moment-dot">{m.n}</span>
+                    {i < MOMENTS.length - 1 ? <span className="bp-moment-line" /> : null}
+                  </div>
+                  <div className="bp-moment-copy">
+                    <h3>{m.title}</h3>
+                    <p>{m.body}</p>
+                  </div>
                 </li>
               ))}
             </ol>
@@ -223,31 +241,33 @@ export default function LandingPage() {
         </section>
 
         <section className="bp-roles" id="governance">
-          <div className="bp-section-inner bp-roles-inner">
-            <div className="bp-roles-intro">
+          <div className="bp-section-inner">
+            <div className="bp-section-head bp-section-head-center">
+              <p className="bp-kicker">Visibility</p>
               <h2>Who sees what.</h2>
-              <p>
-                Admin sees every team. Everyone else sees their team — as that
-                role.
+              <p className="bp-lede">
+                Same estimate. Different lenses. Admin sees every team —
+                everyone else sees theirs, as that role.
               </p>
             </div>
 
             <div className="bp-roles-grid">
-              <RoleCard
+              <RolePanel
                 role="Requester"
                 status="Submitted"
-                visibility="My team only"
+                note="Drafts and submits for approval. Cannot self-approve."
               />
-              <RoleCard
+              <RolePanel
                 role="Approver"
                 status="Pending approval"
-                visibility="My team only"
+                note="Reviews, rejects, or governs. Two-person rule enforced."
                 seals={["red", "green"]}
+                emphasis
               />
-              <RoleCard
+              <RolePanel
                 role="Finance"
                 status="Governed"
-                visibility="My team only"
+                note="Reads the board-ready CHF number and approval trail."
               />
             </div>
           </div>
@@ -255,11 +275,21 @@ export default function LandingPage() {
 
         <section className="bp-chain" id="proof">
           <div className="bp-section-inner">
-            <h2>The chain.</h2>
+            <div className="bp-section-head">
+              <p className="bp-kicker bp-kicker-on-dark">Traceability</p>
+              <h2>Nothing orphaned.</h2>
+              <p className="bp-lede bp-lede-on-dark">
+                Every field on the ledger connects — from scope to calibration.
+              </p>
+            </div>
+
             <ol className="bp-chain-flow">
-              {CHAIN.map((label, i) => (
-                <li key={label} className="bp-chain-item">
-                  <span>{label}</span>
+              {CHAIN.map((item, i) => (
+                <li key={item.label} className="bp-chain-item">
+                  <div className="bp-chain-pill">
+                    <strong>{item.label}</strong>
+                    <span>{item.hint}</span>
+                  </div>
                   {i < CHAIN.length - 1 ? (
                     <span className="bp-chain-arrow" aria-hidden>
                       →
@@ -272,23 +302,35 @@ export default function LandingPage() {
         </section>
 
         <section className="bp-proof" aria-label="Proof points">
-          <div className="bp-section-inner bp-proof-grid">
-            <div>
-              <strong>18</strong>
-              <span>CRs tracked</span>
+          <div className="bp-section-inner">
+            <div className="bp-proof-grid">
+              <div>
+                <strong>18</strong>
+                <span>Change requests tracked</span>
+              </div>
+              <div>
+                <strong>CHF 180k</strong>
+                <span>Governed budget on the ledger</span>
+              </div>
+              <div>
+                <strong>4</strong>
+                <span>Teams active and aligned</span>
+              </div>
+              <div>
+                <strong>0</strong>
+                <span>Self-approvals tolerated</span>
+              </div>
             </div>
-            <div>
-              <strong>CHF 180k</strong>
-              <span>Total budget</span>
-            </div>
-            <div>
-              <strong>4</strong>
-              <span>Active teams</span>
-            </div>
-            <div>
-              <strong>0</strong>
-              <span>Self-approvals</span>
-            </div>
+          </div>
+        </section>
+
+        <section className="bp-close">
+          <div className="bp-section-inner bp-close-inner">
+            <h2>Ready when the number has to hold up.</h2>
+            <p>Open the ledger and start a governed estimate.</p>
+            <Link href={LOGIN} className="bp-btn bp-btn-solid">
+              Start a governed estimate
+            </Link>
           </div>
         </section>
       </main>

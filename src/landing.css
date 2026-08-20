@@ -55,9 +55,9 @@
   width: min(100% - 48px, var(--bp-width));
   margin-inline: auto;
   min-height: 92px;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 24px;
 }
 
@@ -65,7 +65,7 @@
   display: inline-flex;
   align-items: center;
   line-height: 0;
-  justify-self: start;
+  flex-shrink: 0;
 }
 
 .bp-logo {
@@ -77,10 +77,19 @@
   object-position: left center;
 }
 
+.bp-header-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 28px;
+  margin-left: auto;
+}
+
 .bp-nav {
   display: flex;
-  gap: 35px;
-  justify-content: center;
+  gap: 28px;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .bp-nav a {
@@ -88,14 +97,15 @@
   font-weight: 600;
   letter-spacing: 0.04em;
   color: var(--bp-navy-ink);
+  white-space: nowrap;
 }
 
 .bp-nav a:hover {
   color: var(--bp-teal);
 }
 
-.bp-header-inner > .bp-btn {
-  justify-self: end;
+.bp-header-right > .bp-btn {
+  flex-shrink: 0;
   min-height: 50px;
   padding: 0 22px;
   font-size: 1rem;
@@ -393,140 +403,222 @@
   transform: rotate(-8deg);
 }
 
-/* —— Moments —— */
+/* —— Shared section heads —— */
 
-.bp-moments {
-  padding: 72px 0 64px;
-  background: #f7f3ec;
-  border-top: 1px solid var(--bp-border);
+.bp-section-head {
+  max-width: 40rem;
+}
+
+.bp-section-head-center {
+  margin-inline: auto;
+  text-align: center;
+}
+
+.bp-kicker {
+  margin: 0 0 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--bp-gold);
+}
+
+.bp-kicker-on-dark {
+  color: var(--bp-gold-light, #d3b470);
+}
+
+.bp-lede {
+  margin: 14px 0 0;
+  font-size: 1.05rem;
+  line-height: 1.65;
+  color: var(--bp-muted);
+}
+
+.bp-lede-on-dark {
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .bp-moments h2,
 .bp-roles h2,
-.bp-chain h2 {
+.bp-chain h2,
+.bp-close h2 {
   margin: 0;
   font-family: var(--bp-serif);
-  font-size: clamp(1.9rem, 3vw, 2.4rem);
+  font-size: clamp(1.95rem, 3.2vw, 2.55rem);
   font-weight: 500;
   color: var(--bp-navy-ink);
+  line-height: 1.15;
 }
 
-.bp-moments-grid {
+/* —— Moments (connected track) —— */
+
+.bp-moments {
+  padding: 88px 0 80px;
+  background:
+    linear-gradient(180deg, #f8f5ef 0%, #f3eee4 100%);
+  border-top: 1px solid var(--bp-border);
+}
+
+.bp-moments-track {
   list-style: none;
-  margin: 40px 0 0;
+  margin: 48px 0 0;
   padding: 0;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 20px;
-  counter-reset: none;
+  gap: 0;
 }
 
 .bp-moment {
-  padding: 22px 20px 24px;
-  border: 1px solid rgba(180, 140, 60, 0.28);
-  border-radius: 4px;
-  background: rgba(250, 248, 244, 0.85);
+  display: grid;
+  gap: 18px;
+  padding-right: 20px;
 }
 
-.bp-moment-n {
-  display: block;
-  font-family: var(--bp-serif);
-  font-size: 1.65rem;
-  color: var(--bp-teal);
-  line-height: 1;
+.bp-moment-rail {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  min-height: 44px;
 }
 
-.bp-moment h3 {
-  margin: 14px 0 0;
+.bp-moment-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--bp-gold);
+  border-radius: 999px;
+  background: var(--bp-cream-2);
   font-family: var(--bp-serif);
-  font-size: 1.35rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--bp-navy);
+  z-index: 1;
+}
+
+.bp-moment-line {
+  flex: 1;
+  height: 1px;
+  margin-left: -1px;
+  background: linear-gradient(90deg, var(--bp-gold), rgba(180, 140, 60, 0.25));
+}
+
+.bp-moment-copy h3 {
+  margin: 0;
+  font-family: var(--bp-serif);
+  font-size: 1.45rem;
   font-weight: 600;
   color: var(--bp-navy);
 }
 
-.bp-moment p {
+.bp-moment-copy p {
   margin: 10px 0 0;
-  font-size: 0.92rem;
-  line-height: 1.6;
+  max-width: 28ch;
+  font-size: 0.95rem;
+  line-height: 1.65;
   color: var(--bp-muted);
 }
 
-/* —— Roles —— */
+/* —— Roles (role mirror) —— */
 
 .bp-roles {
-  padding: 72px 0 80px;
-  background: var(--bp-cream-2);
-}
-
-.bp-roles-inner {
-  display: grid;
-  grid-template-columns: minmax(180px, 240px) 1fr;
-  gap: 40px;
-  align-items: start;
-}
-
-.bp-roles-intro p {
-  margin: 14px 0 0;
-  max-width: 22ch;
-  font-size: 1rem;
-  line-height: 1.6;
-  color: var(--bp-muted);
+  padding: 88px 0 100px;
+  background: #fffdf9;
 }
 
 .bp-roles-grid {
+  margin-top: 48px;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 22px;
+  gap: 28px;
+  align-items: stretch;
 }
 
-.bp-role-card {
+.bp-role-panel {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: 0 0 28px;
+  border-bottom: 2px solid rgba(7, 48, 82, 0.1);
+}
+
+.bp-role-panel-emphasis {
+  border-bottom-color: var(--bp-gold);
+}
+
+.bp-role-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--bp-border);
 }
 
 .bp-role-label {
-  margin: 0 0 12px;
-  font-size: 0.72rem;
+  margin: 0;
+  font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--bp-navy);
 }
 
-.bp-role-sheet {
-  padding: 20px 18px 18px;
-  border: 1px solid var(--bp-border);
-  border-radius: 14px;
-  background: var(--bp-paper);
-  box-shadow: 0 14px 36px rgba(3, 40, 66, 0.07);
+.bp-role-status {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: var(--bp-teal);
+  text-align: right;
+}
+
+.bp-role-panel-body {
+  flex: 1;
+  padding-bottom: 52px;
 }
 
 .bp-role-cost {
   margin: 0;
   font-family: var(--bp-serif);
-  font-size: 1.7rem;
+  font-size: 2rem;
   font-weight: 500;
   color: var(--bp-navy);
 }
 
-.bp-role-sheet dl {
-  margin: 16px 0 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px 10px;
+.bp-role-note {
+  margin: 12px 0 0;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--bp-muted);
+  min-height: 3.2em;
 }
 
-.bp-role-sheet dt {
-  font-size: 0.65rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.bp-role-meta {
+  list-style: none;
+  margin: 22px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.bp-role-meta li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.88rem;
+}
+
+.bp-role-meta span {
   color: var(--bp-muted);
 }
 
-.bp-role-sheet dd {
-  margin: 2px 0 0;
-  font-size: 0.88rem;
-  font-weight: 700;
+.bp-role-meta strong {
   color: var(--bp-navy);
+  font-weight: 700;
 }
 
 .bp-role-seal {
@@ -535,22 +627,24 @@
 }
 
 .bp-role-seal-red {
-  right: -10px;
-  bottom: -18px;
+  right: 8px;
+  bottom: -12px;
   transform: rotate(-10deg);
 }
 
 .bp-role-seal-green {
-  right: 54px;
-  bottom: -28px;
+  right: 78px;
+  bottom: -22px;
   transform: rotate(8deg);
 }
 
 /* —— Chain —— */
 
 .bp-chain {
-  padding: 64px 0 48px;
-  background: var(--bp-navy-deep);
+  padding: 80px 0 72px;
+  background:
+    radial-gradient(ellipse 60% 50% at 80% 0%, rgba(11, 82, 111, 0.35), transparent 55%),
+    var(--bp-navy-deep);
   color: #fff;
 }
 
@@ -560,32 +654,53 @@
 
 .bp-chain-flow {
   list-style: none;
-  margin: 36px 0 0;
+  margin: 40px 0 0;
   padding: 0;
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 4px;
+  align-items: stretch;
+  gap: 10px 6px;
 }
 
 .bp-chain-item {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+}
+
+.bp-chain-pill {
+  display: grid;
+  gap: 4px;
+  min-width: 7.5rem;
+  padding: 14px 14px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.bp-chain-pill strong {
   font-size: 0.92rem;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.02em;
 }
 
+.bp-chain-pill span {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.58);
+  line-height: 1.3;
+}
+
 .bp-chain-arrow {
-  opacity: 0.45;
+  opacity: 0.4;
   font-weight: 400;
+  font-size: 1rem;
+  padding-inline: 2px;
 }
 
 /* —— Proof —— */
 
 .bp-proof {
-  padding: 36px 0 44px;
+  padding: 48px 0;
   background: #041f33;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.88);
@@ -594,22 +709,50 @@
 .bp-proof-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 20px;
+  gap: 28px;
 }
 
 .bp-proof-grid strong {
   display: block;
   font-family: var(--bp-serif);
-  font-size: 1.85rem;
+  font-size: 2rem;
   font-weight: 500;
   color: #fff;
 }
 
 .bp-proof-grid span {
   display: block;
-  margin-top: 4px;
-  font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.62);
+  margin-top: 6px;
+  max-width: 16ch;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.58);
+}
+
+/* —— Closing CTA —— */
+
+.bp-close {
+  padding: 72px 0;
+  background: var(--bp-cream);
+  border-top: 1px solid var(--bp-border);
+}
+
+.bp-close-inner {
+  text-align: center;
+  max-width: 36rem;
+  margin-inline: auto;
+}
+
+.bp-close-inner p {
+  margin: 14px 0 0;
+  font-size: 1.05rem;
+  color: var(--bp-muted);
+}
+
+.bp-close-inner .bp-btn {
+  margin-top: 28px;
+  min-height: 52px;
+  padding-inline: 26px;
 }
 
 /* —— Footer —— */
@@ -676,10 +819,6 @@
 /* —— Responsive —— */
 
 @media (max-width: 960px) {
-  .bp-header-inner {
-    grid-template-columns: 1fr auto;
-  }
-
   .bp-nav {
     display: none;
   }
@@ -698,18 +837,23 @@
     min-height: 420px;
   }
 
-  .bp-moments-grid,
+  .bp-moments-track,
   .bp-roles-grid,
   .bp-proof-grid {
     grid-template-columns: 1fr 1fr;
   }
 
-  .bp-roles-inner {
-    grid-template-columns: 1fr;
+  .bp-moments-track {
+    gap: 28px 16px;
   }
 
-  .bp-roles-intro p {
-    max-width: 40ch;
+  .bp-moment {
+    padding-right: 0;
+  }
+
+  .bp-moment:nth-child(2) .bp-moment-line,
+  .bp-moment:nth-child(4) .bp-moment-line {
+    display: none;
   }
 }
 
@@ -725,10 +869,14 @@
     height: 55px;
   }
 
-  .bp-moments-grid,
+  .bp-moments-track,
   .bp-roles-grid,
   .bp-proof-grid {
     grid-template-columns: 1fr;
+  }
+
+  .bp-moment-line {
+    display: none;
   }
 
   .bp-ledger-mid,
@@ -751,6 +899,10 @@
   .bp-footer-bottom > span:last-child {
     justify-self: start;
   }
+
+  .bp-chain-pill {
+    min-width: 6.5rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -762,3 +914,4 @@
     transform: none;
   }
 }
+
