@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { EstimAIteLogo } from "@/components/brand/EstimAIteLogo";
 import {
   BarChart3,
   Calendar,
@@ -52,21 +53,6 @@ const CHAIN = [
   { label: "Actuals", Icon: BarChart3 },
   { label: "Calibration", Icon: Eye },
 ];
-
-function Wordmark({ light = false }: { light?: boolean }) {
-  return (
-    <div>
-      <p className={`font-landing text-xl tracking-wide ${light ? "text-[var(--landing-cream)]" : "text-[var(--landing-navy)]"}`}>
-        ESTIMAITE
-      </p>
-      <p
-        className={`font-landing text-[0.7rem] italic ${light ? "text-white/55" : "text-[var(--landing-gold)]"}`}
-      >
-        Governed estimation
-      </p>
-    </div>
-  );
-}
 
 function WaxSeal({
   label,
@@ -121,8 +107,11 @@ export function LandingPage() {
     <div className="landing min-h-screen">
       <header className="sticky top-0 z-20 border-b border-[#eadfce]/80 bg-[var(--landing-cream)]/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
-          <Link href="/" aria-label="Estimaite home">
-            <Wordmark />
+          <Link href="/" aria-label="estimAIte home" className="flex shrink-0 items-center">
+            <EstimAIteLogo
+              tone="light"
+              className="h-14 w-auto max-h-14 object-contain object-left sm:h-16 sm:max-h-16"
+            />
           </Link>
           <nav className="hidden items-center gap-7 text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-[var(--landing-navy)] md:flex">
             <a href="#product">Product</a>
@@ -130,18 +119,13 @@ export function LandingPage() {
             <a href="#governance">Governance</a>
             <a href="#proof">Proof</a>
           </nav>
-          <div className="flex items-center gap-2">
-            <Link href={LOGIN} className="landing-btn-ghost hidden sm:inline-flex">
-              Sign in
-            </Link>
-            <Link href={LOGIN} className="landing-btn-navy">
-              Open the ledger
-            </Link>
-          </div>
+          <Link href={LOGIN} className="landing-btn-navy">
+            Sign in
+          </Link>
         </div>
       </header>
 
-      <section id="product" className="landing-hero-grid relative overflow-hidden">
+      <section id="product" className="landing-hero-grid relative overflow-visible">
         <div className="mx-auto grid max-w-6xl items-center gap-12 px-6 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:py-24">
           <div>
             <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-[var(--landing-gold)]">
@@ -169,7 +153,7 @@ export function LandingPage() {
             </ul>
           </div>
 
-          <div className="relative mx-auto w-full max-w-md lg:mx-0 lg:justify-self-end">
+          <div className="relative mx-auto w-full max-w-md overflow-visible pt-8 pr-4 lg:mx-0 lg:justify-self-end">
             <span className="absolute -left-2 top-8 hidden rounded-full border border-[#eadfce] bg-white px-3 py-1 text-[0.65rem] uppercase tracking-[0.14em] text-[var(--landing-navy)] shadow-sm sm:block">
               Ready
             </span>
@@ -330,18 +314,15 @@ export function LandingPage() {
         </div>
       </section>
 
-      <footer className="bg-[var(--landing-navy)] px-6 pt-16 pb-8 text-[var(--landing-cream)]">
+      <footer className="bg-black px-6 pt-16 pb-10 text-white">
         <div className="mx-auto max-w-6xl">
-          <p className="max-w-xl font-landing text-3xl leading-snug sm:text-4xl">
+          <p className="mx-auto max-w-xl text-center font-landing text-3xl leading-snug sm:text-4xl">
             Built for PMO, finance, and delivery leads who have to defend the number.
           </p>
-          <div className="mt-8">
-            <Link href={LOGIN} className="landing-btn-gold">
-              Open the ledger
-            </Link>
+          <div className="mt-16 flex justify-center">
+            <EstimAIteLogo tone="dark" className="h-auto w-full max-w-[28rem] object-contain" />
           </div>
-          <div className="mt-16 flex flex-wrap items-end justify-between gap-6 border-t border-white/10 pt-6 text-xs text-white/55">
-            <Wordmark light />
+          <div className="mt-12 flex flex-wrap items-center justify-between gap-6 border-t border-white/10 pt-6 text-xs text-white/45">
             <div className="flex flex-wrap gap-4">
               <span>Privacy</span>
               <span>Security</span>
@@ -353,7 +334,7 @@ export function LandingPage() {
               <span aria-hidden>🇨🇭</span> Made in Switzerland
             </p>
           </div>
-          <p className="mt-4 text-[0.7rem] text-white/35">© 2026 Estimaite. All rights reserved.</p>
+          <p className="mt-4 text-center text-[0.7rem] text-white/30">© 2026 estimAIte. All rights reserved.</p>
         </div>
       </footer>
     </div>
