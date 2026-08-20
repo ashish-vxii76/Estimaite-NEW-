@@ -14,7 +14,7 @@
   --bp-border: rgba(21, 37, 46, 0.14);
   --bp-serif: var(--font-landing-serif), "Cormorant Garamond", Georgia, serif;
   --bp-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --bp-width: 1120px;
+  --bp-width: 1200px;
 }
 
 .bp-page {
@@ -96,6 +96,9 @@
 
 .bp-header-inner > .bp-btn {
   justify-self: end;
+  min-height: 50px;
+  padding: 0 22px;
+  font-size: 1rem;
 }
 
 /* —— Buttons —— */
