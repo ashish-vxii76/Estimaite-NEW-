@@ -105,7 +105,7 @@ a {
 
 .header-inner {
   width: min(100%, var(--page-width));
-  min-height: 114px;
+  min-height: 88px;
   margin: 0 auto;
   padding: 0 44px;
 
@@ -118,31 +118,22 @@ a {
 .brand {
   display: inline-flex;
   width: fit-content;
-  flex-direction: column;
+  align-items: center;
+  line-height: 0;
 }
 
-.brand-name {
-  font-family: var(--serif);
-  color: var(--estimate-navy-deep);
-  font-size: 37px;
-  font-weight: 500;
-  line-height: 0.95;
-  letter-spacing: 0.045em;
-}
-
-.brand-subtitle {
-  margin-top: 6px;
-  margin-left: 35px;
-
-  font-family: var(--serif);
-  font-size: 14px;
-  font-style: italic;
-  color: #191919;
+.brand-logo {
+  display: block;
+  height: 64px;
+  width: auto;
+  max-width: min(280px, 42vw);
+  object-fit: contain;
+  object-position: left center;
 }
 
 .desktop-nav {
   display: flex;
-  gap: 50px;
+  gap: 42px;
   align-items: center;
 }
 
@@ -150,9 +141,10 @@ a {
   position: relative;
   color: #07192a;
 
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: none;
 }
 
 .desktop-nav a::after {
@@ -188,19 +180,19 @@ a {
    ========================================================= */
 
 .button {
-  min-height: 51px;
-  padding: 0 24px;
+  min-height: 48px;
+  padding: 0 22px;
 
   border: 1px solid var(--estimate-navy);
-  border-radius: 0;
+  border-radius: 2px;
 
   background: transparent;
 
   color: var(--estimate-navy);
 
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.015em;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
 
   transition:
     background 160ms ease,
@@ -768,6 +760,7 @@ a {
   height: 100%;
 
   object-fit: contain;
+  background: transparent;
 
   pointer-events: none;
 }
@@ -899,9 +892,9 @@ a {
   color: var(--estimate-teal-dark);
 
   font-family: var(--serif);
-  font-size: 17px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .moment-card p {
@@ -1351,27 +1344,22 @@ a {
 .footer-brand {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
 }
 
-.footer-brand-name {
-  font-family: var(--serif);
-  font-size: 31px;
-  letter-spacing: 0.045em;
-}
-
-.footer-brand-subtitle {
-  margin-top: 3px;
-
-  font-family: var(--serif);
-  font-size: 11px;
-  font-style: italic;
+.footer-logo {
+  display: block;
+  height: auto;
+  width: min(240px, 100%);
+  object-fit: contain;
+  object-position: left center;
 }
 
 .footer-gold-line {
   width: 49px;
   height: 2px;
 
-  margin-top: 28px;
+  margin-top: 22px;
 
   background: var(--estimate-gold);
 }
@@ -1544,8 +1532,9 @@ a:focus-visible {
     display: none;
   }
 
-  .brand-name {
-    font-size: 31px;
+  .brand-logo {
+    height: 52px;
+    max-width: min(220px, 48vw);
   }
 
   .header-actions .button:first-child {
@@ -1668,19 +1657,15 @@ a:focus-visible {
     padding: 0 18px;
   }
 
-  .brand-name {
-    font-size: 26px;
-  }
-
-  .brand-subtitle {
-    margin-left: 17px;
-    font-size: 11px;
+  .brand-logo {
+    height: 44px;
+    max-width: min(180px, 52vw);
   }
 
   .header-actions .button {
     min-height: 42px;
     padding: 0 14px;
-    font-size: 9px;
+    font-size: 12px;
   }
 
   .hero-grid {
@@ -1825,12 +1810,9 @@ a:focus-visible {
    ========================================================= */
 
 @media (max-width: 430px) {
-  .brand-name {
-    font-size: 23px;
-  }
-
-  .brand-subtitle {
-    font-size: 9px;
+  .brand-logo {
+    height: 40px;
+    max-width: min(160px, 55vw);
   }
 
   .header-actions .button {

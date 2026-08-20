@@ -1,5 +1,6 @@
 import Link from "next/link";
 import React from "react";
+import { EstimAIteLogo } from "@/components/brand/EstimAIteLogo";
 import "./landing.css";
 import WaxSeal from "./WaxSeal";
 
@@ -191,23 +192,23 @@ function Icon({
 const moments = [
   {
     number: "01",
-    title: "READY",
+    title: "Ready",
     description: "Clarify the why, outcomes, constraints and assumptions.",
   },
   {
     number: "02",
-    title: "SIZE",
+    title: "Size",
     description: "Size the scope and complexity with evidence.",
   },
   {
     number: "03",
-    title: "PLAN & COST",
+    title: "Plan & cost",
     description: "Plan the work, validate capacity and derive CHF cost.",
   },
   {
     number: "04",
-    title: "GOVERN",
-    description: "Two-person approval and audit-ready ledger.",
+    title: "Govern",
+    description: "Two-person approval and an audit-ready ledger.",
   },
 ];
 
@@ -442,21 +443,23 @@ function Navigation() {
   return (
     <header className="landing-header">
       <div className="header-inner">
-        <a href="#top" className="brand" aria-label="Estimate home">
-          <span className="brand-name">ESTIMAITE</span>
-          <span className="brand-subtitle">Governed estimation</span>
-        </a>
+        <Link href="/" className="brand" aria-label="estimAIte home">
+          <EstimAIteLogo
+            tone="light"
+            className="brand-logo"
+          />
+        </Link>
 
         <nav className="desktop-nav" aria-label="Main navigation">
-          <a href="#product">PRODUCT</a>
-          <a href="#moments">MOMENTS</a>
-          <a href="#governance">GOVERNANCE</a>
-          <a href="#proof">PROOF</a>
+          <a href="#product">Product</a>
+          <a href="#moments">Moments</a>
+          <a href="#governance">Governance</a>
+          <a href="#proof">Proof</a>
         </nav>
 
         <div className="header-actions">
-          <Link href="/login" className="button button-outline">SIGN IN</Link>
-          <Link href="/login" className="button button-navy">OPEN THE LEDGER</Link>
+          <Link href="/login" className="button button-outline">Sign in</Link>
+          <Link href="/login" className="button button-navy">Open the ledger</Link>
         </div>
       </div>
     </header>
@@ -491,9 +494,13 @@ function Hero() {
           </p>
 
           <div className="hero-actions">
-            <Link href="/login" className="button button-navy button-large">START A GOVERNED ESTIMATE</Link>
+            <Link href="/login" className="button button-navy button-large">
+              Start a governed estimate
+            </Link>
 
-            <a href="#moments" className="button button-outline button-large">WATCH THE FOUR MOMENTS</a>
+            <a href="#moments" className="button button-outline button-large">
+              Watch the four moments
+            </a>
           </div>
 
           <div className="hero-proof-points">
@@ -744,8 +751,7 @@ function Footer() {
     <footer className="landing-footer">
       <div className="footer-primary">
         <div className="footer-brand">
-          <span className="footer-brand-name">ESTIMAITE</span>
-          <span className="footer-brand-subtitle">Governed estimation</span>
+          <EstimAIteLogo tone="dark" className="footer-logo" />
           <span className="footer-gold-line" />
         </div>
 
@@ -762,11 +768,11 @@ function Footer() {
         <span>© 2026 estimAIte. All rights reserved.</span>
 
         <nav className="footer-nav">
-          <a href="#privacy">PRIVACY</a>
-          <a href="#security">SECURITY</a>
-          <a href="#terms">TERMS</a>
-          <a href="#status">STATUS</a>
-          <a href="#contact">CONTACT</a>
+          <a href="#privacy">Privacy</a>
+          <a href="#security">Security</a>
+          <a href="#terms">Terms</a>
+          <a href="#status">Status</a>
+          <a href="#contact">Contact</a>
         </nav>
 
         <span className="made-in">
