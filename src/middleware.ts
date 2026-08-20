@@ -7,7 +7,8 @@ export default auth((req) => {
     pathname === "/" ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/api/auth") ||
-    pathname.startsWith("/brand/");
+    pathname.startsWith("/brand/") ||
+    pathname.startsWith("/assets/");
   if (isPublic) return NextResponse.next();
   if (!req.auth && !pathname.startsWith("/_next")) {
     const url = req.nextUrl.clone();
@@ -20,5 +21,5 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|brand/).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|brand/|assets/).*)"],
 };
