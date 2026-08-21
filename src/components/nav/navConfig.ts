@@ -131,6 +131,12 @@ export const NAV_TREE: NavNode[] = [
         id: "admin-size",
         label: "Size & complexity",
         children: [
+          {
+            id: "complexity-dimensions",
+            label: "Complexity dimensions",
+            href: "/admin/complexity-dimensions",
+            feature: "config.mappings",
+          },
           { id: "issue-mapping", label: "Issue mapping", href: "/admin/issue-mapping", feature: "config.mappings" },
           { id: "epic-mapping", label: "Epic mapping", href: "/admin/epic-mapping", feature: "config.mappings" },
           {
