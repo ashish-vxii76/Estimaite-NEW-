@@ -8,7 +8,10 @@ export const DEFAULT_READINESS_CRITERIA = [
   { id: "test", label: "Test requirements understood" },
 ] as const;
 
-export function calculateReadiness(readiness: ReadinessInput[]): {
+export function calculateReadiness(
+  readiness: ReadinessInput[],
+  opts?: { criteriaCount?: number; assumptionsMin?: number },
+): {
   score: number;
   status: DorStatus;
   explanation: Explanation;
@@ -17,10 +20,12 @@ export function calculateReadiness(readiness: ReadinessInput[]): {
     throw new Error("Definition of Ready answers are required");
   }
   const score = readiness.filter((item) => item.answer === "YES").length;
+  const criteriaCount = Math.max(opts?.criteriaCount ?? readiness.length, 1);
+  const assumptionsMin = opts?.assumptionsMin ?? Math.min(3, criteriaCount);
   const status: DorStatus =
-    score === 5
+    score >= criteriaCount
       ? "Ready for Estimation"
-      : score >= 3
+      : score >= assumptionsMin
         ? "Estimate with Assumptions"
         : "Discovery Required";
   return {
@@ -28,11 +33,11 @@ export function calculateReadiness(readiness: ReadinessInput[]): {
     status,
     explanation: {
       title: "Definition of Ready",
-      summary: `${score}/5 — ${status}`,
+      summary: `${score}/${criteriaCount} — ${status}`,
       steps: [
         ...readiness.map((r) => `${r.criterionId}: ${r.answer}`),
         `DoR Score = count of Yes = ${score}`,
-        `DoR Status = ${status}`,
+        `DoR Status = ${status} (ready at ${criteriaCount}, assumptions at ${assumptionsMin})`,
       ],
     },
   };

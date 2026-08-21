@@ -20,6 +20,8 @@ export default async function NewEstimatePage() {
       locations={locations}
       complexityDimensions={config.complexityDimensions}
       releaseQuarters={config.releaseQuarters}
+      readinessCriteria={config.readinessCriteria}
+      resourceLevels={config.resourceLevels}
       capabilities={{
         canEdit: true,
         canSubmit: can(session?.user.role, "estimates.submit", "RW"),

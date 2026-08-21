@@ -57,6 +57,8 @@ export default async function EstimateDetailPage({
         locations={locations}
         complexityDimensions={config.complexityDimensions}
         releaseQuarters={config.releaseQuarters}
+        readinessCriteria={config.readinessCriteria}
+        resourceLevels={config.resourceLevels}
         actuals={estimate.actuals}
         estimateStatus={estimate.status}
         capabilities={{

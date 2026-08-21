@@ -4,6 +4,7 @@ import type {
   IssueMappingConfig,
   EpicMappingConfig,
 } from "./types";
+import { DEFAULT_READINESS_CRITERIA } from "./readiness";
 
 /** Score 1→5 labels per complexity dimension (weights unchanged). */
 const FUNCTIONALITY_OPTIONS = [
@@ -277,6 +278,8 @@ export const DEFAULT_CONFIG: EstimationConfig = {
     "2027-Q3",
     "2027-Q4",
   ],
+  readinessCriteria: DEFAULT_READINESS_CRITERIA.map((c) => ({ id: c.id, label: c.label })),
+  readinessAssumptionsMin: 3,
 };
 
 export function hydrateConfig(raw: Partial<EstimationConfig> | null | undefined): EstimationConfig {
@@ -343,6 +346,28 @@ export function hydrateConfig(raw: Partial<EstimationConfig> | null | undefined)
   }
   if (!merged.releaseQuarters?.length) {
     merged.releaseQuarters = DEFAULT_CONFIG.releaseQuarters;
+  }
+  if (!merged.readinessCriteria?.length) {
+    merged.readinessCriteria = DEFAULT_CONFIG.readinessCriteria;
+  } else {
+    merged.readinessCriteria = merged.readinessCriteria
+      .map((c) => ({
+        id: String(c.id ?? "").trim(),
+        label: String(c.label ?? "").trim(),
+      }))
+      .filter((c) => c.id && c.label);
+    if (!merged.readinessCriteria.length) {
+      merged.readinessCriteria = DEFAULT_CONFIG.readinessCriteria;
+    }
+  }
+  if (
+    typeof merged.readinessAssumptionsMin !== "number" ||
+    Number.isNaN(merged.readinessAssumptionsMin)
+  ) {
+    merged.readinessAssumptionsMin = DEFAULT_CONFIG.readinessAssumptionsMin;
+  }
+  if (!merged.resourceLevels?.length) {
+    merged.resourceLevels = DEFAULT_CONFIG.resourceLevels;
   }
   if (merged.aiMaxPct < 1 && merged.aiMaxPct === 0.5) merged.aiMaxPct = 1;
   return merged;

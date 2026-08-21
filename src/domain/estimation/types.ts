@@ -178,6 +178,11 @@ export type LocationAllocation = {
   currency: string;
 };
 
+export type ReadinessCriterionConfig = {
+  id: string;
+  label: string;
+};
+
 export type EstimationConfig = {
   versionId: string;
   rateVersionId: string;
@@ -210,6 +215,10 @@ export type EstimationConfig = {
   indexSplitMin: number;
   /** Configurable release quarters for Ready + Overview filters. */
   releaseQuarters: string[];
+  /** Definition of Ready questions shown on Ready step. */
+  readinessCriteria: ReadinessCriterionConfig[];
+  /** DoR score at/above this (and below full Yes) → Estimate with Assumptions. */
+  readinessAssumptionsMin: number;
 };
 
 export type ComplexityScoreInput = {

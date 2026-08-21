@@ -13,15 +13,26 @@ const CLUSTERS = [
     ],
   },
   {
-    title: "Size",
-    preview: "Issue XS = 1 SP · Epic cost deferred until stories exist.",
+    title: "Lists & catalogues",
+    preview:
+      "User-editable lists that feed Ready / Size / Plan dropdowns and Home filters. Change labels here without code deploys.",
     feature: "config.mappings" as const,
     links: [
-      ["/admin/complexity-dimensions", "Complexity dimensions"],
+      ["/admin/release-quarters", "Release quarters"],
+      ["/admin/readiness-criteria", "Definition of Ready"],
+      ["/admin/complexity-dimensions", "Complexity dimensions (Size 1–5)"],
+      ["/admin/resource-mapping", "Resource levels (Dev/QA seniority)"],
+    ],
+  },
+  {
+    title: "Size mappings",
+    preview: "Index bands, Issue SP and Epic ROM tables. Issue XS = 1 SP · Epic cost deferred until stories exist.",
+    feature: "config.mappings" as const,
+    links: [
       ["/admin/complexity-mapping", "Complexity mapping"],
       ["/admin/issue-mapping", "Issue mapping"],
       ["/admin/epic-mapping", "Epic mapping"],
-      ["/admin/estimation-config", "Estimation config"],
+      ["/admin/estimation-config", "Engine thresholds"],
     ],
   },
   {
@@ -31,7 +42,6 @@ const CLUSTERS = [
     links: [
       ["/teams", "Teams"],
       ["/admin/team-composition", "Team composition"],
-      ["/admin/resource-mapping", "Resource mapping"],
     ],
   },
   {
@@ -61,9 +71,8 @@ export default async function AdminHomePage() {
         <h1 className="font-display text-2xl font-semibold text-[var(--navy)]">Administration</h1>
         <p className="mt-1 max-w-2xl text-sm text-[var(--muted)]">
           Mapping studio plus access control. Open <Link href="/admin/rbac" className="underline">RBAC</Link>{" "}
-          to edit RW / R / blank per role. Saved grants apply to menus and APIs immediately. Admin
-          sees every team. A Vikings Approver sees Vikings only, unless you change that role&apos;s
-          functions.
+          to edit RW / R / blank per role. Lists &amp; catalogues hold the dropdown values estimators see
+          on Ready / Size / Plan. Engine formulas stay fixed in code.
         </p>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
@@ -92,6 +101,14 @@ export default async function AdminHomePage() {
           </section>
         ))}
       </div>
+      <section className="card space-y-2 p-5 text-sm text-[var(--muted)]">
+        <p className="font-medium text-[var(--navy)]">What stays code-only</p>
+        <p>
+          Estimation formulas, stance ±1 T-shirt rules, planning/costing enums (Team vs Location,
+          Resource- vs Sprint-constrained), work item types (Issue / Epic), and governance decision
+          codes are product rules — not label catalogues. Change those only via a product release.
+        </p>
+      </section>
     </div>
   );
 }

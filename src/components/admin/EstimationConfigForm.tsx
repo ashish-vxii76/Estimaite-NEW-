@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { EstimationConfig } from "@/domain/estimation/types";
 
 export function EstimationConfigForm({
@@ -30,15 +31,10 @@ export function EstimationConfigForm({
     l: config.complexityMultipliers.L,
     xl: config.complexityMultipliers.XL,
     xxl: config.complexityMultipliers.XXL,
-    releaseQuartersText: (config.releaseQuarters ?? []).join("\n"),
   });
   const [message, setMessage] = useState("");
 
   async function save() {
-    const releaseQuarters = form.releaseQuartersText
-      .split("\n")
-      .map((q) => q.trim())
-      .filter(Boolean);
     const res = await fetch("/api/admin/config", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -58,7 +54,6 @@ export function EstimationConfigForm({
           calibrationMinSamples: form.calibrationMinSamples,
           indexReviewMin: form.indexReviewMin,
           indexSplitMin: form.indexSplitMin,
-          releaseQuarters,
           complexityMultipliers: {
             XS: form.xs,
             S: form.s,
@@ -96,7 +91,12 @@ export function EstimationConfigForm({
         <h1 className="text-2xl font-semibold">Estimation Config</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
           Global thresholds from the Excel estimator. Publishing creates a new configuration
-          version so historical estimates stay reproducible.
+          version so historical estimates stay reproducible. Dropdown catalogues (quarters, DoR,
+          complexity labels, resource levels) live under{" "}
+          <Link href="/admin" className="underline">
+            Lists &amp; catalogues
+          </Link>
+          .
         </p>
       </div>
       <section className="card grid gap-4 p-5 md:grid-cols-2">
@@ -123,18 +123,30 @@ export function EstimationConfigForm({
         {num("xl", "XL")}
         {num("xxl", "XXL")}
       </section>
-      <section className="card space-y-3 p-5">
-        <h2 className="font-medium">Release quarters</h2>
-        <p className="text-sm text-[var(--muted)]">
-          One quarter per line. These populate the Ready step and Overview filters (e.g. 2026-Q1).
-        </p>
-        <textarea
-          rows={8}
-          className="w-full rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2 font-mono text-sm"
-          value={form.releaseQuartersText}
-          disabled={readOnly}
-          onChange={(e) => setForm({ ...form, releaseQuartersText: e.target.value })}
-        />
+      <section className="card space-y-2 p-5 text-sm">
+        <h2 className="font-medium">Related catalogues</h2>
+        <ul className="list-disc space-y-1 pl-5 text-[var(--muted)]">
+          <li>
+            <Link className="text-[var(--navy)] underline" href="/admin/release-quarters">
+              Release quarters
+            </Link>
+          </li>
+          <li>
+            <Link className="text-[var(--navy)] underline" href="/admin/readiness-criteria">
+              Definition of Ready
+            </Link>
+          </li>
+          <li>
+            <Link className="text-[var(--navy)] underline" href="/admin/complexity-dimensions">
+              Complexity dimensions
+            </Link>
+          </li>
+          <li>
+            <Link className="text-[var(--navy)] underline" href="/admin/resource-mapping">
+              Resource levels
+            </Link>
+          </li>
+        </ul>
       </section>
       {readOnly ? (
         <p className="text-sm text-[var(--muted)]">Read only for this role. Admin publishes mapping versions.</p>

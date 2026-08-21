@@ -4,7 +4,6 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { DEFAULT_CONFIG } from "@/domain/estimation/defaultConfig";
-import { DEFAULT_READINESS_CRITERIA } from "@/domain/estimation/readiness";
 import { calculateComplexityIndex } from "@/domain/estimation/complexity";
 import { formatMoney } from "@/lib/utils";
 import { GovernedSummary } from "@/components/GovernedSummary";
@@ -13,6 +12,8 @@ import { ExplanationPanel } from "@/components/ui";
 import type {
   ComplexityDimensionConfig,
   EstimateCalculationResult,
+  ReadinessCriterionConfig,
+  ResourceLevelConfig,
 } from "@/domain/estimation/types";
 
 const MOMENTS = [
@@ -67,6 +68,8 @@ export function EstimateWizard({
   locations,
   complexityDimensions = DEFAULT_CONFIG.complexityDimensions,
   releaseQuarters = DEFAULT_CONFIG.releaseQuarters,
+  readinessCriteria = DEFAULT_CONFIG.readinessCriteria,
+  resourceLevels = DEFAULT_CONFIG.resourceLevels,
   actuals = null,
   estimateStatus = "DRAFT",
   capabilities = {
@@ -86,6 +89,8 @@ export function EstimateWizard({
   /** Hydrated Size-step dimensions (labels score 1–5). Defaults to DEFAULT_CONFIG. */
   complexityDimensions?: ComplexityDimensionConfig[];
   releaseQuarters?: string[];
+  readinessCriteria?: ReadinessCriterionConfig[];
+  resourceLevels?: ResourceLevelConfig[];
   actuals?: ActualsPayload;
   estimateStatus?: string;
   capabilities?: {
@@ -103,6 +108,10 @@ export function EstimateWizard({
     ? complexityDimensions
     : DEFAULT_CONFIG.complexityDimensions;
   const quarters = releaseQuarters.length ? releaseQuarters : DEFAULT_CONFIG.releaseQuarters;
+  const dorCriteria = readinessCriteria.length
+    ? readinessCriteria
+    : DEFAULT_CONFIG.readinessCriteria;
+  const levels = resourceLevels.length ? resourceLevels : DEFAULT_CONFIG.resourceLevels;
   const initialResult = (initial?.result as EstimateCalculationResult) ?? null;
   const [moment, setMoment] = useState<MomentId>(initialResult ? "govern" : "ready");
   const [id, setId] = useState(estimateId);
@@ -146,7 +155,7 @@ export function EstimateWizard({
           ]),
         )
       : defaultScores,
-    readiness: Object.fromEntries(DEFAULT_READINESS_CRITERIA.map((c) => [c.id, "YES"])) as Record<
+    readiness: Object.fromEntries(dorCriteria.map((c) => [c.id, "YES"])) as Record<
       string,
       string
     >,
@@ -379,7 +388,7 @@ export function EstimateWizard({
   const readyComplete =
     Boolean(form.reference.trim()) &&
     Boolean(form.title.trim()) &&
-    DEFAULT_READINESS_CRITERIA.every((c) => form.readiness[c.id] === "YES" || form.readiness[c.id] === "NO");
+    dorCriteria.every((c) => form.readiness[c.id] === "YES" || form.readiness[c.id] === "NO");
   const sizeComplete = sizeDimensions.every((d) => Number(form.scores[d.id]) >= 1);
   const planComplete = Boolean(result);
   const governComplete = Boolean(result);
@@ -411,8 +420,8 @@ export function EstimateWizard({
     : null;
   const pctLabel = (v: number | null | undefined) =>
     v == null || Number.isNaN(Number(v)) ? "—" : `${(Number(v) * 100).toFixed(1)}%`;
-  const devLevel = DEFAULT_CONFIG.resourceLevels.find((l) => l.id === form.devResourceLevel);
-  const qaLevel = DEFAULT_CONFIG.resourceLevels.find((l) => l.id === form.qaResourceLevel);
+  const devLevel = levels.find((l) => l.id === form.devResourceLevel);
+  const qaLevel = levels.find((l) => l.id === form.qaResourceLevel);
 
   return (
     <CanEditFields.Provider value={capabilities.canEdit}>
@@ -555,13 +564,14 @@ export function EstimateWizard({
             <div>
               <h4 className="text-sm font-semibold text-[var(--navy)]">Definition of Ready</h4>
               <p className="mb-3 text-xs text-[var(--muted)]">
-                Yes or No only. Score is the count of Yes (0–5). Fewer than 3 Yes returns Discovery Required.
+                Yes or No only. Score is the count of Yes (0–{dorCriteria.length}). Fewer than the
+                configured assumptions threshold returns Discovery Required.
               </p>
               <div className="grid gap-3 md:grid-cols-2">
-                {DEFAULT_READINESS_CRITERIA.map((c) => (
+                {dorCriteria.map((c) => (
                   <Field key={c.id} label={c.label}>
                     <select
-                      value={form.readiness[c.id]}
+                      value={form.readiness[c.id] ?? "YES"}
                       onChange={(e) =>
                         setForm({ ...form, readiness: { ...form.readiness, [c.id]: e.target.value } })
                       }
@@ -764,7 +774,7 @@ export function EstimateWizard({
                   value={form.devResourceLevel}
                   onChange={(e) => setForm({ ...form, devResourceLevel: e.target.value })}
                 >
-                  {DEFAULT_CONFIG.resourceLevels.map((l) => (
+                  {levels.map((l) => (
                     <option key={l.id} value={l.id}>
                       {l.name} ({l.capacitySpPerSprint} SP/sprint)
                     </option>
@@ -776,7 +786,7 @@ export function EstimateWizard({
                   value={form.qaResourceLevel}
                   onChange={(e) => setForm({ ...form, qaResourceLevel: e.target.value })}
                 >
-                  {DEFAULT_CONFIG.resourceLevels.map((l) => (
+                  {levels.map((l) => (
                     <option key={l.id} value={l.id}>
                       {l.name} ({l.capacitySpPerSprint} SP/sprint)
                     </option>
