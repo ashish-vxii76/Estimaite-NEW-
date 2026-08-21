@@ -1003,34 +1003,40 @@ export function EstimateWizard({
               <table className="w-full text-sm">
                 <tbody>
                   {[
-                    ["Estimate Stance", form.stance, "Optimistic = one size down · Neutral = assessed · Pessimistic = one size up."],
-                    ["Effective T-Shirt (stance-adjusted)", result.effectiveTshirt, ""],
-                    ["Optimistic SP (one size down)", String(result.optimisticSp), ""],
-                    ["Neutral SP (assessed size)", String(result.baselineSp ?? result.selectedSp), ""],
-                    ["Pessimistic SP (one size up)", String(result.pessimisticSp), ""],
-                    ["Selected SP (per stance)", String(result.selectedSp), "Feeds sprints, cost and governance."],
-                    ["Complexity Effort Multiplier", String(result.complexityMultiplier), "From complexity band (assessed T-Shirt)."],
-                    ["Dev Days per Point", String(devLevel?.daysPerPoint ?? "—"), ""],
-                    ["QA Days per Point", String(qaLevel?.daysPerPoint ?? "—"), ""],
-                    ["Adjusted Dev Effort (PD)", String(result.adjustedDevEffortPd), "Dev SP × Dev Days/Point × Complexity ÷ (1+Dev AI%)."],
-                    ["Adjusted QA Effort (PD)", String(result.adjustedQaEffortPd), "QA SP × QA Days/Point × Complexity ÷ (1+QA AI%)."],
-                    ["Adjusted Total Effort (PD)", String(result.adjustedTotalEffortPd), ""],
-                    ["Blended Daily Rate (per team)", String(result.blendedDailyRate), "From team composition / rate card."],
+                    ["Estimate Stance", form.stance],
+                    ["Effective T-Shirt (stance-adjusted)", result.effectiveTshirt],
+                    ["Optimistic SP (one size down)", String(result.optimisticSp)],
+                    ["Neutral SP (assessed size)", String(result.baselineSp ?? result.selectedSp)],
+                    ["Pessimistic SP (one size up)", String(result.pessimisticSp)],
+                    ["Selected SP (per stance)", String(result.selectedSp)],
+                    ["Complexity Effort Multiplier", String(result.complexityMultiplier)],
+                    ["Dev Days per Point", String(devLevel?.daysPerPoint ?? "—")],
+                    ["QA Days per Point", String(qaLevel?.daysPerPoint ?? "—")],
+                    ["Adjusted Dev Effort (PD)", String(result.adjustedDevEffortPd)],
+                    ["Adjusted QA Effort (PD)", String(result.adjustedQaEffortPd)],
+                    ["Adjusted Total Effort (PD)", String(result.adjustedTotalEffortPd)],
+                    ["Blended Daily Rate (per team)", String(result.blendedDailyRate)],
                     [
                       "Effort-Based Delivery Cost",
-                      result.effortBasedCost == null ? "—" : formatMoney(result.effortBasedCost, result.currency),
-                      "Adjusted Total Effort (PD) × Blended Daily Rate.",
+                      result.effortBasedCost == null
+                        ? "—"
+                        : formatMoney(result.effortBasedCost, result.currency),
                     ],
-                    ["Epic Breakdown - Suggested Stories", result.epicStories == null ? "—" : String(result.epicStories), ""],
-                    ["Epic Breakdown - Approx SP / Story", result.epicSpPerStory == null ? "—" : String(result.epicSpPerStory), ""],
-                    ["Epic Breakdown - Summary", result.epicSummary ?? "—", ""],
-                  ].map(([label, value, note]) => (
+                    [
+                      "Epic Breakdown - Suggested Stories",
+                      result.epicStories == null ? "—" : String(result.epicStories),
+                    ],
+                    [
+                      "Epic Breakdown - Approx SP / Story",
+                      result.epicSpPerStory == null ? "—" : String(result.epicSpPerStory),
+                    ],
+                    ["Epic Breakdown - Summary", result.epicSummary ?? "—"],
+                  ].map(([label, value]) => (
                     <tr key={label} className="border-t border-[var(--line)]">
                       <th className="w-[40%] bg-[var(--panel-2)] px-3 py-2 text-left font-medium text-[var(--navy)]">
                         {label}
                       </th>
                       <td className="bg-emerald-50/60 px-3 py-2 font-semibold text-[var(--navy)]">{value}</td>
-                      <td className="px-3 py-2 text-xs italic text-[var(--muted)]">{note}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1120,22 +1126,20 @@ export function EstimateWizard({
                 <table className="w-full text-sm">
                   <tbody>
                     {[
-                      ["Dev PD Variance %", pctLabel(variance?.devEffortVariance as number | null), "Positive = actual exceeded estimate."],
-                      ["QA PD Variance %", pctLabel(variance?.qaEffortVariance as number | null), "Positive = actual exceeded estimate."],
-                      ["Duration Variance %", pctLabel(variance?.durationVariance as number | null), "Positive = delivery took longer."],
+                      ["Dev PD Variance %", pctLabel(variance?.devEffortVariance as number | null)],
+                      ["QA PD Variance %", pctLabel(variance?.qaEffortVariance as number | null)],
+                      ["Duration Variance %", pctLabel(variance?.durationVariance as number | null)],
                       [
                         "Dev Resource Variance %",
                         result?.plannedDev
                           ? pctLabel((actuals.actualDevResources - result.plannedDev) / result.plannedDev)
                           : "—",
-                        "Positive = more Dev used.",
                       ],
                       [
                         "QA Resource Variance %",
                         result?.plannedQa
                           ? pctLabel((actuals.actualQaResources - result.plannedQa) / result.plannedQa)
                           : "—",
-                        "Positive = more QA used.",
                       ],
                       [
                         "Actual Total Delivery Cost",
@@ -1143,21 +1147,18 @@ export function EstimateWizard({
                           (result?.aiAdjustedDeliveryCost ?? 0) + actuals.actualOtherCost,
                           result?.currency ?? form.currency,
                         ),
-                        "Actual cost under selected method.",
                       ],
-                      ["Cost Variance %", pctLabel(variance?.costVariance as number | null), "Actual vs estimated total cost."],
+                      ["Cost Variance %", pctLabel(variance?.costVariance as number | null)],
                       [
                         "Actual / Estimated Effort Ratio",
                         variance?.actualEstimatedEffortRatio == null
                           ? "—"
                           : String(variance.actualEstimatedEffortRatio),
-                        "Actual total PD (Dev+QA) ÷ Adjusted Total Effort. >1 = under-estimated.",
                       ],
-                    ].map(([label, value, note]) => (
+                    ].map(([label, value]) => (
                       <tr key={label} className="border-t border-[var(--line)]">
-                        <th className="w-[36%] px-3 py-2 text-left font-medium text-[var(--navy)]">{label}</th>
+                        <th className="w-[40%] px-3 py-2 text-left font-medium text-[var(--navy)]">{label}</th>
                         <td className="bg-emerald-50/70 px-3 py-2 font-semibold text-[var(--navy)]">{value}</td>
-                        <td className="px-3 py-2 text-xs italic text-[var(--muted)]">{note}</td>
                       </tr>
                     ))}
                   </tbody>
