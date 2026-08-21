@@ -9,7 +9,10 @@ import { calculateComplexityIndex } from "@/domain/estimation/complexity";
 import { formatMoney } from "@/lib/utils";
 import { GovernedSummary } from "@/components/GovernedSummary";
 import { ExplanationPanel } from "@/components/ui";
-import type { EstimateCalculationResult } from "@/domain/estimation/types";
+import type {
+  ComplexityDimensionConfig,
+  EstimateCalculationResult,
+} from "@/domain/estimation/types";
 
 const MOMENTS = [
   { id: "ready", label: "Ready" },
@@ -47,6 +50,7 @@ export function EstimateWizard({
   initial,
   teams,
   locations,
+  complexityDimensions = DEFAULT_CONFIG.complexityDimensions,
   capabilities = {
     canEdit: true,
     canSubmit: true,
@@ -60,6 +64,8 @@ export function EstimateWizard({
   initial?: Record<string, unknown>;
   teams: Team[];
   locations: Location[];
+  /** Hydrated Size-step dimensions (labels score 1–5). Defaults to DEFAULT_CONFIG. */
+  complexityDimensions?: ComplexityDimensionConfig[];
   capabilities?: {
     canEdit: boolean;
     canSubmit: boolean;
@@ -70,6 +76,9 @@ export function EstimateWizard({
   };
 }) {
   const router = useRouter();
+  const sizeDimensions = complexityDimensions.length
+    ? complexityDimensions
+    : DEFAULT_CONFIG.complexityDimensions;
   const initialResult = (initial?.result as EstimateCalculationResult) ?? null;
   const [moment, setMoment] = useState<MomentId>(initialResult ? "govern" : "ready");
   const [id, setId] = useState(estimateId);
@@ -214,12 +223,12 @@ export function EstimateWizard({
           dimensionId,
           score: Number(score),
         })),
-        DEFAULT_CONFIG,
+        { ...DEFAULT_CONFIG, complexityDimensions: sizeDimensions },
       ).index;
     } catch {
       return 0;
     }
-  }, [form.scores]);
+  }, [form.scores, sizeDimensions]);
 
   async function persist() {
     if (!capabilities.canEdit && id) {
@@ -490,7 +499,7 @@ export function EstimateWizard({
               <span className="font-display text-3xl font-semibold text-[var(--navy)]">{previewIndex}</span>
             </div>
             <div className="space-y-3">
-              {DEFAULT_CONFIG.complexityDimensions.map((d) => (
+              {sizeDimensions.map((d) => (
                 <Field key={d.id} label={`${d.name} (weight ${d.weight})`}>
                   <select
                     value={form.scores[d.id]}

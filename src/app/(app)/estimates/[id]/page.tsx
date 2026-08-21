@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/ui";
 import { can } from "@/lib/access";
 import { writesOwnRecordsOnly } from "@/lib/rbac";
 import { canSeeEstimate, fromSession, teamsForUser } from "@/lib/scope";
+import { getActiveConfig } from "@/services/configService";
 
 export default async function EstimateDetailPage({
   params,
@@ -32,9 +33,10 @@ export default async function EstimateDetailPage({
   const canEdit =
     can(session?.user.role, "estimates.edit", "RW") && (!ownOnly || authored);
 
-  const [teams, locations] = await Promise.all([
+  const [teams, locations, config] = await Promise.all([
     teamsForUser(fromSession(session!.user)),
     prisma.location.findMany({ where: { active: true } }),
+    getActiveConfig(),
   ]);
   const result = estimate.resultJson ? JSON.parse(estimate.resultJson) : null;
 
@@ -54,6 +56,7 @@ export default async function EstimateDetailPage({
         estimateId={estimate.id}
         teams={teams}
         locations={locations}
+        complexityDimensions={config.complexityDimensions}
         capabilities={{
           canEdit,
           canSubmit: can(session?.user.role, "estimates.submit", "RW") && (!ownOnly || authored),
