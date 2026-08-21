@@ -2,7 +2,6 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { EstimateWizard } from "@/components/EstimateWizard";
-import { ActualsForm } from "@/components/ActualsForm";
 import { StatusBadge } from "@/components/ui";
 import { can } from "@/lib/access";
 import { writesOwnRecordsOnly } from "@/lib/rbac";
@@ -57,12 +56,16 @@ export default async function EstimateDetailPage({
         teams={teams}
         locations={locations}
         complexityDimensions={config.complexityDimensions}
+        releaseQuarters={config.releaseQuarters}
+        actuals={estimate.actuals}
+        estimateStatus={estimate.status}
         capabilities={{
           canEdit,
           canSubmit: can(session?.user.role, "estimates.submit", "RW") && (!ownOnly || authored),
           canReview: can(session?.user.role, "estimates.review", "RW"),
           canApprove: can(session?.user.role, "estimates.approve", "RW"),
           canOverride: canEdit,
+          canEditActuals: can(session?.user.role, "estimates.actuals", "RW"),
           teamLocked: session?.user.role !== "ADMINISTRATOR",
         }}
         initial={{
@@ -72,11 +75,6 @@ export default async function EstimateDetailPage({
           readiness: JSON.parse(estimate.readinessJson),
         }}
       />
-      {can(session?.user.role, "estimates.actuals", "RW") ? (
-        <ActualsForm estimateId={estimate.id} actuals={estimate.actuals} />
-      ) : estimate.actuals ? (
-        <ActualsForm estimateId={estimate.id} actuals={estimate.actuals} readOnly />
-      ) : null}
       <section className="card p-5">
         <h2 className="font-medium">Audit history</h2>
         <ul className="mt-3 space-y-2 text-sm text-[var(--muted)]">

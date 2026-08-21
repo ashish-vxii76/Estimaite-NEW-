@@ -19,12 +19,14 @@ export default async function NewEstimatePage() {
       teams={teams}
       locations={locations}
       complexityDimensions={config.complexityDimensions}
+      releaseQuarters={config.releaseQuarters}
       capabilities={{
         canEdit: true,
         canSubmit: can(session?.user.role, "estimates.submit", "RW"),
         canReview: false,
         canApprove: false,
         canOverride: can(session?.user.role, "estimates.edit", "RW"),
+        canEditActuals: can(session?.user.role, "estimates.actuals", "RW"),
         teamLocked: session?.user.role !== "ADMINISTRATOR",
       }}
     />

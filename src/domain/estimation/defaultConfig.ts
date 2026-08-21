@@ -267,6 +267,16 @@ export const DEFAULT_CONFIG: EstimationConfig = {
   calibrationMinSamples: 3,
   indexReviewMin: 66,
   indexSplitMin: 81,
+  releaseQuarters: [
+    "2026-Q1",
+    "2026-Q2",
+    "2026-Q3",
+    "2026-Q4",
+    "2027-Q1",
+    "2027-Q2",
+    "2027-Q3",
+    "2027-Q4",
+  ],
 };
 
 export function hydrateConfig(raw: Partial<EstimationConfig> | null | undefined): EstimationConfig {
@@ -328,6 +338,9 @@ export function hydrateConfig(raw: Partial<EstimationConfig> | null | undefined)
   }));
   if (!merged.locationDailyRates?.length) {
     merged.locationDailyRates = DEFAULT_CONFIG.locationDailyRates;
+  }
+  if (!merged.releaseQuarters?.length) {
+    merged.releaseQuarters = DEFAULT_CONFIG.releaseQuarters;
   }
   if (merged.aiMaxPct < 1 && merged.aiMaxPct === 0.5) merged.aiMaxPct = 1;
   return merged;

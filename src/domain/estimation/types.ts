@@ -208,6 +208,8 @@ export type EstimationConfig = {
   calibrationMinSamples: number;
   indexReviewMin: number;
   indexSplitMin: number;
+  /** Configurable release quarters for Ready + Overview filters. */
+  releaseQuarters: string[];
 };
 
 export type ComplexityScoreInput = {

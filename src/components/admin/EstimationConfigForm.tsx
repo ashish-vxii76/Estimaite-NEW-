@@ -30,10 +30,15 @@ export function EstimationConfigForm({
     l: config.complexityMultipliers.L,
     xl: config.complexityMultipliers.XL,
     xxl: config.complexityMultipliers.XXL,
+    releaseQuartersText: (config.releaseQuarters ?? []).join("\n"),
   });
   const [message, setMessage] = useState("");
 
   async function save() {
+    const releaseQuarters = form.releaseQuartersText
+      .split("\n")
+      .map((q) => q.trim())
+      .filter(Boolean);
     const res = await fetch("/api/admin/config", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -53,6 +58,7 @@ export function EstimationConfigForm({
           calibrationMinSamples: form.calibrationMinSamples,
           indexReviewMin: form.indexReviewMin,
           indexSplitMin: form.indexSplitMin,
+          releaseQuarters,
           complexityMultipliers: {
             XS: form.xs,
             S: form.s,
@@ -116,6 +122,19 @@ export function EstimationConfigForm({
         {num("l", "L")}
         {num("xl", "XL")}
         {num("xxl", "XXL")}
+      </section>
+      <section className="card space-y-3 p-5">
+        <h2 className="font-medium">Release quarters</h2>
+        <p className="text-sm text-[var(--muted)]">
+          One quarter per line. These populate the Ready step and Overview filters (e.g. 2026-Q1).
+        </p>
+        <textarea
+          rows={8}
+          className="w-full rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2 font-mono text-sm"
+          value={form.releaseQuartersText}
+          disabled={readOnly}
+          onChange={(e) => setForm({ ...form, releaseQuartersText: e.target.value })}
+        />
       </section>
       {readOnly ? (
         <p className="text-sm text-[var(--muted)]">Read only for this role. Admin publishes mapping versions.</p>

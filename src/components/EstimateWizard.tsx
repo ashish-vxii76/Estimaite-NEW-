@@ -8,6 +8,7 @@ import { DEFAULT_READINESS_CRITERIA } from "@/domain/estimation/readiness";
 import { calculateComplexityIndex } from "@/domain/estimation/complexity";
 import { formatMoney } from "@/lib/utils";
 import { GovernedSummary } from "@/components/GovernedSummary";
+import { ActualsForm } from "@/components/ActualsForm";
 import { ExplanationPanel } from "@/components/ui";
 import type {
   ComplexityDimensionConfig,
@@ -19,6 +20,9 @@ const MOMENTS = [
   { id: "size", label: "Size" },
   { id: "plan", label: "Plan & cost" },
   { id: "govern", label: "Govern" },
+  { id: "final", label: "Final review" },
+  { id: "actuals", label: "Actual & calibration" },
+  { id: "variance", label: "Variance & calibration" },
 ] as const;
 
 type MomentId = (typeof MOMENTS)[number]["id"];
@@ -39,6 +43,17 @@ type Location = {
   currency: string;
 };
 
+type ActualsPayload = {
+  actualDevPd: number;
+  actualQaPd: number;
+  actualSprints: number;
+  actualDevResources: number;
+  actualQaResources: number;
+  actualOtherCost: number;
+  completionDate: Date | string | null;
+  varianceJson: string;
+} | null;
+
 const defaultScores = Object.fromEntries(
   DEFAULT_CONFIG.complexityDimensions.map((d) => [d.id, 3]),
 );
@@ -51,12 +66,16 @@ export function EstimateWizard({
   teams,
   locations,
   complexityDimensions = DEFAULT_CONFIG.complexityDimensions,
+  releaseQuarters = DEFAULT_CONFIG.releaseQuarters,
+  actuals = null,
+  estimateStatus = "DRAFT",
   capabilities = {
     canEdit: true,
     canSubmit: true,
     canReview: true,
     canApprove: true,
     canOverride: true,
+    canEditActuals: true,
     teamLocked: false,
   },
 }: {
@@ -66,12 +85,16 @@ export function EstimateWizard({
   locations: Location[];
   /** Hydrated Size-step dimensions (labels score 1–5). Defaults to DEFAULT_CONFIG. */
   complexityDimensions?: ComplexityDimensionConfig[];
+  releaseQuarters?: string[];
+  actuals?: ActualsPayload;
+  estimateStatus?: string;
   capabilities?: {
     canEdit: boolean;
     canSubmit: boolean;
     canReview: boolean;
     canApprove: boolean;
     canOverride: boolean;
+    canEditActuals?: boolean;
     teamLocked: boolean;
   };
 }) {
@@ -79,12 +102,14 @@ export function EstimateWizard({
   const sizeDimensions = complexityDimensions.length
     ? complexityDimensions
     : DEFAULT_CONFIG.complexityDimensions;
+  const quarters = releaseQuarters.length ? releaseQuarters : DEFAULT_CONFIG.releaseQuarters;
   const initialResult = (initial?.result as EstimateCalculationResult) ?? null;
   const [moment, setMoment] = useState<MomentId>(initialResult ? "govern" : "ready");
   const [id, setId] = useState(estimateId);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<EstimateCalculationResult | null>(initialResult);
+  const [status, setStatus] = useState(estimateStatus);
   const [overrideSp, setOverrideSp] = useState(8);
   const [overrideReason, setOverrideReason] = useState("");
   const [form, setForm] = useState({
@@ -128,6 +153,30 @@ export function EstimateWizard({
     locationId: locations.find((l) => l.name === (teams[0]?.mappedLocation ?? ""))?.id ?? locations[0]?.id ?? "",
     locationName: teams[0]?.mappedLocation ?? locations[0]?.name ?? "",
   });
+
+  useEffect(() => {
+    setStatus(estimateStatus);
+  }, [estimateStatus]);
+
+  // Restore costing basis from stored commercial mix when editing.
+  useEffect(() => {
+    const mix = initial?.locationMixJson;
+    if (typeof mix !== "string") return;
+    try {
+      const parsed = JSON.parse(mix) as Array<{ costingBasis?: string; locationName?: string; projectOverrideRate?: number | null; costMethod?: string }>;
+      const first = parsed[0];
+      if (!first) return;
+      setForm((f) => ({
+        ...f,
+        costingBasis: first.costingBasis === "LOCATION" ? "LOCATION" : f.costingBasis || "TEAM",
+        locationName: first.locationName || f.locationName,
+        projectOverrideRate: first.projectOverrideRate ?? f.projectOverrideRate,
+        costMethod: first.costMethod || f.costMethod,
+      }));
+    } catch {
+      /* ignore */
+    }
+  }, [initial?.locationMixJson]);
 
   useEffect(() => {
     if (initial?.readiness) {
@@ -294,6 +343,11 @@ export function EstimateWizard({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Action failed");
+      if (data.estimate?.status) setStatus(data.estimate.status);
+      else if (path === "submit") setStatus("READY_FOR_REVIEW");
+      else if (path === "review") setStatus("REVIEWED");
+      else if (path === "approve") setStatus("APPROVED");
+      else if (path === "reject") setStatus("RETURNED");
       router.refresh();
     } catch (e) {
       setError((e as Error).message);
@@ -314,6 +368,7 @@ export function EstimateWizard({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Override failed");
       setResult(data.result);
+      router.refresh();
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -321,7 +376,43 @@ export function EstimateWizard({
     }
   }
 
+  const readyComplete =
+    Boolean(form.reference.trim()) &&
+    Boolean(form.title.trim()) &&
+    DEFAULT_READINESS_CRITERIA.every((c) => form.readiness[c.id] === "YES" || form.readiness[c.id] === "NO");
+  const sizeComplete = sizeDimensions.every((d) => Number(form.scores[d.id]) >= 1);
+  const planComplete = Boolean(result);
+  const governComplete = Boolean(result);
+  const finalUnlocked = readyComplete && sizeComplete && planComplete && governComplete;
+  const postApprovalUnlocked = status === "APPROVED" || status === "COMPLETED";
+  const resourceConstrained = form.planningMode === "RESOURCE_CONSTRAINED";
+  const teamCosting = form.costingBasis === "TEAM";
+
+  function tabEnabled(tab: MomentId) {
+    if (tab === "final") return finalUnlocked;
+    if (tab === "actuals" || tab === "variance") return postApprovalUnlocked;
+    return true;
+  }
+
+  function goTo(tab: MomentId) {
+    if (!tabEnabled(tab)) return;
+    setMoment(tab);
+  }
+
   const momentIndex = MOMENTS.findIndex((m) => m.id === moment);
+  const variance = actuals
+    ? (() => {
+        try {
+          return JSON.parse(actuals.varianceJson) as Record<string, number | string | null>;
+        } catch {
+          return null;
+        }
+      })()
+    : null;
+  const pctLabel = (v: number | null | undefined) =>
+    v == null || Number.isNaN(Number(v)) ? "—" : `${(Number(v) * 100).toFixed(1)}%`;
+  const devLevel = DEFAULT_CONFIG.resourceLevels.find((l) => l.id === form.devResourceLevel);
+  const qaLevel = DEFAULT_CONFIG.resourceLevels.find((l) => l.id === form.qaResourceLevel);
 
   return (
     <CanEditFields.Provider value={capabilities.canEdit}>
@@ -334,7 +425,7 @@ export function EstimateWizard({
               {estimateId ? "Inputs and governance" : "New estimate"}
             </h2>
             <p className="mt-1 max-w-xl text-sm text-[var(--muted)]">
-              Four moments. Same governed engine. The summary stays on the right while you work.
+              Ready through Govern, then Final review to submit. Actuals and variance unlock after approval.
             </p>
           </div>
           <Link href="/estimates" className="btn-ghost">
@@ -343,23 +434,36 @@ export function EstimateWizard({
         </div>
 
         <ol className="flex flex-wrap gap-2">
-          {MOMENTS.map((m, i) => (
-            <li key={m.id}>
-              <button
-                type="button"
-                onClick={() => setMoment(m.id)}
-                className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${
-                  moment === m.id
-                    ? "border-[var(--navy)] bg-[var(--navy)] text-white"
-                    : i < momentIndex
-                      ? "border-[var(--line)] bg-white text-[var(--navy)]"
-                      : "border-[var(--line)] bg-[var(--bg)] text-[var(--muted)]"
-                }`}
-              >
-                {i + 1}. {m.label}
-              </button>
-            </li>
-          ))}
+          {MOMENTS.map((m, i) => {
+            const enabled = tabEnabled(m.id);
+            return (
+              <li key={m.id}>
+                <button
+                  type="button"
+                  onClick={() => goTo(m.id)}
+                  disabled={!enabled}
+                  title={
+                    !enabled
+                      ? m.id === "final"
+                        ? "Complete Ready, Size, Plan & cost, and Govern first"
+                        : "Available after the estimate is approved"
+                      : undefined
+                  }
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                    moment === m.id
+                      ? "border-[var(--navy)] bg-[var(--navy)] text-white"
+                      : !enabled
+                        ? "cursor-not-allowed border-[var(--line)] bg-[var(--bg)] text-[var(--muted)] opacity-50"
+                        : i < momentIndex
+                          ? "border-[var(--line)] bg-white text-[var(--navy)]"
+                          : "border-[var(--line)] bg-[var(--bg)] text-[var(--muted)]"
+                  }`}
+                >
+                  {i + 1}. {m.label}
+                </button>
+              </li>
+            );
+          })}
         </ol>
 
         {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
@@ -412,19 +516,6 @@ export function EstimateWizard({
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                 />
               </Field>
-              <Field label="Owning team">
-                <select
-                  value={form.teamId}
-                  disabled={capabilities.teamLocked || !capabilities.canEdit}
-                  onChange={(e) => applyTeam(e.target.value)}
-                >
-                  {teams.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
               <Field label="Requester">
                 <input
                   value={form.requester}
@@ -440,11 +531,25 @@ export function EstimateWizard({
                   onChange={(e) => setForm({ ...form, programme: e.target.value })}
                 />
               </Field>
-              <Field label="Release">
-                <input value={form.release} onChange={(e) => setForm({ ...form, release: e.target.value })} />
+              <Field label="Release quarter">
+                <select
+                  value={form.release}
+                  onChange={(e) => setForm({ ...form, release: e.target.value })}
+                >
+                  <option value="">Select quarter</option>
+                  {quarters.map((q) => (
+                    <option key={q} value={q}>
+                      {q}
+                    </option>
+                  ))}
+                </select>
               </Field>
-              <Field label="Jira ID">
-                <input value={form.jiraId} onChange={(e) => setForm({ ...form, jiraId: e.target.value })} />
+              <Field label="GitLab / JIRA ID (optional)">
+                <input
+                  value={form.jiraId}
+                  onChange={(e) => setForm({ ...form, jiraId: e.target.value })}
+                  placeholder="Optional"
+                />
               </Field>
             </div>
             <div>
@@ -543,59 +648,61 @@ export function EstimateWizard({
                 AI is 0–100% in the form and 0–1 in the engine. It increases capacity; it never reduces SP.
               </p>
             </header>
-            {form.workItemType === "EPIC" ? (
-              <p className="rounded-lg border border-dashed border-[var(--line)] bg-[var(--bg)] px-3 py-2 text-sm text-[var(--warn)]">
-                COST DEFERRED — ROM Epic; cost at Story level. Commercial inputs are cleared.
-              </p>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2">
-                <Field label="Costing basis">
-                  <select
-                    value={form.costingBasis}
-                    onChange={(e) => {
-                      const costingBasis = e.target.value;
-                      if (costingBasis === "TEAM") {
-                        const team = teams.find((t) => t.id === form.teamId);
-                        const loc = locations.find((l) => l.name === team?.mappedLocation);
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Team name">
+                <select
+                  value={form.teamId}
+                  disabled={
+                    (form.workItemType !== "EPIC" && !teamCosting) ||
+                    capabilities.teamLocked ||
+                    !capabilities.canEdit
+                  }
+                  onChange={(e) => applyTeam(e.target.value)}
+                >
+                  {teams.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              {form.workItemType === "EPIC" ? (
+                <p className="md:col-span-2 rounded-lg border border-dashed border-[var(--line)] bg-[var(--bg)] px-3 py-2 text-sm text-[var(--warn)]">
+                  COST DEFERRED — ROM Epic; cost at Story level. Commercial inputs are cleared.
+                </p>
+              ) : (
+                <>
+                  <Field label="Costing basis">
+                    <select
+                      value={form.costingBasis}
+                      onChange={(e) => {
+                        const costingBasis = e.target.value;
+                        if (costingBasis === "TEAM") {
+                          const team = teams.find((t) => t.id === form.teamId);
+                          const loc = locations.find((l) => l.name === team?.mappedLocation);
+                          setForm({
+                            ...form,
+                            costingBasis,
+                            locationName: team?.mappedLocation ?? "",
+                            locationId: loc?.id ?? "",
+                            currency: team?.currency ?? form.currency,
+                          });
+                          return;
+                        }
                         setForm({
                           ...form,
                           costingBasis,
-                          locationName: team?.mappedLocation ?? "",
-                          locationId: loc?.id ?? "",
-                          currency: team?.currency ?? form.currency,
                         });
-                        return;
-                      }
-                      setForm({
-                        ...form,
-                        costingBasis,
-                        locationName: "",
-                        locationId: "",
-                      });
-                    }}
-                  >
-                    <option value="TEAM">Team</option>
-                    <option value="LOCATION">Location</option>
-                  </select>
-                </Field>
-                <Field label="Cost method">
-                  <input value={form.costMethod} readOnly />
-                </Field>
-                {form.costingBasis === "TEAM" ? (
-                  <>
-                    <Field label="Team name">
-                      <select
-                        value={form.teamId}
-                        disabled={capabilities.teamLocked || !capabilities.canEdit}
-                        onChange={(e) => applyTeam(e.target.value)}
-                      >
-                        {teams.map((t) => (
-                          <option key={t.id} value={t.id}>
-                            {t.name}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
+                      }}
+                    >
+                      <option value="TEAM">Team</option>
+                      <option value="LOCATION">Location</option>
+                    </select>
+                  </Field>
+                  <Field label="Cost method">
+                    <input value={form.costMethod} readOnly />
+                  </Field>
+                  {teamCosting ? (
                     <Field label="Location (from team)">
                       <input
                         readOnly
@@ -606,44 +713,44 @@ export function EstimateWizard({
                         }
                       />
                     </Field>
-                  </>
-                ) : (
-                  <Field label="Location rate card" className="md:col-span-2">
-                    <select
-                      value={form.locationName}
-                      onChange={(e) => {
-                        const loc = locations.find((l) => l.name === e.target.value);
+                  ) : (
+                    <Field label="Location rate card">
+                      <select
+                        value={form.locationName}
+                        onChange={(e) => {
+                          const loc = locations.find((l) => l.name === e.target.value);
+                          setForm({
+                            ...form,
+                            locationName: e.target.value,
+                            locationId: loc?.id ?? "",
+                          });
+                        }}
+                      >
+                        <option value="">Select location</option>
+                        {locations.map((l) => (
+                          <option key={l.id} value={l.name}>
+                            {l.name} — {l.dailyRate} {l.currency}/day
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                  )}
+                  <Field label="Project override rate (optional)">
+                    <input
+                      type="number"
+                      min={0}
+                      value={form.projectOverrideRate || ""}
+                      onChange={(e) =>
                         setForm({
                           ...form,
-                          locationName: e.target.value,
-                          locationId: loc?.id ?? "",
-                        });
-                      }}
-                    >
-                      <option value="">Select location</option>
-                      {locations.map((l) => (
-                        <option key={l.id} value={l.name}>
-                          {l.name} — {l.dailyRate} {l.currency}/day
-                        </option>
-                      ))}
-                    </select>
+                          projectOverrideRate: e.target.value === "" ? 0 : Number(e.target.value),
+                        })
+                      }
+                    />
                   </Field>
-                )}
-                <Field label="Project override rate (optional)">
-                  <input
-                    type="number"
-                    min={0}
-                    value={form.projectOverrideRate || ""}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        projectOverrideRate: e.target.value === "" ? 0 : Number(e.target.value),
-                      })
-                    }
-                  />
-                </Field>
-              </div>
-            )}
+                </>
+              )}
+            </div>
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Dev seniority">
                 <select
@@ -710,6 +817,7 @@ export function EstimateWizard({
                   type="number"
                   min={0}
                   value={form.availableDev}
+                  disabled={!resourceConstrained}
                   onChange={(e) => setForm({ ...form, availableDev: Number(e.target.value) })}
                 />
               </Field>
@@ -718,6 +826,7 @@ export function EstimateWizard({
                   type="number"
                   min={0}
                   value={form.availableQa}
+                  disabled={!resourceConstrained}
                   onChange={(e) => setForm({ ...form, availableQa: Number(e.target.value) })}
                 />
               </Field>
@@ -726,6 +835,7 @@ export function EstimateWizard({
                   type="number"
                   min={1}
                   value={form.targetSprints}
+                  disabled={resourceConstrained}
                   onChange={(e) => setForm({ ...form, targetSprints: Number(e.target.value) })}
                 />
               </Field>
@@ -794,7 +904,7 @@ export function EstimateWizard({
                 ) : null}
                 <section className="card space-y-4 p-5">
                   <p className="text-sm text-[var(--muted)]">
-                    DRAFT → READY FOR REVIEW → REVIEWED → APPROVED.
+                    Override here if needed. Submit for review happens on Final review after all moments are complete.
                   </p>
                   <div className="grid gap-3 md:grid-cols-2">
                     <Field label="Override SP">
@@ -812,11 +922,6 @@ export function EstimateWizard({
                     {capabilities.canOverride ? (
                       <button className="btn-secondary" onClick={override} disabled={busy} type="button">
                         Apply governed override
-                      </button>
-                    ) : null}
-                    {capabilities.canSubmit ? (
-                      <button className="btn-primary" onClick={() => workflow("submit")} disabled={busy} type="button">
-                        Submit for review
                       </button>
                     ) : null}
                     {capabilities.canReview ? (
@@ -839,14 +944,12 @@ export function EstimateWizard({
                         </button>
                       </>
                     ) : null}
-                    {!capabilities.canEdit && !capabilities.canSubmit && !capabilities.canReview && !capabilities.canApprove ? (
-                      <p className="text-sm text-[var(--muted)]">View only for this profile.</p>
+                    {finalUnlocked ? (
+                      <button type="button" className="btn-primary" onClick={() => goTo("final")}>
+                        Continue to final review
+                      </button>
                     ) : null}
                   </div>
-                </section>
-                <section className="card p-5 text-sm text-[var(--muted)]">
-                  Capture actuals after delivery from the estimate record below. Variance is actual versus
-                  the snapshot, not a live recalculation.
                 </section>
                 <div className="space-y-2">
                   {Object.values(result.explanations).map((ex) => (
@@ -857,6 +960,194 @@ export function EstimateWizard({
                   Back to plan
                 </button>
               </>
+            )}
+          </section>
+        )}
+
+        {moment === "final" && result && (
+          <section className="card space-y-6 p-6">
+            <header>
+              <p className="kicker">Final review</p>
+              <h3 className="font-display text-xl font-semibold text-[var(--navy)]">
+                Board-pack check before submit
+              </h3>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                Read-only summary of the CR. Submit for review when the pack is complete.
+              </p>
+            </header>
+
+            <div className="overflow-hidden rounded-xl border border-[var(--line)]">
+              <div className="bg-[var(--navy)] px-4 py-2 text-sm font-semibold text-white">
+                12. Range, Stance, Resource-Aware Effort &amp; Blended Cost
+              </div>
+              <table className="w-full text-sm">
+                <tbody>
+                  {[
+                    ["Estimate Stance", form.stance, "Optimistic = one size down · Neutral = assessed · Pessimistic = one size up."],
+                    ["Effective T-Shirt (stance-adjusted)", result.effectiveTshirt, ""],
+                    ["Optimistic SP (one size down)", String(result.optimisticSp), ""],
+                    ["Neutral SP (assessed size)", String(result.baselineSp ?? result.selectedSp), ""],
+                    ["Pessimistic SP (one size up)", String(result.pessimisticSp), ""],
+                    ["Selected SP (per stance)", String(result.selectedSp), "Feeds sprints, cost and governance."],
+                    ["Complexity Effort Multiplier", String(result.complexityMultiplier), "From complexity band (assessed T-Shirt)."],
+                    ["Dev Days per Point", String(devLevel?.daysPerPoint ?? "—"), ""],
+                    ["QA Days per Point", String(qaLevel?.daysPerPoint ?? "—"), ""],
+                    ["Adjusted Dev Effort (PD)", String(result.adjustedDevEffortPd), "Dev SP × Dev Days/Point × Complexity ÷ (1+Dev AI%)."],
+                    ["Adjusted QA Effort (PD)", String(result.adjustedQaEffortPd), "QA SP × QA Days/Point × Complexity ÷ (1+QA AI%)."],
+                    ["Adjusted Total Effort (PD)", String(result.adjustedTotalEffortPd), ""],
+                    ["Blended Daily Rate (per team)", String(result.blendedDailyRate), "From team composition / rate card."],
+                    [
+                      "Effort-Based Delivery Cost",
+                      result.effortBasedCost == null ? "—" : formatMoney(result.effortBasedCost, result.currency),
+                      "Adjusted Total Effort (PD) × Blended Daily Rate.",
+                    ],
+                    ["Epic Breakdown - Suggested Stories", result.epicStories == null ? "—" : String(result.epicStories), ""],
+                    ["Epic Breakdown - Approx SP / Story", result.epicSpPerStory == null ? "—" : String(result.epicSpPerStory), ""],
+                    ["Epic Breakdown - Summary", result.epicSummary ?? "—", ""],
+                  ].map(([label, value, note]) => (
+                    <tr key={label} className="border-t border-[var(--line)]">
+                      <th className="w-[40%] bg-[var(--panel-2)] px-3 py-2 text-left font-medium text-[var(--navy)]">
+                        {label}
+                      </th>
+                      <td className="bg-emerald-50/60 px-3 py-2 font-semibold text-[var(--navy)]">{value}</td>
+                      <td className="px-3 py-2 text-xs italic text-[var(--muted)]">{note}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <dl className="grid gap-3 rounded-xl border border-[var(--line)] p-4 text-sm md:grid-cols-2">
+              <div>
+                <dt className="text-xs text-[var(--muted)]">CR / reference</dt>
+                <dd className="font-medium">{form.reference}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-[var(--muted)]">Title</dt>
+                <dd className="font-medium">{form.title}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-[var(--muted)]">Release quarter</dt>
+                <dd className="font-medium">{form.release || "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-[var(--muted)]">GitLab / JIRA ID</dt>
+                <dd className="font-medium">{form.jiraId || "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-[var(--muted)]">Delivery flag</dt>
+                <dd className="font-medium">{result.deliveryFlag}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-[var(--muted)]">AI-adjusted cost</dt>
+                <dd className="font-medium">
+                  {formatMoney(result.aiAdjustedDeliveryCost, result.currency)}
+                </dd>
+              </div>
+            </dl>
+
+            <div className="flex flex-wrap justify-between gap-2">
+              <button type="button" className="btn-ghost" onClick={() => setMoment("govern")}>
+                Back to govern
+              </button>
+              {capabilities.canSubmit && ["DRAFT", "RETURNED"].includes(status) ? (
+                <button
+                  type="button"
+                  className="btn-primary"
+                  disabled={busy}
+                  onClick={() => workflow("submit")}
+                >
+                  Submit for review
+                </button>
+              ) : (
+                <p className="text-sm text-[var(--muted)]">Status: {status}</p>
+              )}
+            </div>
+          </section>
+        )}
+
+        {moment === "actuals" && id && (
+          <ActualsForm
+            estimateId={id}
+            actuals={actuals}
+            readOnly={!capabilities.canEditActuals}
+          />
+        )}
+
+        {moment === "actuals" && !id && (
+          <section className="card p-6 text-sm text-[var(--muted)]">
+            Save the estimate first. Actuals unlock after approval.
+          </section>
+        )}
+
+        {moment === "variance" && (
+          <section className="card space-y-4 p-6">
+            <header>
+              <p className="kicker">Post-approval</p>
+              <h3 className="font-display text-xl font-semibold text-[var(--navy)]">
+                Variance &amp; calibration
+              </h3>
+            </header>
+            {!actuals ? (
+              <p className="text-sm text-[var(--muted)]">
+                Enter actuals on the Actual &amp; calibration tab first. Variance is calculated from the governed snapshot.
+              </p>
+            ) : (
+              <div className="overflow-hidden rounded-xl border border-[var(--line)]">
+                <div className="bg-sky-100 px-4 py-2 text-sm font-semibold text-[var(--navy)]">
+                  Variance &amp; Calibration
+                </div>
+                <table className="w-full text-sm">
+                  <tbody>
+                    {[
+                      ["Dev PD Variance %", pctLabel(variance?.devEffortVariance as number | null), "Positive = actual exceeded estimate."],
+                      ["QA PD Variance %", pctLabel(variance?.qaEffortVariance as number | null), "Positive = actual exceeded estimate."],
+                      ["Duration Variance %", pctLabel(variance?.durationVariance as number | null), "Positive = delivery took longer."],
+                      [
+                        "Dev Resource Variance %",
+                        result?.plannedDev
+                          ? pctLabel((actuals.actualDevResources - result.plannedDev) / result.plannedDev)
+                          : "—",
+                        "Positive = more Dev used.",
+                      ],
+                      [
+                        "QA Resource Variance %",
+                        result?.plannedQa
+                          ? pctLabel((actuals.actualQaResources - result.plannedQa) / result.plannedQa)
+                          : "—",
+                        "Positive = more QA used.",
+                      ],
+                      [
+                        "Actual Total Delivery Cost",
+                        formatMoney(
+                          (result?.aiAdjustedDeliveryCost ?? 0) + actuals.actualOtherCost,
+                          result?.currency ?? form.currency,
+                        ),
+                        "Actual cost under selected method.",
+                      ],
+                      ["Cost Variance %", pctLabel(variance?.costVariance as number | null), "Actual vs estimated total cost."],
+                      [
+                        "Actual / Estimated Effort Ratio",
+                        variance?.actualEstimatedEffortRatio == null
+                          ? "—"
+                          : String(variance.actualEstimatedEffortRatio),
+                        "Actual total PD (Dev+QA) ÷ Adjusted Total Effort. >1 = under-estimated.",
+                      ],
+                    ].map(([label, value, note]) => (
+                      <tr key={label} className="border-t border-[var(--line)]">
+                        <th className="w-[36%] px-3 py-2 text-left font-medium text-[var(--navy)]">{label}</th>
+                        <td className="bg-emerald-50/70 px-3 py-2 font-semibold text-[var(--navy)]">{value}</td>
+                        <td className="px-3 py-2 text-xs italic text-[var(--muted)]">{note}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {variance?.interpretation ? (
+                  <p className="border-t border-[var(--line)] px-3 py-2 text-sm text-[var(--muted)]">
+                    {String(variance.interpretation)}
+                  </p>
+                ) : null}
+              </div>
             )}
           </section>
         )}
