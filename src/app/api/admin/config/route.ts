@@ -35,8 +35,17 @@ export async function PUT(request: Request) {
   else if (section === "epicMappings") patch.epicMappings = body.rows;
   else if (section === "resourceLevels") patch.resourceLevels = body.rows;
   else if (section === "complexityMappings") patch.complexityMappings = body.rows;
+  else if (section === "complexityDimensions") patch.complexityDimensions = body.rows;
+  else if (section === "releaseQuarters") patch.releaseQuarters = body.releaseQuarters ?? body.rows;
+  else if (section === "readinessCriteria") {
+    patch.readinessCriteria = body.rows;
+    if (body.readinessAssumptionsMin != null) {
+      patch.readinessAssumptionsMin = Number(body.readinessAssumptionsMin);
+    }
+  }
   else if (section === "costMappings") patch.costMappings = body.rows;
   else if (section === "locationDailyRates") patch.locationDailyRates = body.rows;
+  else if (section === "teamCostMappings") patch.teamCostMappings = body.rows;
   else if (section === "allowedIssueStoryPoints") patch.allowedIssueStoryPoints = body.rows;
   else if (section === "estimationConfig") Object.assign(patch, body.estimationConfig ?? {});
   else return NextResponse.json({ error: `Unknown section ${section}` }, { status: 400 });

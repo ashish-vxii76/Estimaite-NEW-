@@ -6,6 +6,7 @@ import { HomeCharts } from "@/components/HomeCharts";
 import { can } from "@/lib/access";
 import { estimateScope, fromSession } from "@/lib/scope";
 import { welcomeLine } from "@/lib/roles";
+import { getActiveConfig } from "@/services/configService";
 
 function nextAction(
   role: string | undefined,
@@ -46,29 +47,47 @@ export default async function HomePage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
   const scope = estimateScope(fromSession(session.user));
-  const [total, drafts, pendingReview, pendingApprove, approved, completed, byTeamRows, byStatusRows, resultRows, team] =
-    await Promise.all([
-      prisma.estimate.count({ where: scope }),
-      prisma.estimate.count({ where: { ...scope, status: { in: ["DRAFT", "RETURNED"] } } }),
-      prisma.estimate.count({ where: { ...scope, status: "READY_FOR_REVIEW" } }),
-      prisma.estimate.count({ where: { ...scope, status: "REVIEWED" } }),
-      prisma.estimate.count({ where: { ...scope, status: "APPROVED" } }),
-      prisma.estimate.count({ where: { ...scope, status: "COMPLETED" } }),
-      prisma.estimate.groupBy({
-        by: ["teamId"],
-        where: scope,
-        _count: { _all: true },
-      }),
-      prisma.estimate.groupBy({
-        by: ["status"],
-        where: scope,
-        _count: { _all: true },
-      }),
-      prisma.estimate.findMany({ where: scope, select: { resultJson: true } }),
-      session.user.teamId
-        ? prisma.team.findUnique({ where: { id: session.user.teamId }, select: { name: true } })
-        : Promise.resolve(null),
-    ]);
+  const [
+    total,
+    drafts,
+    pendingReview,
+    pendingApprove,
+    approved,
+    completed,
+    byTeamRows,
+    byStatusRows,
+    resultRows,
+    team,
+    config,
+    releaseRows,
+  ] = await Promise.all([
+    prisma.estimate.count({ where: scope }),
+    prisma.estimate.count({ where: { ...scope, status: { in: ["DRAFT", "RETURNED"] } } }),
+    prisma.estimate.count({ where: { ...scope, status: "READY_FOR_REVIEW" } }),
+    prisma.estimate.count({ where: { ...scope, status: "REVIEWED" } }),
+    prisma.estimate.count({ where: { ...scope, status: "APPROVED" } }),
+    prisma.estimate.count({ where: { ...scope, status: "COMPLETED" } }),
+    prisma.estimate.groupBy({
+      by: ["teamId"],
+      where: scope,
+      _count: { _all: true },
+    }),
+    prisma.estimate.groupBy({
+      by: ["status"],
+      where: scope,
+      _count: { _all: true },
+    }),
+    prisma.estimate.findMany({ where: scope, select: { resultJson: true } }),
+    session.user.teamId
+      ? prisma.team.findUnique({ where: { id: session.user.teamId }, select: { name: true } })
+      : Promise.resolve(null),
+    getActiveConfig(),
+    prisma.estimate.groupBy({
+      by: ["release"],
+      where: scope,
+      _count: { _all: true },
+    }),
+  ]);
 
   const discovery = resultRows.filter((row) => {
     if (!row.resultJson) return false;
@@ -111,6 +130,11 @@ export default async function HomePage() {
     count: row._count._all,
   }));
 
+  const releaseCounts = Object.fromEntries(
+    releaseRows.map((row) => [row.release ?? "", row._count._all]),
+  );
+  const quarters = config.releaseQuarters ?? [];
+
   const action = nextAction(session.user.role, drafts, pendingReview, pendingApprove, discovery);
   const teamName = session.user.role === "ADMINISTRATOR" ? "All teams" : team?.name;
   const situation =
@@ -147,6 +171,28 @@ export default async function HomePage() {
         <Tile label="Approved" value={approved} />
         <Tile label="Completed" value={completed} />
       </div>
+      {quarters.length ? (
+        <section className="card space-y-3 p-5">
+          <div>
+            <h2 className="font-medium text-[var(--navy)]">Release quarters</h2>
+            <p className="text-sm text-[var(--muted)]">
+              Jump to the register filtered by quarter. Counts include items in your scope.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {quarters.map((q) => (
+              <Link
+                key={q}
+                href={`/estimates?release=${encodeURIComponent(q)}`}
+                className="rounded-full border border-[var(--line)] bg-[var(--panel-2)] px-3 py-1.5 text-sm text-[var(--navy)] hover:border-[var(--navy)]"
+              >
+                {q}
+                <span className="ml-2 text-[var(--muted)]">{releaseCounts[q] ?? 0}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
       <HomeCharts byStatus={byStatus} byTeam={byTeam} />
     </div>
   );

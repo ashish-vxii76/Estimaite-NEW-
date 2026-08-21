@@ -169,7 +169,10 @@ export function calculateEstimate(
   });
   explanations.cost = economics.explanation;
 
-  const readiness = calculateReadiness(input.readiness);
+  const readiness = calculateReadiness(input.readiness, {
+    criteriaCount: config.readinessCriteria?.length ?? input.readiness.length,
+    assumptionsMin: config.readinessAssumptionsMin,
+  });
   explanations.readiness = readiness.explanation;
   const confidence = calculateConfidence({
     dorStatus: readiness.status,

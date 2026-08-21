@@ -4,6 +4,7 @@ import type {
   IssueMappingConfig,
   EpicMappingConfig,
 } from "./types";
+import { DEFAULT_READINESS_CRITERIA } from "./readiness";
 
 /** Score 1→5 labels per complexity dimension (weights unchanged). */
 const FUNCTIONALITY_OPTIONS = [
@@ -267,34 +268,48 @@ export const DEFAULT_CONFIG: EstimationConfig = {
   calibrationMinSamples: 3,
   indexReviewMin: 66,
   indexSplitMin: 81,
+  releaseQuarters: [
+    "2026-Q1",
+    "2026-Q2",
+    "2026-Q3",
+    "2026-Q4",
+    "2027-Q1",
+    "2027-Q2",
+    "2027-Q3",
+    "2027-Q4",
+  ],
+  readinessCriteria: DEFAULT_READINESS_CRITERIA.map((c) => ({ id: c.id, label: c.label })),
+  readinessAssumptionsMin: 3,
 };
 
 export function hydrateConfig(raw: Partial<EstimationConfig> | null | undefined): EstimationConfig {
   const merged: EstimationConfig = { ...DEFAULT_CONFIG, ...(raw ?? {}) };
-  // Always refresh dimension names/options/weights from defaults by id so
-  // dropdown label updates ship without requiring a config reseed.
-  const defaultsById = new Map(DEFAULT_CONFIG.complexityDimensions.map((d) => [d.id, d]));
-  if (merged.complexityDimensions?.length) {
-    merged.complexityDimensions = merged.complexityDimensions.map((d) => {
-      const fresh = defaultsById.get(d.id);
-      if (!fresh) return d;
-      return {
-        ...d,
-        name: fresh.name,
-        description: fresh.description,
-        weight: fresh.weight,
-        options: fresh.options,
-        guidance: fresh.guidance,
-        minScore: fresh.minScore,
-        maxScore: fresh.maxScore,
-      };
-    });
-  } else {
-    merged.complexityDimensions = DEFAULT_CONFIG.complexityDimensions;
-  }
-  if (!merged.complexityDimensions?.[0]?.options?.length) {
-    merged.complexityDimensions = DEFAULT_CONFIG.complexityDimensions;
-  }
+  // Overlay saved dimension edits onto the canonical 10 ids. Admin owns name,
+  // weight, active and score 1–5 labels; defaults only fill missing/incomplete options.
+  const savedById = new Map(
+    (raw?.complexityDimensions ?? merged.complexityDimensions ?? []).map((d) => [d.id, d]),
+  );
+  merged.complexityDimensions = DEFAULT_CONFIG.complexityDimensions.map((fresh) => {
+    const saved = savedById.get(fresh.id);
+    if (!saved) return { ...fresh };
+    const options =
+      Array.isArray(saved.options) &&
+      saved.options.length === 5 &&
+      saved.options.every((o) => String(o ?? "").trim())
+        ? saved.options.map((o) => String(o).trim())
+        : fresh.options;
+    return {
+      ...fresh,
+      name: saved.name?.trim() || fresh.name,
+      description: saved.description?.trim() || saved.name?.trim() || fresh.description,
+      weight: typeof saved.weight === "number" && !Number.isNaN(saved.weight) ? saved.weight : fresh.weight,
+      active: saved.active ?? true,
+      options,
+      guidance: options.join(" → "),
+      minScore: 1,
+      maxScore: 5,
+    };
+  });
   if (merged.complexityMappings?.length) {
     merged.complexityBands = merged.complexityMappings.map((m) => ({
       tshirt: m.tshirt,
@@ -328,6 +343,31 @@ export function hydrateConfig(raw: Partial<EstimationConfig> | null | undefined)
   }));
   if (!merged.locationDailyRates?.length) {
     merged.locationDailyRates = DEFAULT_CONFIG.locationDailyRates;
+  }
+  if (!merged.releaseQuarters?.length) {
+    merged.releaseQuarters = DEFAULT_CONFIG.releaseQuarters;
+  }
+  if (!merged.readinessCriteria?.length) {
+    merged.readinessCriteria = DEFAULT_CONFIG.readinessCriteria;
+  } else {
+    merged.readinessCriteria = merged.readinessCriteria
+      .map((c) => ({
+        id: String(c.id ?? "").trim(),
+        label: String(c.label ?? "").trim(),
+      }))
+      .filter((c) => c.id && c.label);
+    if (!merged.readinessCriteria.length) {
+      merged.readinessCriteria = DEFAULT_CONFIG.readinessCriteria;
+    }
+  }
+  if (
+    typeof merged.readinessAssumptionsMin !== "number" ||
+    Number.isNaN(merged.readinessAssumptionsMin)
+  ) {
+    merged.readinessAssumptionsMin = DEFAULT_CONFIG.readinessAssumptionsMin;
+  }
+  if (!merged.resourceLevels?.length) {
+    merged.resourceLevels = DEFAULT_CONFIG.resourceLevels;
   }
   if (merged.aiMaxPct < 1 && merged.aiMaxPct === 0.5) merged.aiMaxPct = 1;
   return merged;

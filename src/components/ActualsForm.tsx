@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export function ActualsForm({
   estimateId,
@@ -20,6 +21,7 @@ export function ActualsForm({
     varianceJson: string;
   } | null;
 }) {
+  const router = useRouter();
   const [message, setMessage] = useState("");
   const variance = actuals ? JSON.parse(actuals.varianceJson) : null;
   const defaults: Record<string, number | undefined> = actuals
@@ -49,6 +51,7 @@ export function ActualsForm({
     });
     const data = await res.json();
     setMessage(res.ok ? data.variance.interpretation : data.error);
+    if (res.ok) router.refresh();
   }
 
   return (

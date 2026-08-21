@@ -128,8 +128,38 @@ export const NAV_TREE: NavNode[] = [
         ],
       },
       {
+        id: "admin-lists",
+        label: "Lists & catalogues",
+        children: [
+          {
+            id: "release-quarters",
+            label: "Release quarters",
+            href: "/admin/release-quarters",
+            feature: "config.mappings",
+          },
+          {
+            id: "readiness-criteria",
+            label: "Definition of Ready",
+            href: "/admin/readiness-criteria",
+            feature: "config.mappings",
+          },
+          {
+            id: "complexity-dimensions",
+            label: "Complexity dimensions",
+            href: "/admin/complexity-dimensions",
+            feature: "config.mappings",
+          },
+          {
+            id: "resource-mapping",
+            label: "Resource levels",
+            href: "/admin/resource-mapping",
+            feature: "config.mappings",
+          },
+        ],
+      },
+      {
         id: "admin-size",
-        label: "Size & complexity",
+        label: "Size mappings",
         children: [
           { id: "issue-mapping", label: "Issue mapping", href: "/admin/issue-mapping", feature: "config.mappings" },
           { id: "epic-mapping", label: "Epic mapping", href: "/admin/epic-mapping", feature: "config.mappings" },
@@ -137,18 +167,6 @@ export const NAV_TREE: NavNode[] = [
             id: "complexity-mapping",
             label: "Complexity mapping",
             href: "/admin/complexity-mapping",
-            feature: "config.mappings",
-          },
-        ],
-      },
-      {
-        id: "admin-people",
-        label: "People & capacity",
-        children: [
-          {
-            id: "resource-mapping",
-            label: "Resource mapping",
-            href: "/admin/resource-mapping",
             feature: "config.mappings",
           },
         ],
