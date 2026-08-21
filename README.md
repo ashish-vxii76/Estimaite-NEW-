@@ -1,38 +1,45 @@
 # Estimaite — Enterprise Agile Estimation & Delivery Economics
 
+**Version 1.0.0** — governed estimate pack (Ready → Size → Plan & cost → Govern → Final review → Actuals → Variance) with admin-customisable catalogues.
+
 Governed web application for estimating software-delivery scope, effort, resources, duration, cost, AI productivity impact, delivery risk and post-delivery calibration.
 
 This is not a simple story-point calculator. The chain is:
 
 Scope → Complexity → T-Shirt → SP / ROM → Dev & QA → Capacity → Resources → Sprints → Cost → AI Impact → Governance → Approval → Actuals → Calibration
 
-## Quick start
-
-The app is on branch `cursor/agile-estimator-mvp-cce6`. GitHub `main` is only a stub README — cloning `main` and running `npm run dev` will fail.
+## Quick start (v1.0 on `main`)
 
 ```bash
-git clone -b cursor/agile-estimator-mvp-cce6 https://github.com/ashish-vxii76/Estimaite-NEW-.git estimaite
+git clone -b main https://github.com/ashish-vxii76/Estimaite-NEW-.git estimaite
 cd estimaite
 npm install
-npm run dev
+npm run db:seed
+npm run dev -- -p 3456
 ```
 
 If you already cloned the repo:
 
 ```bash
 git fetch origin
-git checkout cursor/agile-estimator-mvp-cce6
+git checkout main
+git reset --hard origin/main
+rm -rf .next
 npm install
-npm run dev
+npm run dev -- -p 3456
 ```
 
-Open **http://localhost:3456** for the landing page (same computer as `npm run dev`). After sign-in you land on **http://localhost:3456/home**.
+Open **http://localhost:3456**. Sign in: `admin@estimaite.local` / `demo1234`.
 
-`npm run dev` binds port **3456**, creates `.env` if needed, syncs SQLite, and seeds demo users when the database is empty.
+`npm run dev` creates `.env` if needed, syncs SQLite, and seeds demo users when the database is empty.
 
-Sign in with `admin@estimaite.local` / `demo1234`.
+## What is in v1.0
 
-`npm run db:seed` also loads an 18-item demo register (issues, epics, discovery, completed actuals, and a CHF portfolio budget) so Home, Estimates, Portfolio, and Calibration are populated.
+- Estimate moments through Final review, Actuals, and Variance (post-approval)
+- Admin **Lists & catalogues**: release quarters, Definition of Ready, complexity dimensions (Size 1–5), resource levels
+- Size / Issue / Epic mappings, engine thresholds, teams, rates, RBAC
+
+**v1.1 (planned):** GitLab + Claude governed intake assist — not in this release.
 
 ## Product contract
 
