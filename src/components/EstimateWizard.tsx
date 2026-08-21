@@ -657,6 +657,13 @@ export function EstimateWizard({
                     capabilities.teamLocked ||
                     !capabilities.canEdit
                   }
+                  className={
+                    (form.workItemType !== "EPIC" && !teamCosting) ||
+                    capabilities.teamLocked ||
+                    !capabilities.canEdit
+                      ? "cursor-not-allowed opacity-60"
+                      : undefined
+                  }
                   onChange={(e) => applyTeam(e.target.value)}
                 >
                   {teams.map((t) => (
@@ -818,6 +825,7 @@ export function EstimateWizard({
                   min={0}
                   value={form.availableDev}
                   disabled={!resourceConstrained}
+                  className={!resourceConstrained ? "cursor-not-allowed opacity-60" : undefined}
                   onChange={(e) => setForm({ ...form, availableDev: Number(e.target.value) })}
                 />
               </Field>
@@ -827,6 +835,7 @@ export function EstimateWizard({
                   min={0}
                   value={form.availableQa}
                   disabled={!resourceConstrained}
+                  className={!resourceConstrained ? "cursor-not-allowed opacity-60" : undefined}
                   onChange={(e) => setForm({ ...form, availableQa: Number(e.target.value) })}
                 />
               </Field>
@@ -836,6 +845,7 @@ export function EstimateWizard({
                   min={1}
                   value={form.targetSprints}
                   disabled={resourceConstrained}
+                  className={resourceConstrained ? "cursor-not-allowed opacity-60" : undefined}
                   onChange={(e) => setForm({ ...form, targetSprints: Number(e.target.value) })}
                 />
               </Field>
