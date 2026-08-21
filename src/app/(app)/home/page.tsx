@@ -1,48 +1,14 @@
-import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { HomeCharts } from "@/components/HomeCharts";
 import { HomeFilters } from "@/components/HomeFilters";
+import { HomeActionsPanel } from "@/components/HomeActionsPanel";
 import { can } from "@/lib/access";
 import { estimateScope, fromSession } from "@/lib/scope";
 import { welcomeLine } from "@/lib/roles";
 import { getActiveConfig } from "@/services/configService";
-
-function nextAction(
-  role: string | undefined,
-  drafts: number,
-  pendingReview: number,
-  pendingApprove: number,
-  discovery: number,
-) {
-  if (role === "APPROVER") {
-    return pendingApprove > 0
-      ? { href: "/estimates?status=REVIEWED", label: "Approve waiting estimates" }
-      : { href: "/estimates", label: "Open the register" };
-  }
-  if (role === "REVIEWER") {
-    return pendingReview > 0
-      ? { href: "/estimates?status=READY_FOR_REVIEW", label: "Review waiting estimates" }
-      : { href: "/estimates", label: "Open the register" };
-  }
-  if (can(role, "estimates.create", "RW") && discovery > 0) {
-    return { href: "/estimates?status=DRAFT", label: "Open discovery queue" };
-  }
-  if (can(role, "config.users") || can(role, "config.mappings", "RW")) {
-    return { href: "/admin", label: "Open mapping studio" };
-  }
-  if (can(role, "estimates.create", "RW") && drafts > 0) {
-    return { href: "/estimates?status=DRAFT", label: "Continue drafts" };
-  }
-  if (can(role, "estimates.create", "RW")) {
-    return { href: "/estimates/new", label: "Start the next estimate" };
-  }
-  if (pendingReview + pendingApprove > 0) {
-    return { href: "/estimates?status=READY_FOR_REVIEW", label: "See items in review" };
-  }
-  return { href: "/estimates", label: "Open the register" };
-}
+import { buildHomeActions } from "@/lib/homeInbox";
 
 export default async function HomePage({
   searchParams,
@@ -51,6 +17,8 @@ export default async function HomePage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  if (!can(session.user.role, "home")) redirect("/estimates");
+
   const { team: teamFilter = "", workItemType = "", release = "" } = await searchParams;
   const scope = estimateScope(fromSession(session.user));
   const filter = {
@@ -69,7 +37,6 @@ export default async function HomePage({
     completed,
     byTeamRows,
     byStatusRows,
-    resultRows,
     team,
     config,
     teams,
@@ -90,7 +57,6 @@ export default async function HomePage({
       where: filter,
       _count: { _all: true },
     }),
-    prisma.estimate.findMany({ where: filter, select: { resultJson: true } }),
     session.user.teamId
       ? prisma.team.findUnique({ where: { id: session.user.teamId }, select: { name: true } })
       : Promise.resolve(null),
@@ -106,24 +72,6 @@ export default async function HomePage({
       orderBy: { name: "asc" },
     }),
   ]);
-
-  const discovery = resultRows.filter((row) => {
-    if (!row.resultJson) return false;
-    try {
-      const parsed = JSON.parse(row.resultJson) as {
-        deliveryFlag?: string;
-        governanceDecision?: string;
-        dorStatus?: string;
-      };
-      return (
-        parsed.deliveryFlag === "DISCOVERY REQUIRED" ||
-        parsed.governanceDecision === "DISCOVERY REQUIRED" ||
-        parsed.dorStatus === "Discovery Required"
-      );
-    } catch {
-      return false;
-    }
-  }).length;
 
   const teamNames = Object.fromEntries(teams.map((t) => [t.id, t.name]));
   const byTeam = byTeamRows.map((row) => ({
@@ -145,25 +93,9 @@ export default async function HomePage({
   }));
 
   const quarters = config.releaseQuarters ?? [];
-  const action = nextAction(session.user.role, drafts, pendingReview, pendingApprove, discovery);
   const teamName = session.user.role === "ADMINISTRATOR" ? "All teams" : team?.name;
-  const situation =
-    total === 0
-      ? "No estimates match these filters. Adjust Team, Work type or Quarter, or start a new estimate."
-      : discovery > 0
-        ? `${discovery} of ${total} filtered estimates are stamped DISCOVERY REQUIRED. Size those first.`
-        : pendingReview + pendingApprove > 0
-          ? `${pendingReview + pendingApprove} filtered estimates are waiting in review. ${total} match these filters.`
-          : `${total} estimates match these filters. Nothing is waiting on discovery.`;
-
-  const registerHref = (() => {
-    const params = new URLSearchParams();
-    if (teamFilter) params.set("team", teamFilter);
-    if (workItemType) params.set("workItemType", workItemType);
-    if (release) params.set("release", release);
-    const qs = params.toString();
-    return qs ? `/estimates?${qs}` : "/estimates";
-  })();
+  const showActions = can(session.user.role, "home.actions");
+  const actions = showActions ? buildHomeActions(session.user.role) : [];
 
   return (
     <div className="space-y-6">
@@ -174,7 +106,8 @@ export default async function HomePage({
         </h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
           Signed in as {session.user.email}. Menus, numbers and actions follow this profile
-          {teamName ? ` for ${teamName}` : ""}.
+          {teamName ? ` for ${teamName}` : ""}. Alerts appear in the bell (top right) when granted
+          in Access → RBAC.
         </p>
       </div>
 
@@ -186,17 +119,6 @@ export default async function HomePage({
         release={release}
       />
 
-      <div className="situation flex flex-wrap items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm">
-        <p>{situation}</p>
-        <div className="flex flex-wrap gap-2">
-          <Link href={registerHref} className="btn-ghost shrink-0">
-            Open filtered register
-          </Link>
-          <Link href={action.href} className="btn-primary shrink-0">
-            {action.label}
-          </Link>
-        </div>
-      </div>
       <div className="grid gap-4 md:grid-cols-5">
         <Tile label="Estimates" value={total} />
         <Tile label="Drafts" value={drafts} />
@@ -205,6 +127,7 @@ export default async function HomePage({
         <Tile label="Completed" value={completed} />
       </div>
       <HomeCharts byStatus={byStatus} byTeam={byTeam} />
+      {showActions ? <HomeActionsPanel actions={actions} /> : null}
     </div>
   );
 }

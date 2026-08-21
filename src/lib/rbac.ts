@@ -14,7 +14,9 @@ export type AppRole = (typeof ROLES)[number];
 export type Access = "RW" | "R" | null;
 
 export const FEATURES = [
-  { id: "home", group: "Navigation & read", label: "Home" },
+  { id: "home", group: "Home dashboard", label: "Home — open dashboard" },
+  { id: "home.notifications", group: "Home dashboard", label: "Home — bell notifications" },
+  { id: "home.actions", group: "Home dashboard", label: "Home — app actions panel" },
   { id: "estimates.list", group: "Navigation & read", label: "Estimates — list & open" },
   { id: "estimates.create", group: "Estimate authoring", label: "New estimate / create" },
   { id: "estimates.edit", group: "Estimate authoring", label: "Edit draft" },
@@ -59,6 +61,25 @@ export const DEFAULT_RBAC: Record<FeatureId, Record<AppRole, Access>> = {
     DELIVERY_LEAD: R,
     FINANCE: R,
     VIEWER: R,
+  }),
+  "home.notifications": cell({
+    ADMINISTRATOR: R,
+    REQUESTER: R,
+    ESTIMATOR: R,
+    REVIEWER: R,
+    APPROVER: R,
+    DELIVERY_LEAD: R,
+    FINANCE: R,
+    VIEWER: R,
+  }),
+  "home.actions": cell({
+    ADMINISTRATOR: R,
+    REQUESTER: R,
+    ESTIMATOR: R,
+    REVIEWER: R,
+    APPROVER: R,
+    DELIVERY_LEAD: R,
+    FINANCE: R,
   }),
   "estimates.list": cell({
     ADMINISTRATOR: R,
