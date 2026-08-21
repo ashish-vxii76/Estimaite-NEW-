@@ -281,30 +281,32 @@ export const DEFAULT_CONFIG: EstimationConfig = {
 
 export function hydrateConfig(raw: Partial<EstimationConfig> | null | undefined): EstimationConfig {
   const merged: EstimationConfig = { ...DEFAULT_CONFIG, ...(raw ?? {}) };
-  // Always refresh dimension names/options/weights from defaults by id so
-  // dropdown label updates ship without requiring a config reseed.
-  const defaultsById = new Map(DEFAULT_CONFIG.complexityDimensions.map((d) => [d.id, d]));
-  if (merged.complexityDimensions?.length) {
-    merged.complexityDimensions = merged.complexityDimensions.map((d) => {
-      const fresh = defaultsById.get(d.id);
-      if (!fresh) return d;
-      return {
-        ...d,
-        name: fresh.name,
-        description: fresh.description,
-        weight: fresh.weight,
-        options: fresh.options,
-        guidance: fresh.guidance,
-        minScore: fresh.minScore,
-        maxScore: fresh.maxScore,
-      };
-    });
-  } else {
-    merged.complexityDimensions = DEFAULT_CONFIG.complexityDimensions;
-  }
-  if (!merged.complexityDimensions?.[0]?.options?.length) {
-    merged.complexityDimensions = DEFAULT_CONFIG.complexityDimensions;
-  }
+  // Overlay saved dimension edits onto the canonical 10 ids. Admin owns name,
+  // weight, active and score 1–5 labels; defaults only fill missing/incomplete options.
+  const savedById = new Map(
+    (raw?.complexityDimensions ?? merged.complexityDimensions ?? []).map((d) => [d.id, d]),
+  );
+  merged.complexityDimensions = DEFAULT_CONFIG.complexityDimensions.map((fresh) => {
+    const saved = savedById.get(fresh.id);
+    if (!saved) return { ...fresh };
+    const options =
+      Array.isArray(saved.options) &&
+      saved.options.length === 5 &&
+      saved.options.every((o) => String(o ?? "").trim())
+        ? saved.options.map((o) => String(o).trim())
+        : fresh.options;
+    return {
+      ...fresh,
+      name: saved.name?.trim() || fresh.name,
+      description: saved.description?.trim() || saved.name?.trim() || fresh.description,
+      weight: typeof saved.weight === "number" && !Number.isNaN(saved.weight) ? saved.weight : fresh.weight,
+      active: saved.active ?? true,
+      options,
+      guidance: options.join(" → "),
+      minScore: 1,
+      maxScore: 5,
+    };
+  });
   if (merged.complexityMappings?.length) {
     merged.complexityBands = merged.complexityMappings.map((m) => ({
       tshirt: m.tshirt,

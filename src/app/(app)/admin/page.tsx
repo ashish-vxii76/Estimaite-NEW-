@@ -17,6 +17,7 @@ const CLUSTERS = [
     preview: "Issue XS = 1 SP · Epic cost deferred until stories exist.",
     feature: "config.mappings" as const,
     links: [
+      ["/admin/complexity-dimensions", "Complexity dimensions"],
       ["/admin/complexity-mapping", "Complexity mapping"],
       ["/admin/issue-mapping", "Issue mapping"],
       ["/admin/epic-mapping", "Epic mapping"],

@@ -7,6 +7,7 @@ export const ADMIN_PAGES = [
   ["/admin/issue-mapping", "Issue mapping"],
   ["/admin/epic-mapping", "Epic mapping"],
   ["/admin/resource-mapping", "Resource mapping"],
+  ["/admin/complexity-dimensions", "Complexity dimensions"],
   ["/admin/complexity-mapping", "Complexity mapping"],
   ["/admin/cost-mapping", "Location sprint rates"],
   ["/admin/team-cost-mapping", "Team sprint rates"],
