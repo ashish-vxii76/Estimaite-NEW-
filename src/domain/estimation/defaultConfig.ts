@@ -5,12 +5,77 @@ import type {
   EpicMappingConfig,
 } from "./types";
 
-const CRITERION_OPTIONS = [
-  "Minimal / well understood",
-  "Limited additional complexity",
-  "Moderate complexity",
-  "Significant complexity",
-  "Extreme / poorly understood",
+/** Score 1→5 labels per complexity dimension (weights unchanged). */
+const FUNCTIONALITY_OPTIONS = [
+  "Simple config / single rule",
+  "Limited logic / few rules",
+  "Multiple rules / workflows",
+  "Complex cross-functional flow",
+  "Regulatory / cross-domain controls",
+];
+
+const TECHNICAL_OPTIONS = [
+  "Config / minimal code",
+  "Small change / existing pattern",
+  "Multiple components / design change",
+  "New component / major design",
+  "New architecture / re-engineering",
+];
+
+const APPLICATIONS_OPTIONS = [
+  "1 application",
+  "2 applications",
+  "3-4 applications",
+  "5-7 applications",
+  "8+ applications",
+];
+
+const INTEGRATION_OPTIONS = [
+  "No integration impact",
+  "Single existing interface",
+  "Multiple existing interfaces",
+  "New / cross-platform integration",
+  "Multiple new / external integrations",
+];
+
+const DATA_OPTIONS = [
+  "No / minor data impact",
+  "Field / query / mapping",
+  "Schema / transformation",
+  "Complex transformation / migration",
+  "Major migration / lineage / controls",
+];
+
+const QA_OPTIONS = [
+  "Simple validation",
+  "Functional testing",
+  "Integration + targeted regression",
+  "E2E + broad regression",
+  "Cross-system / regulatory evidence",
+];
+
+const NFR_OPTIONS = [
+  "No material NFR impact",
+  "Minor NFR validation",
+  "One material NFR",
+  "Multiple significant NFRs",
+  "Critical security / performance / resilience",
+];
+
+const DEPENDENCIES_OPTIONS = [
+  "No dependency",
+  "Single low-risk dependency",
+  "Multiple internal dependencies",
+  "Multiple teams / external",
+  "Critical vendor / regulatory dependency",
+];
+
+const ENVIRONMENT_OPTIONS = [
+  "Standard release path",
+  "Minor release coordination",
+  "Multiple environments / release",
+  "Complex multi-system release",
+  "Major cutover / constrained window",
 ];
 
 const UNCERTAINTY_OPTIONS = [
@@ -25,7 +90,7 @@ function dim(
   id: string,
   name: string,
   weight: number,
-  options = CRITERION_OPTIONS,
+  options: string[],
 ): ComplexityDimensionConfig {
   return {
     id,
@@ -89,16 +154,16 @@ export const DEFAULT_CONFIG: EstimationConfig = {
   versionId: "cfg-v3-prd-2026-08",
   rateVersionId: "rate-v3-prd-chf",
   complexityDimensions: [
-    dim("functional", "Functional / Business", 0.15),
-    dim("technical", "Technical", 0.15),
-    dim("applications", "Applications Impacted", 0.1),
-    dim("integration", "Integration", 0.15),
-    dim("data", "Data", 0.1),
-    dim("qa", "QA / Regression", 0.1),
-    dim("nfr", "NFR / Security", 0.05),
-    dim("dependencies", "Dependencies", 0.05),
-    dim("environment", "Environment / Release", 0.05),
-    dim("uncertainty", "Uncertainty / Clarity", 0.1, UNCERTAINTY_OPTIONS),
+    dim("functional", "Functionality Complexity", 0.15, FUNCTIONALITY_OPTIONS),
+    dim("technical", "Technical Complexity", 0.15, TECHNICAL_OPTIONS),
+    dim("applications", "Applications Impacted", 0.1, APPLICATIONS_OPTIONS),
+    dim("integration", "Integration Complexity", 0.15, INTEGRATION_OPTIONS),
+    dim("data", "Data Complexity", 0.1, DATA_OPTIONS),
+    dim("qa", "QA/Regression Complexity", 0.1, QA_OPTIONS),
+    dim("nfr", "NFR / Security / Performance", 0.05, NFR_OPTIONS),
+    dim("dependencies", "Dependencies", 0.05, DEPENDENCIES_OPTIONS),
+    dim("environment", "Environment / Release Complexity", 0.05, ENVIRONMENT_OPTIONS),
+    dim("uncertainty", "Uncertainty / Requirement Clarity", 0.1, UNCERTAINTY_OPTIONS),
   ],
   complexityMappings: [
     { lower: 0, upper: 20, tshirt: "XS", complexity: "Very Low", governance: "READY", interpretation: "Highly understood" },
@@ -206,7 +271,28 @@ export const DEFAULT_CONFIG: EstimationConfig = {
 
 export function hydrateConfig(raw: Partial<EstimationConfig> | null | undefined): EstimationConfig {
   const merged: EstimationConfig = { ...DEFAULT_CONFIG, ...(raw ?? {}) };
-  if (!merged.complexityDimensions?.[0]?.options) {
+  // Always refresh dimension names/options/weights from defaults by id so
+  // dropdown label updates ship without requiring a config reseed.
+  const defaultsById = new Map(DEFAULT_CONFIG.complexityDimensions.map((d) => [d.id, d]));
+  if (merged.complexityDimensions?.length) {
+    merged.complexityDimensions = merged.complexityDimensions.map((d) => {
+      const fresh = defaultsById.get(d.id);
+      if (!fresh) return d;
+      return {
+        ...d,
+        name: fresh.name,
+        description: fresh.description,
+        weight: fresh.weight,
+        options: fresh.options,
+        guidance: fresh.guidance,
+        minScore: fresh.minScore,
+        maxScore: fresh.maxScore,
+      };
+    });
+  } else {
+    merged.complexityDimensions = DEFAULT_CONFIG.complexityDimensions;
+  }
+  if (!merged.complexityDimensions?.[0]?.options?.length) {
     merged.complexityDimensions = DEFAULT_CONFIG.complexityDimensions;
   }
   if (merged.complexityMappings?.length) {
