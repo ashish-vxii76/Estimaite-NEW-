@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { HomeCharts } from "@/components/HomeCharts";
+import { HomeFilters } from "@/components/HomeFilters";
 import { can } from "@/lib/access";
 import { estimateScope, fromSession } from "@/lib/scope";
 import { welcomeLine } from "@/lib/roles";
@@ -43,10 +44,22 @@ function nextAction(
   return { href: "/estimates", label: "Open the register" };
 }
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ team?: string; workItemType?: string; release?: string }>;
+}) {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  const { team: teamFilter = "", workItemType = "", release = "" } = await searchParams;
   const scope = estimateScope(fromSession(session.user));
+  const filter = {
+    ...scope,
+    ...(teamFilter ? { teamId: teamFilter } : {}),
+    ...(workItemType ? { workItemType } : {}),
+    ...(release ? { release } : {}),
+  };
+
   const [
     total,
     drafts,
@@ -59,33 +72,38 @@ export default async function HomePage() {
     resultRows,
     team,
     config,
-    releaseRows,
+    teams,
   ] = await Promise.all([
-    prisma.estimate.count({ where: scope }),
-    prisma.estimate.count({ where: { ...scope, status: { in: ["DRAFT", "RETURNED"] } } }),
-    prisma.estimate.count({ where: { ...scope, status: "READY_FOR_REVIEW" } }),
-    prisma.estimate.count({ where: { ...scope, status: "REVIEWED" } }),
-    prisma.estimate.count({ where: { ...scope, status: "APPROVED" } }),
-    prisma.estimate.count({ where: { ...scope, status: "COMPLETED" } }),
+    prisma.estimate.count({ where: filter }),
+    prisma.estimate.count({ where: { ...filter, status: { in: ["DRAFT", "RETURNED"] } } }),
+    prisma.estimate.count({ where: { ...filter, status: "READY_FOR_REVIEW" } }),
+    prisma.estimate.count({ where: { ...filter, status: "REVIEWED" } }),
+    prisma.estimate.count({ where: { ...filter, status: "APPROVED" } }),
+    prisma.estimate.count({ where: { ...filter, status: "COMPLETED" } }),
     prisma.estimate.groupBy({
       by: ["teamId"],
-      where: scope,
+      where: filter,
       _count: { _all: true },
     }),
     prisma.estimate.groupBy({
       by: ["status"],
-      where: scope,
+      where: filter,
       _count: { _all: true },
     }),
-    prisma.estimate.findMany({ where: scope, select: { resultJson: true } }),
+    prisma.estimate.findMany({ where: filter, select: { resultJson: true } }),
     session.user.teamId
       ? prisma.team.findUnique({ where: { id: session.user.teamId }, select: { name: true } })
       : Promise.resolve(null),
     getActiveConfig(),
-    prisma.estimate.groupBy({
-      by: ["release"],
-      where: scope,
-      _count: { _all: true },
+    prisma.team.findMany({
+      where:
+        session.user.role === "ADMINISTRATOR"
+          ? undefined
+          : session.user.teamId
+            ? { id: session.user.teamId }
+            : { id: "__none__" },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
     }),
   ]);
 
@@ -107,10 +125,6 @@ export default async function HomePage() {
     }
   }).length;
 
-  const teams = await prisma.team.findMany({
-    where: session.user.role === "ADMINISTRATOR" ? undefined : session.user.teamId ? { id: session.user.teamId } : { id: "__none__" },
-    select: { id: true, name: true },
-  });
   const teamNames = Object.fromEntries(teams.map((t) => [t.id, t.name]));
   const byTeam = byTeamRows.map((row) => ({
     name: teamNames[row.teamId] ?? "Unknown",
@@ -130,21 +144,26 @@ export default async function HomePage() {
     count: row._count._all,
   }));
 
-  const releaseCounts = Object.fromEntries(
-    releaseRows.map((row) => [row.release ?? "", row._count._all]),
-  );
   const quarters = config.releaseQuarters ?? [];
-
   const action = nextAction(session.user.role, drafts, pendingReview, pendingApprove, discovery);
   const teamName = session.user.role === "ADMINISTRATOR" ? "All teams" : team?.name;
   const situation =
     total === 0
-      ? "No estimates in this scope yet. The next action is to size the first work item."
+      ? "No estimates match these filters. Adjust Team, Work type or Quarter, or start a new estimate."
       : discovery > 0
-        ? `${discovery} of ${total} estimates are stamped DISCOVERY REQUIRED. Size those first.`
+        ? `${discovery} of ${total} filtered estimates are stamped DISCOVERY REQUIRED. Size those first.`
         : pendingReview + pendingApprove > 0
-          ? `${pendingReview + pendingApprove} estimates are waiting in review. ${total} sit in the register.`
-          : `${total} estimates in the register. Nothing is waiting on discovery.`;
+          ? `${pendingReview + pendingApprove} filtered estimates are waiting in review. ${total} match these filters.`
+          : `${total} estimates match these filters. Nothing is waiting on discovery.`;
+
+  const registerHref = (() => {
+    const params = new URLSearchParams();
+    if (teamFilter) params.set("team", teamFilter);
+    if (workItemType) params.set("workItemType", workItemType);
+    if (release) params.set("release", release);
+    const qs = params.toString();
+    return qs ? `/estimates?${qs}` : "/estimates";
+  })();
 
   return (
     <div className="space-y-6">
@@ -158,11 +177,25 @@ export default async function HomePage() {
           {teamName ? ` for ${teamName}` : ""}.
         </p>
       </div>
+
+      <HomeFilters
+        teams={teams.map((t) => ({ value: t.id, label: t.name }))}
+        quarters={quarters}
+        team={teamFilter}
+        workItemType={workItemType}
+        release={release}
+      />
+
       <div className="situation flex flex-wrap items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm">
         <p>{situation}</p>
-        <Link href={action.href} className="btn-primary shrink-0">
-          {action.label}
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href={registerHref} className="btn-ghost shrink-0">
+            Open filtered register
+          </Link>
+          <Link href={action.href} className="btn-primary shrink-0">
+            {action.label}
+          </Link>
+        </div>
       </div>
       <div className="grid gap-4 md:grid-cols-5">
         <Tile label="Estimates" value={total} />
@@ -171,28 +204,6 @@ export default async function HomePage() {
         <Tile label="Approved" value={approved} />
         <Tile label="Completed" value={completed} />
       </div>
-      {quarters.length ? (
-        <section className="card space-y-3 p-5">
-          <div>
-            <h2 className="font-medium text-[var(--navy)]">Release quarters</h2>
-            <p className="text-sm text-[var(--muted)]">
-              Jump to the register filtered by quarter. Counts include items in your scope.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {quarters.map((q) => (
-              <Link
-                key={q}
-                href={`/estimates?release=${encodeURIComponent(q)}`}
-                className="rounded-full border border-[var(--line)] bg-[var(--panel-2)] px-3 py-1.5 text-sm text-[var(--navy)] hover:border-[var(--navy)]"
-              >
-                {q}
-                <span className="ml-2 text-[var(--muted)]">{releaseCounts[q] ?? 0}</span>
-              </Link>
-            ))}
-          </div>
-        </section>
-      ) : null}
       <HomeCharts byStatus={byStatus} byTeam={byTeam} />
     </div>
   );

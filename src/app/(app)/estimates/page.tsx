@@ -11,10 +11,15 @@ import { getActiveConfig } from "@/services/configService";
 export default async function EstimatesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; release?: string }>;
+  searchParams: Promise<{
+    status?: string;
+    release?: string;
+    team?: string;
+    workItemType?: string;
+  }>;
 }) {
   const session = await auth();
-  const { status, release } = await searchParams;
+  const { status, release, team, workItemType } = await searchParams;
   const scope = estimateScope(fromSession(session!.user));
   const where = {
     ...scope,
@@ -24,6 +29,8 @@ export default async function EstimatesPage({
         ? { status }
         : {}),
     ...(release ? { release } : {}),
+    ...(team ? { teamId: team } : {}),
+    ...(workItemType ? { workItemType } : {}),
   };
   const [estimates, config] = await Promise.all([
     prisma.estimate.findMany({
