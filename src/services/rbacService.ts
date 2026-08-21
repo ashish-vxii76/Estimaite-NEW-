@@ -44,6 +44,12 @@ export function assertAdminNotLockedOut(matrix: RbacMatrix) {
   if (!matrix.home.ADMINISTRATOR) {
     throw new Error("Admin must keep at least read access to Home");
   }
+  if (!matrix["home.notifications"].ADMINISTRATOR) {
+    throw new Error("Admin must keep Home notifications so alerts remain reachable");
+  }
+  if (!matrix["home.actions"].ADMINISTRATOR) {
+    throw new Error("Admin must keep Home actions so admin shortcuts remain reachable");
+  }
 }
 
 export async function saveRbacMatrix(matrixInput: unknown, actorUserId?: string) {

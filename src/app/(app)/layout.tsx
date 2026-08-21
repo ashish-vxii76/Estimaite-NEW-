@@ -4,7 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { getRbacMatrix } from "@/services/rbacService";
-import { canAccessPath } from "@/lib/access";
+import { can, canAccessPath } from "@/lib/access";
+import { buildNotifications } from "@/lib/homeInbox";
+import { fromSession } from "@/lib/scope";
 
 export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -14,6 +16,10 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   if (pathname !== "/home" && !canAccessPath(session.user.role, pathname)) {
     redirect("/home");
   }
+  if (pathname === "/home" && !can(session.user.role, "home")) {
+    redirect("/estimates");
+  }
+
   let profiles: { email: string; name: string; role: string; teamName: string | null }[] = [];
   let teamName: string | null = session.user.role === "ADMINISTRATOR" ? "All teams" : null;
   try {
@@ -42,8 +48,21 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     });
     profiles = users.map((p) => ({ ...p, teamName: null }));
   }
+
+  const showNotifications = can(session.user.role, "home.notifications");
+  const notifications = showNotifications
+    ? await buildNotifications(fromSession(session.user))
+    : [];
+
   return (
-    <AppShell user={session.user} teamName={teamName} profiles={profiles} matrix={matrix}>
+    <AppShell
+      user={session.user}
+      teamName={teamName}
+      profiles={profiles}
+      matrix={matrix}
+      showNotifications={showNotifications}
+      notifications={notifications}
+    >
       {children}
     </AppShell>
   );
