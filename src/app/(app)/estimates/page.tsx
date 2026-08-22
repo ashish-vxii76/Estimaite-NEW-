@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { StatusBadge } from "@/components/ui";
+import { EstimateFilters } from "@/components/EstimateFilters";
 import { formatMoney } from "@/lib/utils";
 import type { EstimateCalculationResult } from "@/domain/estimation/types";
 import { can } from "@/lib/access";
@@ -16,15 +17,24 @@ export default async function EstimatesPage({
     release?: string;
     team?: string;
     workItemType?: string;
+    tshirt?: string;
+    flag?: string;
   }>;
 }) {
   const session = await auth();
-  const { status, release, team, workItemType } = await searchParams;
+  const {
+    status = "",
+    release = "",
+    team = "",
+    workItemType = "",
+    tshirt = "",
+    flag = "",
+  } = await searchParams;
   const scope = estimateScope(fromSession(session!.user));
   const where = {
     ...scope,
     ...(status === "DRAFT"
-      ? { status: { in: ["DRAFT", "RETURNED"] } }
+      ? { status: { in: ["DRAFT", "RETURNED"] as string[] } }
       : status
         ? { status }
         : {}),
@@ -41,17 +51,22 @@ export default async function EstimatesPage({
     getActiveConfig(),
   ]);
   const canCreate = can(session?.user.role, "estimates.create", "RW");
-  const filters = [
-    ["", "All estimates"],
-    ["DRAFT", "Drafts"],
-    ["READY_FOR_REVIEW", "Ready for review"],
-    ["REVIEWED", "Reviewed"],
-    ["APPROVED", "Approved"],
-    ["COMPLETED", "Completed"],
-  ];
-  const current = status ?? "";
   const quarters = config.releaseQuarters ?? [];
-  const releaseQuery = release ? `&release=${encodeURIComponent(release)}` : "";
+
+  const rows = estimates
+    .map((row) => {
+      const result = parseResult(row.resultJson);
+      return { row, result };
+    })
+    .filter(({ result }) => {
+      if (tshirt && (result?.effectiveTshirt ?? "") !== tshirt) return false;
+      if (flag) {
+        const delivery = result?.deliveryFlag ?? result?.governanceDecision ?? "";
+        if (delivery !== flag) return false;
+      }
+      return true;
+    });
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
@@ -65,61 +80,16 @@ export default async function EstimatesPage({
           </Link>
         ) : null}
       </div>
-      <div className="flex flex-wrap gap-2">
-        {filters.map(([value, label]) => (
-          <Link
-            key={label}
-            href={
-              value
-                ? `/estimates?status=${value}${releaseQuery}`
-                : release
-                  ? `/estimates?release=${encodeURIComponent(release)}`
-                  : "/estimates"
-            }
-            className={`rounded-full px-3 py-1 text-sm ${
-              current === value
-                ? "bg-[var(--navy)] !text-white"
-                : "bg-[var(--panel-2)] text-[var(--text)]"
-            }`}
-          >
-            {label}
-          </Link>
-        ))}
-      </div>
-      {quarters.length ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
-            Release
-          </span>
-          <Link
-            href={status ? `/estimates?status=${status}` : "/estimates"}
-            className={`rounded-full px-3 py-1 text-sm ${
-              !release
-                ? "bg-[var(--navy)] !text-white"
-                : "bg-[var(--panel-2)] text-[var(--text)]"
-            }`}
-          >
-            All quarters
-          </Link>
-          {quarters.map((q) => (
-            <Link
-              key={q}
-              href={
-                status
-                  ? `/estimates?status=${status}&release=${encodeURIComponent(q)}`
-                  : `/estimates?release=${encodeURIComponent(q)}`
-              }
-              className={`rounded-full px-3 py-1 text-sm ${
-                release === q
-                  ? "bg-[var(--navy)] !text-white"
-                  : "bg-[var(--panel-2)] text-[var(--text)]"
-              }`}
-            >
-              {q}
-            </Link>
-          ))}
-        </div>
-      ) : null}
+
+      <EstimateFilters
+        quarters={quarters}
+        status={status}
+        workItemType={workItemType}
+        release={release}
+        tshirt={tshirt}
+        flag={flag}
+      />
+
       <div className="card overflow-x-auto">
         <table className="w-full min-w-[960px] text-left text-sm">
           <thead className="bg-[var(--panel-2)] text-[var(--muted)]">
@@ -137,20 +107,22 @@ export default async function EstimatesPage({
             </tr>
           </thead>
           <tbody>
-            {estimates.length === 0 ? (
+            {rows.length === 0 ? (
               <tr>
                 <td className="px-4 py-8 text-[var(--muted)]" colSpan={10}>
                   No estimates in this filter for this profile.
                 </td>
               </tr>
             ) : (
-              estimates.map((row) => {
-                const result = parseResult(row.resultJson);
+              rows.map(({ row, result }) => {
                 const deferred = result?.costApplicability && result.costApplicability !== "OK";
                 return (
                   <tr key={row.id} className="border-t border-[var(--line)]">
                     <td className="px-4 py-3">
-                      <Link className="font-medium text-[var(--navy)] underline" href={`/estimates/${row.id}`}>
+                      <Link
+                        className="font-medium text-[var(--navy)] underline"
+                        href={`/estimates/${row.id}`}
+                      >
                         {row.reference}
                       </Link>
                     </td>
@@ -158,7 +130,9 @@ export default async function EstimatesPage({
                     <td>{row.title}</td>
                     <td>{row.team.name}</td>
                     <td>{row.release || "—"}</td>
-                    <td className="font-semibold text-[var(--navy)]">{result?.effectiveTshirt ?? "—"}</td>
+                    <td className="font-semibold text-[var(--navy)]">
+                      {result?.effectiveTshirt ?? "—"}
+                    </td>
                     <td>{result?.selectedSp ?? "—"}</td>
                     <td>
                       {result ? (
@@ -170,7 +144,10 @@ export default async function EstimatesPage({
                     <td>
                       {deferred
                         ? "Deferred"
-                        : formatMoney(result?.aiAdjustedDeliveryCost ?? null, result?.currency ?? row.currency)}
+                        : formatMoney(
+                            result?.aiAdjustedDeliveryCost ?? null,
+                            result?.currency ?? row.currency,
+                          )}
                     </td>
                     <td>
                       <StatusBadge status={row.status} />
