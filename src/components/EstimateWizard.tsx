@@ -499,8 +499,9 @@ export function EstimateWizard({
               {estimateId ? "Inputs and governance" : "New estimate"}
             </h2>
             <p className="mt-1 max-w-xl text-sm text-[var(--muted)]">
-              Ready through Final review to submit. Scenarios unlock after submit for review/approval.
-              Actuals and variance unlock after approval.
+              Ready through Final review to submit. Scenarios unlock after submit — CR sandbox with
+              selected-team mix, cross-team comparison, and sensitivity recommendation. Actuals and
+              variance unlock after approval.
             </p>
           </div>
           <Link href="/estimates" className="btn-ghost">
@@ -1142,11 +1143,10 @@ export function EstimateWizard({
             <header>
               <p className="kicker">Scenarios</p>
               <h3 className="font-display text-xl font-semibold text-[var(--navy)]">
-                What-if (sandbox)
+                What-if — best mix &amp; best team for this CR
               </h3>
               <p className="mt-1 text-sm text-[var(--muted)]">
-                Explore staffing trade-offs against this estimate. Results are not saved and never
-                change SP, cost, or status.
+                Sandbox only. Seeds from this CR; never changes SP, cost, team, or status.
               </p>
             </header>
             {!scenariosUnlocked ? (
@@ -1165,7 +1165,8 @@ export function EstimateWizard({
               <WhatIfForm
                 teams={scenarioTeams}
                 base={whatIfBase}
-                lockedTeamId={form.teamId}
+                defaultTeamId={form.teamId}
+                owningTeamId={form.teamId}
                 mode="estimate"
               />
             )}

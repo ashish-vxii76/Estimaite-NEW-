@@ -2,11 +2,15 @@ import { WhatIfForm } from "@/components/WhatIfForm";
 import { toScenarioTeams } from "@/lib/scenarioTeams";
 import { auth } from "@/auth";
 import { fromSession, teamsForUser } from "@/lib/scope";
+import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 
 export default async function WhatIfPage() {
   const session = await auth();
-  const teams = await teamsForUser(fromSession(session!.user));
+  const [teams, locations] = await Promise.all([
+    teamsForUser(fromSession(session!.user)),
+    prisma.location.findMany({ where: { active: true } }),
+  ]);
   return (
     <div className="space-y-4">
       <p className="kicker">Scenario</p>
@@ -14,7 +18,8 @@ export default async function WhatIfPage() {
       <p className="text-sm text-[var(--muted)]">
         Generic sandbox against your roster. Prefer the{" "}
         <strong className="font-semibold text-[var(--navy)]">Scenarios</strong> tab on a submitted
-        estimate for CR-specific analysis. Scenarios never modify an approved estimate.
+        estimate for CR-specific analysis (selected-team mix, cross-team table, sensitivity
+        recommendation). Scenarios never modify an approved estimate.
       </p>
       <p className="text-sm text-[var(--muted)]">
         <Link href="/estimates?status=READY_FOR_REVIEW" className="underline">
@@ -22,7 +27,7 @@ export default async function WhatIfPage() {
         </Link>{" "}
         and use Scenarios there when you have a governed pack.
       </p>
-      <WhatIfForm teams={toScenarioTeams(teams)} mode="standalone" />
+      <WhatIfForm teams={toScenarioTeams(teams, locations)} mode="standalone" />
     </div>
   );
 }

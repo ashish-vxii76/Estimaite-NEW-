@@ -1,5 +1,12 @@
-import type { EstimationConfig, EstimateCalculationInput, ResourceLevelConfig } from "./types";
+import type {
+  EstimationConfig,
+  EstimateCalculationInput,
+  LocationAllocation,
+  ResourceLevelConfig,
+  RosterMember,
+} from "./types";
 import { calculateEstimate } from "./calculate";
+import { blendedDailyRate, blendedDailyRateFromRoster } from "./costing";
 
 export type WhatIfObjective =
   | "LOWEST_COST"
@@ -15,6 +22,37 @@ export type TeamComposition = {
   availableLevels: string[];
   maxDev: number;
   maxQa: number;
+  resourceSprintRate?: number;
+  teamSprintRate?: number;
+  currency?: string;
+  mappedLocation?: string;
+  locationBlendLabel?: string;
+  locationAllocations?: LocationAllocation[];
+  roster?: RosterMember[];
+};
+
+export type WhatIfResult = {
+  teamId?: string;
+  teamName: string;
+  objective: WhatIfObjective;
+  bestDevLevel: string;
+  bestQaLevel: string;
+  devCount: number;
+  qaCount: number;
+  sprints: number;
+  cost: number | null;
+  effort: number;
+  feasible: boolean;
+  combinationsTried: number;
+  notes: string[];
+  rationale: { title: string; summary: string; steps: string[] };
+  locationBlend?: string;
+};
+
+export type WhatIfScenarioResult = {
+  selected: WhatIfResult;
+  byTeam: WhatIfResult[];
+  recommended: WhatIfResult | null;
 };
 
 export function runWhatIf(input: {
@@ -35,13 +73,15 @@ export function runWhatIf(input: {
     notes.push("Senior is not recommended because this team has none configured.");
   }
 
+  const teamBase = applyTeamToBase(input.base, input.team);
+
   const candidates: ReturnType<typeof scoreCandidate>[] = [];
   for (const devLevel of levels) {
     for (const qaLevel of levels) {
       for (let devCount = 1; devCount <= input.team.maxDev; devCount += 1) {
         for (let qaCount = 1; qaCount <= input.team.maxQa; qaCount += 1) {
           const candidate = scoreCandidate(
-            input.base,
+            teamBase,
             input.config,
             devLevel,
             qaLevel,
@@ -73,9 +113,14 @@ export function runWhatIf(input: {
     }
   }
 
+  const locationBlend =
+    input.team.locationBlendLabel ??
+    formatLocationBlend(teamBase, input.config);
+
   if (!best) {
     const emptyNotes = [...notes, "No feasible combination within the deadline."];
     return {
+      teamId: input.team.teamId,
       teamName: input.team.teamName,
       objective: input.objective,
       bestDevLevel: "",
@@ -88,6 +133,7 @@ export function runWhatIf(input: {
       feasible: false,
       combinationsTried: candidates.length,
       notes: emptyNotes,
+      locationBlend,
       rationale: explainWhatIf({
         feasible: false,
         objective: input.objective,
@@ -100,6 +146,7 @@ export function runWhatIf(input: {
   }
 
   return {
+    teamId: input.team.teamId,
     teamName: input.team.teamName,
     objective: input.objective,
     bestDevLevel: best.devLevel,
@@ -112,6 +159,7 @@ export function runWhatIf(input: {
     feasible: true,
     combinationsTried: candidates.length,
     notes,
+    locationBlend,
     rationale: explainWhatIf({
       feasible: true,
       objective: input.objective,
@@ -124,21 +172,80 @@ export function runWhatIf(input: {
   };
 }
 
-export type WhatIfResult = {
-  teamName: string;
+/** CR scenario: selected-team mix + every in-scope team's best mix + sandbox winner. */
+export function runWhatIfScenario(input: {
+  base: EstimateCalculationInput;
+  config: EstimationConfig;
+  teams: TeamComposition[];
+  selectedTeamId: string;
   objective: WhatIfObjective;
-  bestDevLevel: string;
-  bestQaLevel: string;
-  devCount: number;
-  qaCount: number;
-  sprints: number;
-  cost: number | null;
-  effort: number;
-  feasible: boolean;
-  combinationsTried: number;
-  notes: string[];
-  rationale: { title: string; summary: string; steps: string[] };
-};
+  maxSprints?: number;
+}): WhatIfScenarioResult {
+  if (!input.teams.length) {
+    throw new Error("At least one team is required");
+  }
+  const byTeam = input.teams.map((team) =>
+    runWhatIf({
+      base: input.base,
+      config: input.config,
+      team,
+      objective: input.objective,
+      maxSprints: input.maxSprints,
+    }),
+  );
+
+  const selected =
+    byTeam.find((row) => row.teamId === input.selectedTeamId) ??
+    byTeam[0]!;
+
+  let recommended: WhatIfResult | null = null;
+  for (const row of byTeam) {
+    if (!row.feasible) continue;
+    if (!recommended || betterResult(row, recommended, input.objective)) {
+      recommended = row;
+    }
+  }
+
+  const sorted = [...byTeam].sort((a, b) => {
+    if (a.feasible !== b.feasible) return a.feasible ? -1 : 1;
+    if (!a.feasible) return a.teamName.localeCompare(b.teamName);
+    return betterResult(a, b, input.objective) ? -1 : 1;
+  });
+
+  return { selected, byTeam: sorted, recommended };
+}
+
+function applyTeamToBase(
+  base: EstimateCalculationInput,
+  team: TeamComposition,
+): EstimateCalculationInput {
+  return {
+    ...base,
+    teamId: team.teamId,
+    teamName: team.teamName,
+    locationName: team.mappedLocation ?? base.locationName,
+    resourceSprintRate: team.resourceSprintRate ?? base.resourceSprintRate,
+    teamSprintRate: team.teamSprintRate ?? base.teamSprintRate,
+    currency: team.currency ?? base.currency,
+    locationAllocations:
+      team.locationAllocations && team.locationAllocations.length > 0
+        ? team.locationAllocations
+        : base.locationAllocations,
+    roster: team.roster ?? base.roster,
+  };
+}
+
+function formatLocationBlend(base: EstimateCalculationInput, config: EstimationConfig): string {
+  try {
+    const blended =
+      base.roster && base.roster.length > 0
+        ? blendedDailyRateFromRoster(base.roster, config.locationDailyRates)
+        : blendedDailyRate(base.locationAllocations);
+    return `${blended.rate} ${base.currency}/day`;
+  } catch {
+    return "—";
+  }
+}
 
 function explainWhatIf(input: {
   feasible: boolean;
@@ -262,4 +369,28 @@ function better(
   }
   if (costOf(a) !== costOf(b)) return costOf(a) < costOf(b);
   return a.sprints < b.sprints;
+}
+
+function betterResult(a: WhatIfResult, b: WhatIfResult, objective: WhatIfObjective) {
+  return better(
+    {
+      devLevel: a.bestDevLevel,
+      qaLevel: a.bestQaLevel,
+      devCount: a.devCount,
+      qaCount: a.qaCount,
+      sprints: a.sprints,
+      cost: a.cost,
+      effort: a.effort,
+    },
+    {
+      devLevel: b.bestDevLevel,
+      qaLevel: b.bestQaLevel,
+      devCount: b.devCount,
+      qaCount: b.qaCount,
+      sprints: b.sprints,
+      cost: b.cost,
+      effort: b.effort,
+    },
+    objective,
+  );
 }
