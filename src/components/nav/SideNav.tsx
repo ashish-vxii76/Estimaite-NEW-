@@ -35,7 +35,7 @@ export function SideNav({
   const search = searchParams.toString() ? `?${searchParams.toString()}` : "";
   const [hash, setHash] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [open, setOpen] = useState<Record<string, boolean>>({ estimates: true });
+  const [open, setOpen] = useState<Record<string, boolean>>({ estimates: true, analytics: true });
 
   useEffect(() => {
     const apply = () => setHash(window.location.hash);

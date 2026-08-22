@@ -142,19 +142,10 @@ export function buildHomeActions(role: string | undefined): HomeAction[] {
   if (can(role, "portfolio.view")) {
     actions.push({
       id: "portfolio",
-      label: "Portfolio",
-      description: "Roll-up cost and delivery view.",
+      label: "Roll-up & CR register",
+      description: "Portfolio cost and delivery roll-up.",
       href: "/portfolio",
       feature: "portfolio.view",
-    });
-  }
-  if (can(role, "analytics")) {
-    actions.push({
-      id: "analytics",
-      label: "Analytics",
-      description: "Trends across estimates and delivery.",
-      href: "/analytics",
-      feature: "analytics",
     });
   }
   if (can(role, "calibration.view")) {
