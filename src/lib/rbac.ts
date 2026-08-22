@@ -30,7 +30,7 @@ export const FEATURES = [
   { id: "estimates.export", group: "Estimate lifecycle", label: "Export estimate / data" },
   { id: "portfolio.view", group: "Portfolio, tools & analytics", label: "Portfolio roll-up & CR register" },
   { id: "portfolio.budget", group: "Portfolio, tools & analytics", label: "Portfolio budget (set)" },
-  { id: "whatIf", group: "Portfolio, tools & analytics", label: "What-If optimiser" },
+  { id: "whatIf", group: "Portfolio, tools & analytics", label: "What-If / Scenarios tab" },
   { id: "calibration.view", group: "Portfolio, tools & analytics", label: "Calibration (view)" },
   { id: "calibration.apply", group: "Portfolio, tools & analytics", label: "Apply calibration → config" },
   { id: "analytics", group: "Portfolio, tools & analytics", label: "Analytics dashboards" },

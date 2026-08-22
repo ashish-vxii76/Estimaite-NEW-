@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { EstimateWizard } from "@/components/EstimateWizard";
+import { toScenarioTeams } from "@/components/WhatIfForm";
 import { StatusBadge } from "@/components/ui";
 import { can } from "@/lib/access";
 import { writesOwnRecordsOnly } from "@/lib/rbac";
@@ -61,6 +62,7 @@ export default async function EstimateDetailPage({
         resourceLevels={config.resourceLevels}
         actuals={estimate.actuals}
         estimateStatus={estimate.status}
+        scenarioTeams={toScenarioTeams(teams)}
         capabilities={{
           canEdit,
           canSubmit: can(session?.user.role, "estimates.submit", "RW") && (!ownOnly || authored),
@@ -68,6 +70,7 @@ export default async function EstimateDetailPage({
           canApprove: can(session?.user.role, "estimates.approve", "RW"),
           canOverride: canEdit,
           canEditActuals: can(session?.user.role, "estimates.actuals", "RW"),
+          canWhatIf: can(session?.user.role, "whatIf", "RW"),
           teamLocked: session?.user.role !== "ADMINISTRATOR",
         }}
         initial={{

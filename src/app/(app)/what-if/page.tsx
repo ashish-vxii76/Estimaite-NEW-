@@ -1,6 +1,7 @@
-import { WhatIfForm } from "@/components/WhatIfForm";
+import { WhatIfForm, toScenarioTeams } from "@/components/WhatIfForm";
 import { auth } from "@/auth";
 import { fromSession, teamsForUser } from "@/lib/scope";
+import Link from "next/link";
 
 export default async function WhatIfPage() {
   const session = await auth();
@@ -8,21 +9,19 @@ export default async function WhatIfPage() {
   return (
     <div className="space-y-4">
       <p className="kicker">Scenario</p>
-      <h1 className="font-display text-2xl font-semibold text-[var(--navy)]">What-If optimisation</h1>
+      <h1 className="font-display text-2xl font-semibold text-[var(--navy)]">What-If (standalone)</h1>
       <p className="text-sm text-[var(--muted)]">
-        Run against the roster this profile can see. A Vikings Approver only models Vikings.
-        Scenarios never modify an approved estimate. Senior is not recommended if the team has none
-        configured.
+        Generic sandbox against your roster. Prefer the{" "}
+        <strong className="font-semibold text-[var(--navy)]">Scenarios</strong> tab on a submitted
+        estimate for CR-specific analysis. Scenarios never modify an approved estimate.
       </p>
-      <WhatIfForm
-        teams={teams.map((t) => ({
-          teamId: t.id,
-          teamName: t.name,
-          availableLevels: [...new Set(t.members.map((m) => m.resourceLevel))],
-          maxDev: Math.max(1, t.members.filter((m) => m.roleStream === "DEV").length),
-          maxQa: Math.max(1, t.members.filter((m) => m.roleStream === "QA").length),
-        }))}
-      />
+      <p className="text-sm text-[var(--muted)]">
+        <Link href="/estimates?status=READY_FOR_REVIEW" className="underline">
+          Open estimates ready for review
+        </Link>{" "}
+        and use Scenarios there when you have a governed pack.
+      </p>
+      <WhatIfForm teams={toScenarioTeams(teams)} mode="standalone" />
     </div>
   );
 }

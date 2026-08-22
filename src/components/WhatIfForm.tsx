@@ -21,6 +21,30 @@ type WhatIfResult = {
   rationale?: { title: string; summary: string; steps: string[] };
 };
 
+export type ScenarioTeam = {
+  teamId: string;
+  teamName: string;
+  availableLevels: string[];
+  maxDev: number;
+  maxQa: number;
+};
+
+export function toScenarioTeams(
+  teams: {
+    id: string;
+    name: string;
+    members: { resourceLevel: string; roleStream: string }[];
+  }[],
+): ScenarioTeam[] {
+  return teams.map((t) => ({
+    teamId: t.id,
+    teamName: t.name,
+    availableLevels: [...new Set(t.members.map((m) => m.resourceLevel))],
+    maxDev: Math.max(1, t.members.filter((m) => m.roleStream === "DEV").length),
+    maxQa: Math.max(1, t.members.filter((m) => m.roleStream === "QA").length),
+  }));
+}
+
 const OBJECTIVES: Record<string, string> = {
   LOWEST_COST: "Lowest cost",
   FEWEST_SPRINTS: "Fewest sprints",
@@ -30,81 +54,112 @@ const OBJECTIVES: Record<string, string> = {
   CHEAPEST_WITHIN_N_SPRINTS: "Cheapest within N sprints",
 };
 
+const FALLBACK_BASE: EstimateCalculationInput = {
+  workItemType: "ISSUE",
+  complexityScores: DEFAULT_CONFIG.complexityDimensions.map((d) => ({
+    dimensionId: d.id,
+    score: 3,
+  })),
+  readiness: ["business", "acceptance", "dependencies", "architecture", "test"].map(
+    (criterionId) => ({ criterionId, answer: "YES" as const }),
+  ),
+  stance: "NEUTRAL",
+  devResourceLevelId: "intermediate",
+  qaResourceLevelId: "experienced",
+  devAiProductivityPct: 0,
+  qaAiProductivityPct: 0,
+  planningMode: "RESOURCE_CONSTRAINED",
+  availableDev: 1,
+  availableQa: 1,
+  targetSprints: 2,
+  costingModel: "RESOURCE_SPRINT",
+  resourceSprintRate: 4000,
+  teamSprintRate: 12000,
+  otherFixedCost: 0,
+  locationAllocations: [
+    {
+      locationId: "uk",
+      locationName: "United Kingdom",
+      allocationPct: 100,
+      dailyRate: 650,
+      currency: "CHF",
+    },
+  ],
+  currency: "CHF",
+};
+
 export function WhatIfForm({
   teams,
+  base,
+  lockedTeamId,
+  mode = "standalone",
 }: {
-  teams: {
-    teamId: string;
-    teamName: string;
-    availableLevels: string[];
-    maxDev: number;
-    maxQa: number;
-  }[];
+  teams: ScenarioTeam[];
+  /** When set, scenarios run against this governed estimate input (sandbox only). */
+  base?: EstimateCalculationInput;
+  /** Force the team selector to this team (estimate context). */
+  lockedTeamId?: string;
+  mode?: "standalone" | "estimate";
 }) {
-  const [teamId, setTeamId] = useState(teams[0]?.teamId ?? "");
+  const initialTeam = lockedTeamId || teams[0]?.teamId || "";
+  const [teamId, setTeamId] = useState(initialTeam);
   const [objective, setObjective] = useState("LOWEST_COST");
   const [maxSprints, setMaxSprints] = useState(3);
   const [result, setResult] = useState<WhatIfResult | null>(null);
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  const base: EstimateCalculationInput = {
-    workItemType: "ISSUE",
-    complexityScores: DEFAULT_CONFIG.complexityDimensions.map((d) => ({
-      dimensionId: d.id,
-      score: 3,
-    })),
-    readiness: ["business", "acceptance", "dependencies", "architecture", "test"].map(
-      (criterionId) => ({ criterionId, answer: "YES" as const }),
-    ),
-    stance: "NEUTRAL",
-    devResourceLevelId: "intermediate",
-    qaResourceLevelId: "experienced",
-    devAiProductivityPct: 0,
-    qaAiProductivityPct: 0,
-    planningMode: "RESOURCE_CONSTRAINED",
-    availableDev: 1,
-    availableQa: 1,
-    targetSprints: 2,
-    costingModel: "RESOURCE_SPRINT",
-    resourceSprintRate: 4000,
-    teamSprintRate: 12000,
-    otherFixedCost: 0,
-    locationAllocations: [
-      {
-        locationId: "uk",
-        locationName: "United Kingdom",
-        allocationPct: 100,
-        dailyRate: 650,
-        currency: "CHF",
-      },
-    ],
-    currency: "CHF",
-  };
+  const effectiveTeamId = lockedTeamId || teamId;
+  const selectedTeam = teams.find((t) => t.teamId === effectiveTeamId);
+  const usingEstimateBase = Boolean(base);
 
   async function run() {
     setError("");
-    const team = teams.find((t) => t.teamId === teamId);
-    if (!team) return;
-    const res = await fetch("/api/what-if", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ base, team, objective, maxSprints }),
-    });
-    const data = await res.json();
-    if (!res.ok) setError(data.error ?? "Failed");
-    else setResult(data.result);
+    setBusy(true);
+    try {
+      const team = teams.find((t) => t.teamId === effectiveTeamId);
+      if (!team) {
+        setError("Select a team with roster capacity");
+        return;
+      }
+      const res = await fetch("/api/what-if", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          base: base ?? FALLBACK_BASE,
+          team,
+          objective,
+          maxSprints,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) setError(data.error ?? "Failed");
+      else setResult(data.result);
+    } finally {
+      setBusy(false);
+    }
   }
 
-  const selectedTeam = teams.find((t) => t.teamId === teamId);
-
   return (
-    <div className="card space-y-4 p-5">
+    <div className={mode === "estimate" ? "space-y-4" : "card space-y-4 p-5"}>
+      {mode === "estimate" ? (
+        <p className="rounded-lg border border-dashed border-[var(--line)] bg-[var(--bg)] px-3 py-2 text-sm text-[var(--muted)]">
+          Sandbox only — runs against this CR&apos;s governed inputs. It never updates SP, cost or
+          status. Use it to challenge staffing before review or approval.
+        </p>
+      ) : (
+        <p className="text-sm text-[var(--muted)]">
+          Team-level sandbox with a generic base estimate. Prefer the Scenarios tab on a submitted
+          estimate for CR-specific analysis.
+        </p>
+      )}
       <div className="grid gap-3 md:grid-cols-3">
         <label className="text-sm">
           Team
           <select
             className="mt-1 w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2"
-            value={teamId}
+            value={effectiveTeamId}
+            disabled={Boolean(lockedTeamId)}
             onChange={(e) => setTeamId(e.target.value)}
           >
             {teams.map((t) => (
@@ -143,10 +198,11 @@ export function WhatIfForm({
         <p className="text-xs text-[var(--muted)]">
           Roster: max {selectedTeam.maxDev} Dev / {selectedTeam.maxQa} QA · levels{" "}
           {selectedTeam.availableLevels.join(", ") || "none"}
+          {usingEstimateBase ? " · base = this estimate" : " · base = generic defaults"}
         </p>
       ) : null}
-      <button className="btn-primary" type="button" onClick={run}>
-        Run scenario
+      <button className="btn-primary" type="button" onClick={run} disabled={busy || !selectedTeam}>
+        {busy ? "Running…" : "Run scenario"}
       </button>
       {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
       {result ? <WhatIfOutcome result={result} objective={objective} /> : null}

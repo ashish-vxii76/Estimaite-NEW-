@@ -63,18 +63,7 @@ export const NAV_TREE: NavNode[] = [
         href: "/portfolio",
         feature: "portfolio.view",
       },
-      {
-        id: "portfolio-budget",
-        label: "Budget",
-        href: "/portfolio#budget",
-        feature: "portfolio.budget",
-      },
     ],
-  },
-  {
-    id: "scenarios",
-    label: "Scenarios",
-    children: [{ id: "what-if", label: "What-If", href: "/what-if", feature: "whatIf" }],
   },
   {
     id: "learning",
@@ -251,9 +240,6 @@ export function isNodeActive(
   }
   if (pathname === "/estimates" && node.href === "/estimates") {
     return !search || search === "?";
-  }
-  if (node.href === "/portfolio") {
-    return pathname === "/portfolio" && hash !== "#budget";
   }
   return pathname === target.pathname && !target.search;
 }

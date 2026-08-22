@@ -169,9 +169,9 @@ export function buildHomeActions(role: string | undefined): HomeAction[] {
   if (can(role, "whatIf")) {
     actions.push({
       id: "what-if",
-      label: "What-If",
-      description: "Scenario optimiser for capacity and cost.",
-      href: "/what-if",
+      label: "Scenarios (what-if)",
+      description: "Open a submitted estimate and use the Scenarios tab.",
+      href: "/estimates?status=READY_FOR_REVIEW",
       feature: "whatIf",
     });
   }
