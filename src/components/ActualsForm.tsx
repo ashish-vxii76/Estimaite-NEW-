@@ -56,7 +56,7 @@ export function ActualsForm({
 
   return (
     <section className="card p-5">
-      <h2 className="font-medium">Actuals and calibration</h2>
+      <h2 className="font-medium">Actuals</h2>
       <form action={onSubmit} className="mt-4 grid gap-3 md:grid-cols-3">
         {[
           ["actualDevPd", "Actual Dev PD"],
