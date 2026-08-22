@@ -613,7 +613,7 @@ export function EstimateWizard({
               </span>
               <span className="font-display text-3xl font-semibold text-[var(--navy)]">{previewIndex}</span>
             </div>
-            <div className="space-y-3">
+            <div className="grid gap-3 md:grid-cols-2">
               {sizeDimensions.map((d) => (
                 <Field key={d.id} label={`${d.name} (weight ${d.weight})`}>
                   <select
@@ -997,12 +997,18 @@ export function EstimateWizard({
             </header>
 
             <div className="overflow-hidden rounded-xl border border-[var(--line)]">
-              <div className="bg-[var(--navy)] px-4 py-2 text-sm font-semibold text-white">
-                12. Range, Stance, Resource-Aware Effort &amp; Blended Cost
-              </div>
               <table className="w-full text-sm">
                 <tbody>
                   {[
+                    ["CR / reference", form.reference],
+                    ["Title", form.title],
+                    ["Release quarter", form.release || "—"],
+                    ["GitLab / JIRA ID", form.jiraId || "—"],
+                    ["Delivery flag", result.deliveryFlag],
+                    [
+                      "AI-adjusted cost",
+                      formatMoney(result.aiAdjustedDeliveryCost, result.currency),
+                    ],
                     ["Estimate Stance", form.stance],
                     ["Effective T-Shirt (stance-adjusted)", result.effectiveTshirt],
                     ["Optimistic SP (one size down)", String(result.optimisticSp)],
@@ -1032,7 +1038,7 @@ export function EstimateWizard({
                     ],
                     ["Epic Breakdown - Summary", result.epicSummary ?? "—"],
                   ].map(([label, value]) => (
-                    <tr key={label} className="border-t border-[var(--line)]">
+                    <tr key={label} className="border-t border-[var(--line)] first:border-t-0">
                       <th className="w-[40%] bg-[var(--panel-2)] px-3 py-2 text-left font-medium text-[var(--navy)]">
                         {label}
                       </th>
@@ -1042,35 +1048,6 @@ export function EstimateWizard({
                 </tbody>
               </table>
             </div>
-
-            <dl className="grid gap-3 rounded-xl border border-[var(--line)] p-4 text-sm md:grid-cols-2">
-              <div>
-                <dt className="text-xs text-[var(--muted)]">CR / reference</dt>
-                <dd className="font-medium">{form.reference}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-[var(--muted)]">Title</dt>
-                <dd className="font-medium">{form.title}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-[var(--muted)]">Release quarter</dt>
-                <dd className="font-medium">{form.release || "—"}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-[var(--muted)]">GitLab / JIRA ID</dt>
-                <dd className="font-medium">{form.jiraId || "—"}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-[var(--muted)]">Delivery flag</dt>
-                <dd className="font-medium">{result.deliveryFlag}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-[var(--muted)]">AI-adjusted cost</dt>
-                <dd className="font-medium">
-                  {formatMoney(result.aiAdjustedDeliveryCost, result.currency)}
-                </dd>
-              </div>
-            </dl>
 
             <div className="flex flex-wrap justify-between gap-2">
               <button type="button" className="btn-ghost" onClick={() => setMoment("govern")}>
@@ -1120,9 +1097,6 @@ export function EstimateWizard({
               </p>
             ) : (
               <div className="overflow-hidden rounded-xl border border-[var(--line)]">
-                <div className="bg-sky-100 px-4 py-2 text-sm font-semibold text-[var(--navy)]">
-                  Variance &amp; Calibration
-                </div>
                 <table className="w-full text-sm">
                   <tbody>
                     {[
@@ -1156,8 +1130,10 @@ export function EstimateWizard({
                           : String(variance.actualEstimatedEffortRatio),
                       ],
                     ].map(([label, value]) => (
-                      <tr key={label} className="border-t border-[var(--line)]">
-                        <th className="w-[40%] px-3 py-2 text-left font-medium text-[var(--navy)]">{label}</th>
+                      <tr key={label} className="border-t border-[var(--line)] first:border-t-0">
+                        <th className="w-[40%] bg-[var(--panel-2)] px-3 py-2 text-left font-medium text-[var(--navy)]">
+                          {label}
+                        </th>
                         <td className="bg-emerald-50/70 px-3 py-2 font-semibold text-[var(--navy)]">{value}</td>
                       </tr>
                     ))}
