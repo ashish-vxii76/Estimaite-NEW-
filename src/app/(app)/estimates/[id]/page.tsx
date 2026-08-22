@@ -62,7 +62,7 @@ export default async function EstimateDetailPage({
         resourceLevels={config.resourceLevels}
         actuals={estimate.actuals}
         estimateStatus={estimate.status}
-        scenarioTeams={toScenarioTeams(teams)}
+        scenarioTeams={toScenarioTeams(teams, locations)}
         capabilities={{
           canEdit,
           canSubmit: can(session?.user.role, "estimates.submit", "RW") && (!ownOnly || authored),
