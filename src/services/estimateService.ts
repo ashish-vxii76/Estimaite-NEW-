@@ -387,6 +387,50 @@ export async function captureActuals(
   return { actuals, variance };
 }
 
+/** Persist a what-if sandbox snapshot on the estimate (does not change governed result/team/status). */
+export async function saveEstimateScenario(
+  id: string,
+  payload: {
+    objective: string;
+    maxSprints?: number | null;
+    selectedTeamId: string;
+    scenario: unknown;
+  },
+  userId: string,
+) {
+  const estimate = await prisma.estimate.findUnique({ where: { id } });
+  if (!estimate) throw new Error("Estimate not found");
+  if (!["READY_FOR_REVIEW", "REVIEWED", "APPROVED", "COMPLETED"].includes(estimate.status)) {
+    throw new Error("Scenarios can only be saved after the estimate is submitted");
+  }
+  const snapshot = {
+    savedAt: new Date().toISOString(),
+    objective: payload.objective,
+    maxSprints: payload.maxSprints ?? null,
+    selectedTeamId: payload.selectedTeamId,
+    scenario: payload.scenario,
+  };
+  const updated = await prisma.estimate.update({
+    where: { id },
+    data: { scenarioJson: JSON.stringify(snapshot) },
+  });
+  await audit(
+    id,
+    userId,
+    "SCENARIO_SAVED",
+    estimate.scenarioJson ?? "",
+    JSON.stringify({
+      objective: snapshot.objective,
+      selectedTeamId: snapshot.selectedTeamId,
+      recommendedTeam:
+        (payload.scenario as { recommended?: { teamName?: string } } | null)?.recommended
+          ?.teamName ?? null,
+      savedAt: snapshot.savedAt,
+    }),
+  );
+  return { estimate: updated, scenario: snapshot };
+}
+
 async function audit(
   estimateId: string,
   userId: string | undefined,

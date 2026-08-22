@@ -105,6 +105,7 @@ model Estimate {
   readinessJson           String    @default("[]")
   locationMixJson         String    @default("[]")
   resultJson              String?
+  scenarioJson            String?
   configurationVersionId  String
   rateVersionId           String
   createdById             String

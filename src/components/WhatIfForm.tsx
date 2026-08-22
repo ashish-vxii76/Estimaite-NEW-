@@ -32,6 +32,14 @@ type ScenarioPayload = {
   recommended: WhatIfResult | null;
 };
 
+export type SavedScenarioSnapshot = {
+  savedAt: string;
+  objective: string;
+  maxSprints?: number | null;
+  selectedTeamId: string;
+  scenario: ScenarioPayload;
+};
+
 const OBJECTIVES: { value: string; label: string }[] = [
   { value: "LOWEST_COST", label: "Lowest cost" },
   { value: "FEWEST_SPRINTS", label: "Fewest sprints" },
@@ -79,6 +87,8 @@ export function WhatIfForm({
   base,
   defaultTeamId,
   owningTeamId,
+  estimateId,
+  initialSaved,
   mode = "standalone",
 }: {
   teams: ScenarioTeam[];
@@ -88,17 +98,30 @@ export function WhatIfForm({
   defaultTeamId?: string;
   /** CR owning team — shown in sensitivity copy. */
   owningTeamId?: string;
+  /** Estimate id — required to persist a scenario snapshot. */
+  estimateId?: string;
+  /** Previously saved sandbox snapshot for this CR. */
+  initialSaved?: SavedScenarioSnapshot | null;
   mode?: "standalone" | "estimate";
 }) {
   const lockedTeamId =
     mode === "estimate" ? owningTeamId || defaultTeamId || teams[0]?.teamId || "" : "";
   const [teamId, setTeamId] = useState(lockedTeamId || defaultTeamId || teams[0]?.teamId || "");
-  const [objective, setObjective] = useState("LOWEST_COST");
-  const [maxSprints, setMaxSprints] = useState(3);
-  const [scenario, setScenario] = useState<ScenarioPayload | null>(null);
+  const [objective, setObjective] = useState(initialSaved?.objective || "LOWEST_COST");
+  const [maxSprints, setMaxSprints] = useState(Number(initialSaved?.maxSprints) || 3);
+  const [scenario, setScenario] = useState<ScenarioPayload | null>(
+    initialSaved?.scenario ?? null,
+  );
   const [standaloneResult, setStandaloneResult] = useState<WhatIfResult | null>(null);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState(
+    initialSaved?.savedAt
+      ? `Loaded saved scenario from ${new Date(initialSaved.savedAt).toLocaleString()}`
+      : "",
+  );
   const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(!initialSaved?.scenario);
 
   /** Only Cheapest within N consumes a sprint deadline. */
   const deadlineEnabled = objective === "CHEAPEST_WITHIN_N_SPRINTS";
@@ -110,6 +133,7 @@ export function WhatIfForm({
   const owningName =
     teams.find((t) => t.teamId === (owningTeamId || defaultTeamId || lockedTeamId))?.teamName ??
     "owning team";
+  const canSave = mode === "estimate" && Boolean(estimateId) && Boolean(scenario);
 
   const objectiveLabel = useMemo(
     () => OBJECTIVES.find((o) => o.value === objective)?.label ?? objective,
@@ -118,6 +142,7 @@ export function WhatIfForm({
 
   async function run() {
     setError("");
+    setMessage("");
     setBusy(true);
     setScenario(null);
     setStandaloneResult(null);
@@ -144,6 +169,7 @@ export function WhatIfForm({
           return;
         }
         setScenario(data.scenario as ScenarioPayload);
+        setDirty(true);
       } else {
         const res = await fetch("/api/what-if", {
           method: "POST",
@@ -167,13 +193,43 @@ export function WhatIfForm({
     }
   }
 
+  async function save() {
+    if (!estimateId || !scenario) return;
+    setError("");
+    setMessage("");
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/estimates/${estimateId}/scenario`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          objective,
+          maxSprints: deadlineEnabled ? maxSprints : null,
+          selectedTeamId: effectiveTeamId,
+          scenario,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(typeof data.error === "string" ? data.error : "Save failed");
+        return;
+      }
+      setDirty(false);
+      setMessage(
+        `Scenario saved ${data.scenario?.savedAt ? new Date(data.scenario.savedAt).toLocaleString() : ""}`.trim(),
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className={mode === "estimate" ? "space-y-5" : "card space-y-4 p-5"}>
       {mode === "estimate" ? (
         <p className="text-sm text-[var(--muted)]">
           Pick an objective and run. Team is fixed to this CR&apos;s owner ({owningName}). Deadline
-          unlocks only for &ldquo;Cheapest within N sprints&rdquo;. Cross-team comparison still runs
-          after every run (sandbox — ownership unchanged).
+          unlocks only for &ldquo;Cheapest within N sprints&rdquo;. Save stores the sandbox snapshot
+          on this CR — it does not change SP, cost, team, or status.
         </p>
       ) : (
         <p className="text-sm text-[var(--muted)]">
@@ -188,7 +244,10 @@ export function WhatIfForm({
           <select
             className="mt-1 w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2"
             value={objective}
-            onChange={(e) => setObjective(e.target.value)}
+            onChange={(e) => {
+              setObjective(e.target.value);
+              setDirty(true);
+            }}
           >
             {OBJECTIVES.map((o) => (
               <option key={o.value} value={o.value}>
@@ -209,7 +268,10 @@ export function WhatIfForm({
                 ? undefined
                 : "Used only when Optimise for is Cheapest within N sprints"
             }
-            onChange={(e) => setMaxSprints(Number(e.target.value))}
+            onChange={(e) => {
+              setMaxSprints(Number(e.target.value));
+              setDirty(true);
+            }}
             className="mt-1 w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 disabled:cursor-not-allowed disabled:bg-[var(--bg)]"
           />
         </label>
@@ -244,10 +306,30 @@ export function WhatIfForm({
         </p>
       ) : null}
 
-      <button className="btn-primary" type="button" onClick={run} disabled={busy || !selectedTeam}>
-        {busy ? "Running…" : "Run scenario"}
-      </button>
+      <div className="flex flex-wrap gap-2">
+        <button className="btn-primary" type="button" onClick={run} disabled={busy || !selectedTeam}>
+          {busy ? "Running…" : "Run scenario"}
+        </button>
+        {mode === "estimate" ? (
+          <button
+            className="btn-ghost"
+            type="button"
+            onClick={save}
+            disabled={!canSave || saving || !dirty}
+            title={
+              !scenario
+                ? "Run a scenario before saving"
+                : !dirty
+                  ? "Latest run is already saved"
+                  : "Save sandbox snapshot on this CR"
+            }
+          >
+            {saving ? "Saving…" : dirty ? "Save scenario" : "Saved"}
+          </button>
+        ) : null}
+      </div>
       {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
+      {message ? <p className="text-sm text-[var(--navy)]">{message}</p> : null}
 
       {mode === "estimate" && scenario ? (
         <ScenarioOutcome

@@ -8,7 +8,7 @@ import { calculateComplexityIndex } from "@/domain/estimation/complexity";
 import { formatMoney } from "@/lib/utils";
 import { GovernedSummary } from "@/components/GovernedSummary";
 import { ActualsForm } from "@/components/ActualsForm";
-import { WhatIfForm, type ScenarioTeam } from "@/components/WhatIfForm";
+import { WhatIfForm, type ScenarioTeam, type SavedScenarioSnapshot } from "@/components/WhatIfForm";
 import { ExplanationPanel } from "@/components/ui";
 import type {
   ComplexityDimensionConfig,
@@ -76,6 +76,7 @@ export function EstimateWizard({
   actuals = null,
   estimateStatus = "DRAFT",
   scenarioTeams = [],
+  savedScenario = null,
   capabilities = {
     canEdit: true,
     canSubmit: true,
@@ -99,6 +100,7 @@ export function EstimateWizard({
   actuals?: ActualsPayload;
   estimateStatus?: string;
   scenarioTeams?: ScenarioTeam[];
+  savedScenario?: SavedScenarioSnapshot | null;
   capabilities?: {
     canEdit: boolean;
     canSubmit: boolean;
@@ -1168,6 +1170,8 @@ export function EstimateWizard({
                 base={whatIfBase}
                 defaultTeamId={form.teamId}
                 owningTeamId={form.teamId}
+                estimateId={id}
+                initialSaved={savedScenario}
                 mode="estimate"
               />
             )}
