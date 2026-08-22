@@ -8,9 +8,11 @@ import { calculateComplexityIndex } from "@/domain/estimation/complexity";
 import { formatMoney } from "@/lib/utils";
 import { GovernedSummary } from "@/components/GovernedSummary";
 import { ActualsForm } from "@/components/ActualsForm";
+import { WhatIfForm, type ScenarioTeam } from "@/components/WhatIfForm";
 import { ExplanationPanel } from "@/components/ui";
 import type {
   ComplexityDimensionConfig,
+  EstimateCalculationInput,
   EstimateCalculationResult,
   ReadinessCriterionConfig,
   ResourceLevelConfig,
@@ -22,6 +24,7 @@ const MOMENTS = [
   { id: "plan", label: "Plan & cost" },
   { id: "govern", label: "Govern" },
   { id: "final", label: "Final review" },
+  { id: "scenarios", label: "Scenarios" },
   { id: "actuals", label: "Actual & calibration" },
   { id: "variance", label: "Variance & calibration" },
 ] as const;
@@ -72,6 +75,7 @@ export function EstimateWizard({
   resourceLevels = DEFAULT_CONFIG.resourceLevels,
   actuals = null,
   estimateStatus = "DRAFT",
+  scenarioTeams = [],
   capabilities = {
     canEdit: true,
     canSubmit: true,
@@ -79,6 +83,7 @@ export function EstimateWizard({
     canApprove: true,
     canOverride: true,
     canEditActuals: true,
+    canWhatIf: true,
     teamLocked: false,
   },
 }: {
@@ -93,6 +98,7 @@ export function EstimateWizard({
   resourceLevels?: ResourceLevelConfig[];
   actuals?: ActualsPayload;
   estimateStatus?: string;
+  scenarioTeams?: ScenarioTeam[];
   capabilities?: {
     canEdit: boolean;
     canSubmit: boolean;
@@ -100,6 +106,7 @@ export function EstimateWizard({
     canApprove: boolean;
     canOverride: boolean;
     canEditActuals?: boolean;
+    canWhatIf?: boolean;
     teamLocked: boolean;
   };
 }) {
@@ -394,11 +401,15 @@ export function EstimateWizard({
   const governComplete = Boolean(result);
   const finalUnlocked = readyComplete && sizeComplete && planComplete && governComplete;
   const postApprovalUnlocked = status === "APPROVED" || status === "COMPLETED";
+  const scenariosUnlocked =
+    Boolean(result) &&
+    ["READY_FOR_REVIEW", "REVIEWED", "APPROVED", "COMPLETED"].includes(status);
   const resourceConstrained = form.planningMode === "RESOURCE_CONSTRAINED";
   const teamCosting = form.costingBasis === "TEAM";
 
   function tabEnabled(tab: MomentId) {
     if (tab === "final") return finalUnlocked;
+    if (tab === "scenarios") return scenariosUnlocked;
     if (tab === "actuals" || tab === "variance") return postApprovalUnlocked;
     return true;
   }
@@ -423,6 +434,60 @@ export function EstimateWizard({
   const devLevel = levels.find((l) => l.id === form.devResourceLevel);
   const qaLevel = levels.find((l) => l.id === form.qaResourceLevel);
 
+  const whatIfBase = useMemo((): EstimateCalculationInput => {
+    const team = teams.find((t) => t.id === form.teamId);
+    const loc =
+      form.costingBasis === "TEAM"
+        ? locations.find((l) => l.name === team?.mappedLocation) ?? locations[0]
+        : locations.find((l) => l.id === form.locationId) ??
+          locations.find((l) => l.name === form.locationName) ??
+          locations[0];
+    return {
+      workItemType: form.workItemType as EstimateCalculationInput["workItemType"],
+      complexityScores: Object.entries(form.scores).map(([dimensionId, score]) => ({
+        dimensionId,
+        score: Number(score),
+      })),
+      readiness: Object.entries(form.readiness).map(([criterionId, answer]) => ({
+        criterionId,
+        answer: answer as "YES" | "NO",
+      })),
+      stance: form.stance as EstimateCalculationInput["stance"],
+      costingBasis: form.workItemType === "EPIC" ? undefined : (form.costingBasis as "TEAM" | "LOCATION"),
+      teamId: form.teamId,
+      teamName: team?.name,
+      locationName:
+        form.costingBasis === "TEAM" ? (team?.mappedLocation ?? form.locationName) : form.locationName,
+      costMethod: form.workItemType === "EPIC" ? "" : form.costMethod,
+      projectOverrideRate:
+        form.workItemType === "EPIC" || !form.projectOverrideRate ? null : form.projectOverrideRate,
+      devResourceLevelId: form.devResourceLevel,
+      qaResourceLevelId: form.qaResourceLevel,
+      devAiProductivityPct: form.devAiProductivity,
+      qaAiProductivityPct: form.qaAiProductivity,
+      planningMode: form.planningMode as EstimateCalculationInput["planningMode"],
+      availableDev: form.availableDev,
+      availableQa: form.availableQa,
+      targetSprints: form.targetSprints,
+      costingModel: "RESOURCE_SPRINT",
+      resourceSprintRate: team?.resourceSprintRate ?? 0,
+      teamSprintRate: team?.teamSprintRate ?? 0,
+      otherFixedCost: form.workItemType === "EPIC" ? 0 : form.otherFixedCost,
+      locationAllocations: loc
+        ? [
+            {
+              locationId: loc.id,
+              locationName: loc.name,
+              allocationPct: 100,
+              dailyRate: loc.dailyRate,
+              currency: loc.currency,
+            },
+          ]
+        : [],
+      currency: form.currency,
+    };
+  }, [form, teams, locations]);
+
   return (
     <CanEditFields.Provider value={capabilities.canEdit}>
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
@@ -434,7 +499,8 @@ export function EstimateWizard({
               {estimateId ? "Inputs and governance" : "New estimate"}
             </h2>
             <p className="mt-1 max-w-xl text-sm text-[var(--muted)]">
-              Ready through Govern, then Final review to submit. Actuals and variance unlock after approval.
+              Ready through Final review to submit. Scenarios unlock after submit for review/approval.
+              Actuals and variance unlock after approval.
             </p>
           </div>
           <Link href="/estimates" className="btn-ghost">
@@ -455,7 +521,9 @@ export function EstimateWizard({
                     !enabled
                       ? m.id === "final"
                         ? "Complete Ready, Size, Plan & cost, and Govern first"
-                        : "Available after the estimate is approved"
+                        : m.id === "scenarios"
+                          ? "Available after the estimate is submitted for review"
+                          : "Available after the estimate is approved"
                       : undefined
                   }
                   className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${
@@ -1066,6 +1134,41 @@ export function EstimateWizard({
                 <p className="text-sm text-[var(--muted)]">Status: {status}</p>
               )}
             </div>
+          </section>
+        )}
+
+        {moment === "scenarios" && (
+          <section className="card space-y-5 p-6">
+            <header>
+              <p className="kicker">Scenarios</p>
+              <h3 className="font-display text-xl font-semibold text-[var(--navy)]">
+                What-if (sandbox)
+              </h3>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                Explore staffing trade-offs against this estimate. Results are not saved and never
+                change SP, cost, or status.
+              </p>
+            </header>
+            {!scenariosUnlocked ? (
+              <p className="text-sm text-[var(--muted)]">
+                Submit this estimate for review to unlock Scenarios.
+              </p>
+            ) : !capabilities.canWhatIf ? (
+              <p className="text-sm text-[var(--muted)]">
+                Your role cannot run what-if scenarios. Ask an admin for Access → RBAC → What-If.
+              </p>
+            ) : scenarioTeams.length === 0 ? (
+              <p className="text-sm text-[var(--muted)]">
+                No team roster is available for scenarios in your scope.
+              </p>
+            ) : (
+              <WhatIfForm
+                teams={scenarioTeams}
+                base={whatIfBase}
+                lockedTeamId={form.teamId}
+                mode="estimate"
+              />
+            )}
           </section>
         )}
 
