@@ -90,8 +90,9 @@ export function WhatIfForm({
   owningTeamId?: string;
   mode?: "standalone" | "estimate";
 }) {
-  const initialTeam = defaultTeamId || owningTeamId || teams[0]?.teamId || "";
-  const [teamId, setTeamId] = useState(initialTeam);
+  const lockedTeamId =
+    mode === "estimate" ? owningTeamId || defaultTeamId || teams[0]?.teamId || "" : "";
+  const [teamId, setTeamId] = useState(lockedTeamId || defaultTeamId || teams[0]?.teamId || "");
   const [objective, setObjective] = useState("LOWEST_COST");
   const [maxSprints, setMaxSprints] = useState(3);
   const [scenario, setScenario] = useState<ScenarioPayload | null>(null);
@@ -99,11 +100,16 @@ export function WhatIfForm({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
+  /** Only Cheapest within N consumes a sprint deadline. */
   const deadlineEnabled = objective === "CHEAPEST_WITHIN_N_SPRINTS";
-  const selectedTeam = teams.find((t) => t.teamId === teamId);
+  /** On the CR tab, team is always the owning team (read-only). Standalone stays editable. */
+  const teamLocked = mode === "estimate";
+  const effectiveTeamId = teamLocked ? lockedTeamId || teamId : teamId;
+  const selectedTeam = teams.find((t) => t.teamId === effectiveTeamId);
   const usingEstimateBase = Boolean(base);
   const owningName =
-    teams.find((t) => t.teamId === (owningTeamId || defaultTeamId))?.teamName ?? "owning team";
+    teams.find((t) => t.teamId === (owningTeamId || defaultTeamId || lockedTeamId))?.teamName ??
+    "owning team";
 
   const objectiveLabel = useMemo(
     () => OBJECTIVES.find((o) => o.value === objective)?.label ?? objective,
@@ -127,7 +133,7 @@ export function WhatIfForm({
           body: JSON.stringify({
             base: base ?? FALLBACK_BASE,
             teams,
-            selectedTeamId: teamId,
+            selectedTeamId: effectiveTeamId,
             objective,
             maxSprints: deadlineEnabled ? maxSprints : undefined,
           }),
@@ -165,9 +171,9 @@ export function WhatIfForm({
     <div className={mode === "estimate" ? "space-y-5" : "card space-y-4 p-5"}>
       {mode === "estimate" ? (
         <p className="text-sm text-[var(--muted)]">
-          Optimise for a goal; the tool fixes seniority and headcount within each team&apos;s
-          composition. Deadline is used only by &ldquo;Cheapest within N sprints&rdquo;. Sandbox
-          only — the CR stays with {owningName}.
+          Pick an objective and run. Team is fixed to this CR&apos;s owner ({owningName}). Deadline
+          unlocks only for &ldquo;Cheapest within N sprints&rdquo;. Cross-team comparison still runs
+          after every run (sandbox — ownership unchanged).
         </p>
       ) : (
         <p className="text-sm text-[var(--muted)]">
@@ -198,15 +204,26 @@ export function WhatIfForm({
             min={1}
             value={maxSprints}
             disabled={!deadlineEnabled}
+            title={
+              deadlineEnabled
+                ? undefined
+                : "Used only when Optimise for is Cheapest within N sprints"
+            }
             onChange={(e) => setMaxSprints(Number(e.target.value))}
             className="mt-1 w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 disabled:cursor-not-allowed disabled:bg-[var(--bg)]"
           />
         </label>
-        <label className="text-sm">
-          Selected team
+        <label className={`text-sm ${teamLocked ? "opacity-50" : ""}`}>
+          {teamLocked ? "CR team (baseline)" : "Selected team"}
           <select
-            className="mt-1 w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2"
-            value={teamId}
+            className="mt-1 w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 disabled:cursor-not-allowed disabled:bg-[var(--bg)]"
+            value={effectiveTeamId}
+            disabled={teamLocked}
+            title={
+              teamLocked
+                ? "Fixed to this CR's owning team. Cross-team options appear in the comparison table."
+                : undefined
+            }
             onChange={(e) => setTeamId(e.target.value)}
           >
             {teams.map((t) => (
