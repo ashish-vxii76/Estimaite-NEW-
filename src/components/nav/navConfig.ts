@@ -52,10 +52,8 @@ export const NAV_TREE: NavNode[] = [
     ],
   },
   {
-    id: "portfolio",
-    label: "Portfolio",
-    href: "/portfolio",
-    feature: "portfolio.view",
+    id: "analytics",
+    label: "Analytics",
     children: [
       {
         id: "portfolio-rollup",
@@ -63,14 +61,12 @@ export const NAV_TREE: NavNode[] = [
         href: "/portfolio",
         feature: "portfolio.view",
       },
-    ],
-  },
-  {
-    id: "learning",
-    label: "Learning",
-    children: [
-      { id: "calibration", label: "Calibration", href: "/calibration", feature: "calibration.view" },
-      { id: "analytics", label: "Analytics", href: "/analytics", feature: "analytics" },
+      {
+        id: "calibration",
+        label: "Calibration",
+        href: "/calibration",
+        feature: "calibration.view",
+      },
     ],
   },
   {
@@ -228,9 +224,6 @@ export function isNodeActive(
   if (node.href === "/home") return pathname === "/home";
   if (node.id === "estimates") {
     return pathname === "/estimates" || pathname.startsWith("/estimates/");
-  }
-  if (node.id === "portfolio") {
-    return pathname === "/portfolio";
   }
   if (node.id === "administration") {
     return pathname === "/admin" || pathname.startsWith("/admin/") || pathname.startsWith("/teams");
