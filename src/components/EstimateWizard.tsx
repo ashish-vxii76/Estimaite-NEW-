@@ -1146,7 +1146,8 @@ export function EstimateWizard({
                 What-if — best mix &amp; best team for this CR
               </h3>
               <p className="mt-1 text-sm text-[var(--muted)]">
-                Sandbox only. Seeds from this CR; never changes SP, cost, team, or status.
+                Choose an objective and run. Team is locked to this CR&apos;s owner; deadline only
+                for Cheapest within N. Sandbox — never changes SP, cost, team, or status.
               </p>
             </header>
             {!scenariosUnlocked ? (
