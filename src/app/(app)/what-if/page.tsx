@@ -1,4 +1,5 @@
-import { WhatIfForm, toScenarioTeams } from "@/components/WhatIfForm";
+import { WhatIfForm } from "@/components/WhatIfForm";
+import { toScenarioTeams } from "@/lib/scenarioTeams";
 import { auth } from "@/auth";
 import { fromSession, teamsForUser } from "@/lib/scope";
 import Link from "next/link";

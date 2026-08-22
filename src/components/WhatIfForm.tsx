@@ -4,6 +4,9 @@ import { useState } from "react";
 import { DEFAULT_CONFIG } from "@/domain/estimation/defaultConfig";
 import type { EstimateCalculationInput } from "@/domain/estimation/types";
 import { formatMoney } from "@/lib/utils";
+import type { ScenarioTeam } from "@/lib/scenarioTeams";
+
+export type { ScenarioTeam } from "@/lib/scenarioTeams";
 
 type WhatIfResult = {
   teamName: string;
@@ -20,30 +23,6 @@ type WhatIfResult = {
   notes: string[];
   rationale?: { title: string; summary: string; steps: string[] };
 };
-
-export type ScenarioTeam = {
-  teamId: string;
-  teamName: string;
-  availableLevels: string[];
-  maxDev: number;
-  maxQa: number;
-};
-
-export function toScenarioTeams(
-  teams: {
-    id: string;
-    name: string;
-    members: { resourceLevel: string; roleStream: string }[];
-  }[],
-): ScenarioTeam[] {
-  return teams.map((t) => ({
-    teamId: t.id,
-    teamName: t.name,
-    availableLevels: [...new Set(t.members.map((m) => m.resourceLevel))],
-    maxDev: Math.max(1, t.members.filter((m) => m.roleStream === "DEV").length),
-    maxQa: Math.max(1, t.members.filter((m) => m.roleStream === "QA").length),
-  }));
-}
 
 const OBJECTIVES: Record<string, string> = {
   LOWEST_COST: "Lowest cost",

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { EstimateWizard } from "@/components/EstimateWizard";
-import { toScenarioTeams } from "@/components/WhatIfForm";
+import { toScenarioTeams } from "@/lib/scenarioTeams";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { can } from "@/lib/access";

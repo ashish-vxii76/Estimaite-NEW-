@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { EstimateWizard } from "@/components/EstimateWizard";
-import { toScenarioTeams } from "@/components/WhatIfForm";
+import { toScenarioTeams } from "@/lib/scenarioTeams";
 import { StatusBadge } from "@/components/ui";
 import { can } from "@/lib/access";
 import { writesOwnRecordsOnly } from "@/lib/rbac";
