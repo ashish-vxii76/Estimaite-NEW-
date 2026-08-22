@@ -39,6 +39,14 @@ export default async function EstimateDetailPage({
     getActiveConfig(),
   ]);
   const result = estimate.resultJson ? JSON.parse(estimate.resultJson) : null;
+  let savedScenario = null;
+  if (estimate.scenarioJson) {
+    try {
+      savedScenario = JSON.parse(estimate.scenarioJson);
+    } catch {
+      savedScenario = null;
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -63,6 +71,7 @@ export default async function EstimateDetailPage({
         actuals={estimate.actuals}
         estimateStatus={estimate.status}
         scenarioTeams={toScenarioTeams(teams, locations)}
+        savedScenario={savedScenario}
         capabilities={{
           canEdit,
           canSubmit: can(session?.user.role, "estimates.submit", "RW") && (!ownOnly || authored),
