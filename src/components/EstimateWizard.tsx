@@ -25,8 +25,7 @@ const MOMENTS = [
   { id: "govern", label: "Govern" },
   { id: "final", label: "Final review" },
   { id: "scenarios", label: "Scenarios" },
-  { id: "actuals", label: "Actual & calibration" },
-  { id: "variance", label: "Variance & calibration" },
+  { id: "actuals", label: "Actual, variance & calibration" },
 ] as const;
 
 type MomentId = (typeof MOMENTS)[number]["id"];
@@ -412,7 +411,7 @@ export function EstimateWizard({
   function tabEnabled(tab: MomentId) {
     if (tab === "final") return finalUnlocked;
     if (tab === "scenarios") return scenariosUnlocked;
-    if (tab === "actuals" || tab === "variance") return postApprovalUnlocked;
+    if (tab === "actuals") return postApprovalUnlocked;
     return true;
   }
 
@@ -501,9 +500,8 @@ export function EstimateWizard({
               {estimateId ? "Inputs and governance" : "New estimate"}
             </h2>
             <p className="mt-1 max-w-xl text-sm text-[var(--muted)]">
-              Ready through Final review to submit. Scenarios unlock after submit — CR sandbox with
-              selected-team mix, cross-team comparison, and sensitivity recommendation. Actuals and
-              variance unlock after approval.
+              Ready through Final review to submit. Scenarios unlock after submit. Actual, variance
+              &amp; calibration unlock after approval.
             </p>
           </div>
           <Link href="/estimates" className="btn-ghost">
@@ -1178,83 +1176,99 @@ export function EstimateWizard({
           </section>
         )}
 
-        {moment === "actuals" && id && (
-          <ActualsForm
-            estimateId={id}
-            actuals={actuals}
-            readOnly={!capabilities.canEditActuals}
-          />
-        )}
-
-        {moment === "actuals" && !id && (
-          <section className="card p-6 text-sm text-[var(--muted)]">
-            Save the estimate first. Actuals unlock after approval.
-          </section>
-        )}
-
-        {moment === "variance" && (
-          <section className="card space-y-4 p-6">
-            <header>
+        {moment === "actuals" && (
+          <section className="space-y-5">
+            <header className="card space-y-1 p-6">
               <p className="kicker">Post-approval</p>
               <h3 className="font-display text-xl font-semibold text-[var(--navy)]">
-                Variance &amp; calibration
+                Actual, variance &amp; calibration
               </h3>
-            </header>
-            {!actuals ? (
               <p className="text-sm text-[var(--muted)]">
-                Enter actuals on the Actual &amp; calibration tab first. Variance is calculated from the governed snapshot.
+                Enter delivery actuals, then review variance against the governed snapshot.
               </p>
+            </header>
+
+            {!id ? (
+              <section className="card p-6 text-sm text-[var(--muted)]">
+                Save the estimate first. This tab unlocks after approval.
+              </section>
             ) : (
-              <div className="overflow-hidden rounded-xl border border-[var(--line)]">
-                <table className="w-full text-sm">
-                  <tbody>
-                    {[
-                      ["Dev PD Variance %", pctLabel(variance?.devEffortVariance as number | null)],
-                      ["QA PD Variance %", pctLabel(variance?.qaEffortVariance as number | null)],
-                      ["Duration Variance %", pctLabel(variance?.durationVariance as number | null)],
-                      [
-                        "Dev Resource Variance %",
-                        result?.plannedDev
-                          ? pctLabel((actuals.actualDevResources - result.plannedDev) / result.plannedDev)
-                          : "—",
-                      ],
-                      [
-                        "QA Resource Variance %",
-                        result?.plannedQa
-                          ? pctLabel((actuals.actualQaResources - result.plannedQa) / result.plannedQa)
-                          : "—",
-                      ],
-                      [
-                        "Actual Total Delivery Cost",
-                        formatMoney(
-                          (result?.aiAdjustedDeliveryCost ?? 0) + actuals.actualOtherCost,
-                          result?.currency ?? form.currency,
-                        ),
-                      ],
-                      ["Cost Variance %", pctLabel(variance?.costVariance as number | null)],
-                      [
-                        "Actual / Estimated Effort Ratio",
-                        variance?.actualEstimatedEffortRatio == null
-                          ? "—"
-                          : String(variance.actualEstimatedEffortRatio),
-                      ],
-                    ].map(([label, value]) => (
-                      <tr key={label} className="border-t border-[var(--line)] first:border-t-0">
-                        <th className="w-[40%] bg-[var(--panel-2)] px-3 py-2 text-left font-medium text-[var(--navy)]">
-                          {label}
-                        </th>
-                        <td className="bg-emerald-50/70 px-3 py-2 font-semibold text-[var(--navy)]">{value}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {variance?.interpretation ? (
-                  <p className="border-t border-[var(--line)] px-3 py-2 text-sm text-[var(--muted)]">
-                    {String(variance.interpretation)}
-                  </p>
-                ) : null}
-              </div>
+              <ActualsForm
+                estimateId={id}
+                actuals={actuals}
+                readOnly={!capabilities.canEditActuals}
+              />
             )}
+
+            <section className="card space-y-4 p-6">
+              <header>
+                <p className="kicker">Variance</p>
+                <h3 className="font-display text-lg font-semibold text-[var(--navy)]">
+                  Against governed estimate
+                </h3>
+              </header>
+              {!id || !actuals ? (
+                <p className="text-sm text-[var(--muted)]">
+                  Save actuals above to calculate variance from the governed snapshot.
+                </p>
+              ) : (
+                <div className="overflow-hidden rounded-xl border border-[var(--line)]">
+                  <table className="w-full text-sm">
+                    <tbody>
+                      {[
+                        ["Dev PD Variance %", pctLabel(variance?.devEffortVariance as number | null)],
+                        ["QA PD Variance %", pctLabel(variance?.qaEffortVariance as number | null)],
+                        ["Duration Variance %", pctLabel(variance?.durationVariance as number | null)],
+                        [
+                          "Dev Resource Variance %",
+                          result?.plannedDev
+                            ? pctLabel(
+                                (actuals.actualDevResources - result.plannedDev) / result.plannedDev,
+                              )
+                            : "—",
+                        ],
+                        [
+                          "QA Resource Variance %",
+                          result?.plannedQa
+                            ? pctLabel(
+                                (actuals.actualQaResources - result.plannedQa) / result.plannedQa,
+                              )
+                            : "—",
+                        ],
+                        [
+                          "Actual Total Delivery Cost",
+                          formatMoney(
+                            (result?.aiAdjustedDeliveryCost ?? 0) + actuals.actualOtherCost,
+                            result?.currency ?? form.currency,
+                          ),
+                        ],
+                        ["Cost Variance %", pctLabel(variance?.costVariance as number | null)],
+                        [
+                          "Actual / Estimated Effort Ratio",
+                          variance?.actualEstimatedEffortRatio == null
+                            ? "—"
+                            : String(variance.actualEstimatedEffortRatio),
+                        ],
+                      ].map(([label, value]) => (
+                        <tr key={label} className="border-t border-[var(--line)] first:border-t-0">
+                          <th className="w-[40%] bg-[var(--panel-2)] px-3 py-2 text-left font-medium text-[var(--navy)]">
+                            {label}
+                          </th>
+                          <td className="bg-emerald-50/70 px-3 py-2 font-semibold text-[var(--navy)]">
+                            {value}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {variance?.interpretation ? (
+                    <p className="border-t border-[var(--line)] px-3 py-2 text-sm text-[var(--muted)]">
+                      {String(variance.interpretation)}
+                    </p>
+                  ) : null}
+                </div>
+              )}
+            </section>
           </section>
         )}
       </div>
