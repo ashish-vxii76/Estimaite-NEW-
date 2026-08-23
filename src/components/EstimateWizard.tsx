@@ -25,7 +25,7 @@ const MOMENTS = [
   { id: "govern", label: "Govern" },
   { id: "final", label: "Final review" },
   { id: "scenarios", label: "Scenarios" },
-  { id: "actuals", label: "Actual, variance & calibration" },
+  { id: "actuals", label: "Actual vs plan" },
 ] as const;
 
 type MomentId = (typeof MOMENTS)[number]["id"];
@@ -500,8 +500,8 @@ export function EstimateWizard({
               {estimateId ? "Inputs and governance" : "New estimate"}
             </h2>
             <p className="mt-1 max-w-xl text-sm text-[var(--muted)]">
-              Ready through Final review to submit. Scenarios unlock after submit. Actual, variance
-              &amp; calibration unlock after approval.
+              Ready through Final review to submit. Scenarios unlock after submit. Actual vs plan
+              unlocks after approval.
             </p>
           </div>
           <Link href="/estimates" className="btn-ghost">
@@ -1181,10 +1181,10 @@ export function EstimateWizard({
             <header className="card space-y-1 p-6">
               <p className="kicker">Post-approval</p>
               <h3 className="font-display text-xl font-semibold text-[var(--navy)]">
-                Actual, variance &amp; calibration
+                Actual vs plan
               </h3>
               <p className="text-sm text-[var(--muted)]">
-                Enter delivery actuals, then review variance against the governed snapshot.
+                Enter delivery actuals, then review variance against the governed plan.
               </p>
             </header>
 
