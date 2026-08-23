@@ -7,6 +7,7 @@ import {
   type EstimateCalculationInput,
 } from "@/domain/estimation";
 import { getActiveConfig } from "@/services/configService";
+import { resolveOrgPathForTeam } from "@/services/orgService";
 
 const scoreSchema = z.object({
   dimensionId: z.string(),
@@ -86,6 +87,7 @@ function commercialMix(data: Partial<z.infer<typeof estimateInputSchema>>) {
 
 export async function createEstimate(data: z.infer<typeof estimateInputSchema>, userId: string) {
   const config = await getActiveConfig();
+  const orgPath = await resolveOrgPathForTeam(data.teamId);
   const estimate = await prisma.estimate.create({
     data: {
       workItemType: data.workItemType,
@@ -113,6 +115,7 @@ export async function createEstimate(data: z.infer<typeof estimateInputSchema>, 
       complexityScoresJson: JSON.stringify(data.complexityScores ?? []),
       readinessJson: JSON.stringify(data.readiness ?? []),
       locationMixJson: JSON.stringify(commercialMix(data)),
+      orgPathJson: orgPath ? JSON.stringify(orgPath) : "",
       configurationVersionId: config.versionId,
       rateVersionId: config.rateVersionId,
       createdById: userId,
@@ -132,6 +135,13 @@ export async function updateEstimate(
   if (!["DRAFT", "RETURNED"].includes(existing.status)) {
     throw new Error("Only draft or returned estimates can be edited");
   }
+  const teamId = data.teamId ?? existing.teamId;
+  const orgPath =
+    data.teamId && data.teamId !== existing.teamId
+      ? await resolveOrgPathForTeam(teamId)
+      : existing.orgPathJson
+        ? null
+        : await resolveOrgPathForTeam(teamId);
   const updated = await prisma.estimate.update({
     where: { id },
     data: {
@@ -162,6 +172,7 @@ export async function updateEstimate(
       ...((data.locationMix || data.costingBasis || data.locationName || data.costMethod || data.projectOverrideRate !== undefined) && {
         locationMixJson: JSON.stringify(commercialMix(data)),
       }),
+      ...(orgPath ? { orgPathJson: JSON.stringify(orgPath) } : {}),
     },
   });
   await audit(id, userId, "ESTIMATE_EDITED", existing.title, updated.title);

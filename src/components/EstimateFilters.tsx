@@ -27,6 +27,10 @@ export function EstimateFilters({
   release,
   tshirt,
   flag,
+  crew = "",
+  team = "",
+  crews = [],
+  teams = [],
 }: {
   quarters: string[];
   status: string;
@@ -34,6 +38,10 @@ export function EstimateFilters({
   release: string;
   tshirt: string;
   flag: string;
+  crew?: string;
+  team?: string;
+  crews?: { id: string; name: string }[];
+  teams?: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const years = yearsFromCatalogue(quarters);
@@ -46,6 +54,8 @@ export function EstimateFilters({
     release?: string;
     tshirt?: string;
     flag?: string;
+    crew?: string;
+    team?: string;
   }) {
     const params = new URLSearchParams();
     const s = next.status ?? status;
@@ -53,11 +63,15 @@ export function EstimateFilters({
     const r = next.release ?? release;
     const t = next.tshirt ?? tshirt;
     const f = next.flag ?? flag;
+    const c = next.crew ?? crew;
+    const tm = next.team ?? team;
     if (s) params.set("status", s);
     if (w) params.set("workItemType", w);
     if (r) params.set("release", r);
     if (t) params.set("tshirt", t);
     if (f) params.set("flag", f);
+    if (c) params.set("crew", c);
+    if (tm) params.set("team", tm);
     const qs = params.toString();
     router.push(qs ? `/estimates?${qs}` : "/estimates");
   }
@@ -67,6 +81,32 @@ export function EstimateFilters({
 
   return (
     <section className="card grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-4">
+      <label className="text-sm">
+        Crew
+        <select
+          className={selectClass}
+          value={crew}
+          onChange={(e) => apply({ crew: e.target.value, team: "" })}
+        >
+          <option value="">All crews</option>
+          {crews.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="text-sm">
+        Pod / Team
+        <select className={selectClass} value={team} onChange={(e) => apply({ team: e.target.value })}>
+          <option value="">All teams</option>
+          {teams.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
+            </option>
+          ))}
+        </select>
+      </label>
       <label className="text-sm">
         Work type
         <select

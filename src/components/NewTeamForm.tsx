@@ -3,7 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export function NewTeamForm() {
+export function NewTeamForm({
+  crews = [],
+}: {
+  crews?: { id: string; name: string }[];
+}) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -11,6 +15,7 @@ export function NewTeamForm() {
   async function onSubmit(formData: FormData) {
     setBusy(true);
     setError("");
+    const crewId = String(formData.get("crewId") ?? "");
     const res = await fetch("/api/teams", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -21,6 +26,7 @@ export function NewTeamForm() {
         standardTeamSize: Number(formData.get("standardTeamSize")),
         teamSprintRate: Number(formData.get("teamSprintRate")),
         resourceSprintRate: Number(formData.get("resourceSprintRate")),
+        ...(crewId ? { crewId } : {}),
       }),
     });
     const data = await res.json();
@@ -37,14 +43,24 @@ export function NewTeamForm() {
     <div className="mx-auto max-w-lg space-y-5">
       <div>
         <p className="kicker">Organisation</p>
-        <h1 className="text-2xl font-semibold">Create new team</h1>
+        <h1 className="text-2xl font-semibold">Create new Pod / Team</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Adds a delivery team. Roster and rate-card edits stay in Administration.
+          Pods hang under a Crew. You can also attach existing pods in Organisation setup.
         </p>
       </div>
       <form className="card grid gap-4 p-5" action={onSubmit}>
-        <Field label="Team name">
+        <Field label="Pod / Team name">
           <input name="name" required placeholder="Vikings" />
+        </Field>
+        <Field label="Crew">
+          <select name="crewId" defaultValue={crews[0]?.id ?? ""} className="w-full rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2">
+            <option value="">Unassigned</option>
+            {crews.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
         </Field>
         <Field label="Mapped location">
           <input name="mappedLocation" defaultValue="India" required />
@@ -62,10 +78,7 @@ export function NewTeamForm() {
           <input name="resourceSprintRate" type="number" min={0} defaultValue={2500} required />
         </Field>
         {error ? <p className="text-sm text-rose-300">{error}</p> : null}
-        <button
-          className="btn-primary disabled:opacity-60"
-          disabled={busy}
-        >
+        <button className="btn-primary disabled:opacity-60" disabled={busy}>
           {busy ? "Creating…" : "Create team"}
         </button>
       </form>

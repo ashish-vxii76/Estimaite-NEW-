@@ -10,15 +10,20 @@ import { getActiveConfig } from "@/services/configService";
 export default async function NewEstimatePage() {
   const session = await auth();
   if (!can(session?.user.role, "estimates.create", "RW")) redirect("/home");
-  const [teams, locations, config] = await Promise.all([
+  const [teams, locations, config, orgUnits] = await Promise.all([
     teamsForUser(fromSession(session!.user)),
     prisma.location.findMany({ where: { active: true } }),
     getActiveConfig(),
+    prisma.orgUnit.findMany({
+      where: { active: true },
+      select: { id: true, type: true, name: true, parentId: true },
+    }),
   ]);
   return (
     <EstimateWizard
       teams={teams}
       locations={locations}
+      orgUnits={orgUnits}
       complexityDimensions={config.complexityDimensions}
       releaseQuarters={config.releaseQuarters}
       readinessCriteria={config.readinessCriteria}

@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { getPortfolio } from "@/services/portfolioService";
-import { BudgetForm } from "@/components/BudgetForm";
 import { PortfolioCharts } from "@/components/PortfolioCharts";
 import { StatusBadge } from "@/components/ui";
 import { formatMoney } from "@/lib/utils";
 import { DELIVERY_FLAGS, T_SHIRTS } from "@/domain/estimation";
 import { auth } from "@/auth";
 import { can } from "@/lib/access";
-import { estimateScope, fromSession } from "@/lib/scope";
+import { fromSession, resolveEstimateScope } from "@/lib/scope";
+import { prisma } from "@/lib/prisma";
 
 const RAG_CLASS: Record<string, string> = {
   UNSET: "bg-slate-100 text-slate-700",
@@ -16,42 +16,154 @@ const RAG_CLASS: Record<string, string> = {
   RED: "bg-rose-50 text-rose-800",
 };
 
-export default async function PortfolioPage() {
+export default async function PortfolioPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ year?: string; crew?: string }>;
+}) {
   const session = await auth();
-  const data = await getPortfolio(estimateScope(fromSession(session!.user)));
+  const { year: yearParam = "", crew: crewFilter = "" } = await searchParams;
+  const year = Number(yearParam) || new Date().getFullYear();
+  const scope = await resolveEstimateScope(fromSession(session!.user));
+  const data = await getPortfolio({
+    scope,
+    year,
+    crewId: crewFilter || null,
+    user: fromSession(session!.user),
+  });
   const currency = data.currency;
   const canCreate = can(session?.user.role, "estimates.create", "RW");
-  const canBudget = can(session?.user.role, "portfolio.budget", "RW");
+  const canBudget =
+    can(session?.user.role, "org.budget") || can(session?.user.role, "portfolio.budget");
+
+  const crews = await prisma.orgUnit.findMany({
+    where: { type: "CREW", active: true },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
+  const yearOptions = Array.from(new Set([year - 1, year, year + 1, year + 2])).sort();
 
   return (
     <div className="space-y-6">
       <div>
         <p className="kicker">Register</p>
-        <h1 className="font-display text-2xl font-semibold text-[var(--navy)]">Portfolio Roll-Up</h1>
+        <h1 className="font-display text-2xl font-semibold text-[var(--navy)]">Roll-up & CR register</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Aggregates calculated CRs in this profile&apos;s scope. Admin sees every team; other
-          roles see only their team. Budget RAG uses the entered portfolio budget.
+          Costs roll up from Pod → Crew → Stream → Sub-division → Division → Company. Budget is yearly
+          CHF at Crew; Budget year matches Release year. Both baseline and AI-adjusted totals are shown.
         </p>
       </div>
 
+      <section className="card space-y-4 p-5">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Budget / release year</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {yearOptions.map((y) => (
+              <Link
+                key={y}
+                href={`/portfolio?year=${y}${crewFilter ? `&crew=${crewFilter}` : ""}`}
+                className={`rounded-lg border px-3 py-2 text-sm ${
+                  y === year
+                    ? "border-[var(--navy)] bg-[var(--navy)] text-white"
+                    : "border-[var(--line)] bg-[var(--panel-2)]"
+                }`}
+              >
+                {y}
+              </Link>
+            ))}
+          </div>
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Crew</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Link
+              href={`/portfolio?year=${year}`}
+              className={`rounded-lg border px-3 py-2 text-sm ${
+                !crewFilter
+                  ? "border-[var(--navy)] bg-[var(--navy)] text-white"
+                  : "border-[var(--line)] bg-[var(--panel-2)]"
+              }`}
+            >
+              All crews
+            </Link>
+            {crews.map((c) => (
+              <Link
+                key={c.id}
+                href={`/portfolio?year=${year}&crew=${c.id}`}
+                className={`rounded-lg border px-3 py-2 text-sm ${
+                  crewFilter === c.id
+                    ? "border-[var(--navy)] bg-[var(--navy)] text-white"
+                    : "border-[var(--line)] bg-[var(--panel-2)]"
+                }`}
+              >
+                {c.name}
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <Tile label="Total Estimates" value={String(data.totalEstimates)} />
-        <Tile label="Total AI-Adjusted Cost" value={formatMoney(data.totalAiAdjustedCost, currency)} />
-        <Tile label="Total Baseline Cost" value={formatMoney(data.totalBaselineCost, currency)} />
-        <Tile label="Total Effort (PD)" value={data.totalEffortPd.toLocaleString()} />
+        <Tile label={`Estimates (${year})`} value={String(data.totalEstimates)} />
+        <Tile label="Total AI-adjusted (CHF)" value={formatMoney(data.totalAiAdjustedCost, currency)} />
+        <Tile label="Total baseline (CHF)" value={formatMoney(data.totalBaselineCost, currency)} />
+        <Tile label="Total effort (PD)" value={data.totalEffortPd.toLocaleString()} />
         <div className="card p-4">
-          <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Budget Status (RAG)</p>
+          <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Budget RAG (AI vs Crew sum)</p>
           <p className={`mt-2 inline-flex rounded-full px-3 py-1 text-sm font-medium ${RAG_CLASS[data.budgetRag]}`}>
             {data.budgetLabel}
           </p>
           <p className="mt-2 text-xs text-[var(--muted)]">
-            {data.budget != null ? formatMoney(data.budget, currency) : "No budget entered"}
+            Crew budget {year}:{" "}
+            {data.budget != null ? formatMoney(data.budget, currency) : "No Crew budgets for this year"}
+          </p>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            Baseline RAG:{" "}
+            <span className={`rounded px-1.5 py-0.5 font-medium ${RAG_CLASS[data.baselineBudgetRag] ?? ""}`}>
+              {data.baselineBudgetRag}
+            </span>
           </p>
         </div>
       </div>
 
-      <section id="budget" className="card scroll-mt-6 p-5">
-        <BudgetForm budget={data.budget} currency={currency} readOnly={!canBudget} />
+      <section id="budget" className="card scroll-mt-6 space-y-3 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-medium text-[var(--navy)]">Crew yearly budgets ({year})</h2>
+            <p className="text-sm text-[var(--muted)]">
+              Budgets are set per Crew in CHF. Higher org levels roll up as the sum of Crews.
+            </p>
+          </div>
+          {canBudget ? (
+            <Link href="/admin/crew-budgets" className="btn-primary text-sm">
+              Manage Crew budgets
+            </Link>
+          ) : null}
+        </div>
+        {data.crewBudgets.length === 0 ? (
+          <p className="text-sm text-[var(--muted)]">No Crew budgets for {year} yet.</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="text-[var(--muted)]">
+              <tr>
+                <th className="py-2 text-left">Crew</th>
+                <th className="py-2 text-right">Budget (CHF)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.crewBudgets.map((row) => (
+                <tr key={row.crewId} className="border-t border-[var(--line)]">
+                  <td className="py-2">{row.crewName}</td>
+                  <td className="py-2 text-right">{formatMoney(row.amount, row.currency)}</td>
+                </tr>
+              ))}
+              <tr className="border-t border-[var(--line)] font-medium">
+                <td className="py-2">Total</td>
+                <td className="py-2 text-right">{formatMoney(data.budget ?? 0, currency)}</td>
+              </tr>
+            </tbody>
+          </table>
+        )}
       </section>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -97,32 +209,34 @@ export default async function PortfolioPage() {
 
       <section className="card overflow-x-auto">
         <div className="flex items-center justify-between px-5 py-4">
-          <h2 className="font-medium">CR Register</h2>
+          <h2 className="font-medium">CR Register ({year})</h2>
           {canCreate ? (
             <Link href="/estimates/new" className="text-sm font-medium text-[var(--navy)] underline">
               New estimate
             </Link>
           ) : null}
         </div>
-        <table className="w-full min-w-[900px] text-left text-sm">
+        <table className="w-full min-w-[1100px] text-left text-sm">
           <thead className="bg-[var(--panel-2)] text-[var(--muted)]">
             <tr>
               <th className="px-4 py-3">CR</th>
               <th>Title</th>
-              <th>Team</th>
+              <th>Crew</th>
+              <th>Pod</th>
+              <th>Programme</th>
+              <th>Project</th>
+              <th>Release</th>
               <th>T-Shirt</th>
-              <th>SP</th>
               <th>Delivery flag</th>
               <th>Baseline</th>
               <th>AI-adj</th>
-              <th>Effort PD</th>
             </tr>
           </thead>
           <tbody>
             {data.register.length === 0 ? (
               <tr>
-                <td className="px-4 py-6 text-[var(--muted)]" colSpan={9}>
-                  No CRs in the register yet. Create an estimate to populate the roll-up.
+                <td className="px-4 py-6 text-[var(--muted)]" colSpan={11}>
+                  No CRs with release year {year} in scope.
                 </td>
               </tr>
             ) : (
@@ -134,15 +248,17 @@ export default async function PortfolioPage() {
                     </Link>
                   </td>
                   <td>{row.title}</td>
+                  <td>{row.crew}</td>
                   <td>{row.team}</td>
+                  <td>{row.programme || "—"}</td>
+                  <td>{row.project || "—"}</td>
+                  <td>{row.release || "—"}</td>
                   <td>{row.effectiveTshirt}</td>
-                  <td>{row.selectedSp ?? "—"}</td>
                   <td>
                     <StatusBadge status={row.deliveryFlag ?? row.governanceDecision} />
                   </td>
                   <td>{formatMoney(row.baselineDeliveryCost, row.currency)}</td>
                   <td>{formatMoney(row.aiAdjustedDeliveryCost, row.currency)}</td>
-                  <td>{row.adjustedTotalEffortPd || "—"}</td>
                 </tr>
               ))
             )}

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/access";
-import { estimateScope, fromSession, type ScopeUser } from "@/lib/scope";
+import { fromSession, resolveEstimateScope, type ScopeUser } from "@/lib/scope";
 
 export type AppNotification = {
   id: string;
@@ -23,7 +23,7 @@ export async function buildNotifications(
   user: ScopeUser | { id: string; role: string; teamId?: string | null },
 ): Promise<AppNotification[]> {
   const scoped = fromSession(user);
-  const scope = estimateScope(scoped);
+  const scope = await resolveEstimateScope(scoped);
   const [drafts, pendingReview, pendingApprove, resultRows] = await Promise.all([
     prisma.estimate.count({ where: { ...scope, status: { in: ["DRAFT", "RETURNED"] } } }),
     prisma.estimate.count({ where: { ...scope, status: "READY_FOR_REVIEW" } }),

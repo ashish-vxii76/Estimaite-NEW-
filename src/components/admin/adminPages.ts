@@ -2,6 +2,8 @@ export const ADMIN_PAGES = [
   ["/admin", "Overview"],
   ["/admin/users", "Login credentials"],
   ["/admin/rbac", "RBAC"],
+  ["/admin/organisation", "Organisation setup"],
+  ["/admin/crew-budgets", "Crew budgets"],
   ["/teams", "Teams"],
   ["/admin/team-composition", "Team composition"],
   ["/admin/release-quarters", "Release quarters"],

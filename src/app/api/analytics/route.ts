@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireFeature, requireUser } from "@/lib/api-auth";
-import { estimateScope, fromSession } from "@/lib/scope";
+import { fromSession, resolveEstimateScope } from "@/lib/scope";
 
 export async function GET() {
   const { session, error } = await requireUser();
   if (error) return error;
   const forbidden = requireFeature(session!.user.role, "analytics");
   if (forbidden) return forbidden;
+  const scope = await resolveEstimateScope(fromSession(session!.user));
   const estimates = await prisma.estimate.findMany({
-    where: { resultJson: { not: null }, ...estimateScope(fromSession(session!.user)) },
+    where: { resultJson: { not: null }, ...scope },
     include: { team: true, actuals: true },
   });
   const byTeam: Record<string, { count: number; avgSp: number }> = {};

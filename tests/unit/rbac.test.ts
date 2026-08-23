@@ -131,6 +131,8 @@ const PDF: Record<FeatureId, Partial<Record<AppRole, Access>>> = {
   },
   "config.users": { ADMINISTRATOR: "RW" },
   "config.rbac": { ADMINISTRATOR: "RW" },
+  "org.setup": { ADMINISTRATOR: "RW", DELIVERY_LEAD: "R" },
+  "org.budget": { ADMINISTRATOR: "RW", FINANCE: "RW", DELIVERY_LEAD: "RW" },
   "scope.allTeams": { ADMINISTRATOR: "R" },
   "scope.writeAnyOnTeam": {
     ADMINISTRATOR: "R",

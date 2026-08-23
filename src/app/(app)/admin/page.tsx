@@ -13,6 +13,18 @@ const CLUSTERS = [
     ],
   },
   {
+    title: "Organisation",
+    preview:
+      "Company → Division → Sub-division → Stream → Crew → Pod. Yearly CHF budgets sit on Crews; parents roll up as sums. Programme / Project stay free text beside the cascade.",
+    feature: "org.setup" as const,
+    links: [
+      ["/admin/organisation", "Organisation setup"],
+      ["/admin/crew-budgets", "Crew yearly budgets"],
+      ["/teams", "Pods / Teams"],
+      ["/admin/team-composition", "Team composition"],
+    ],
+  },
+  {
     title: "Lists & catalogues",
     preview:
       "User-editable lists that feed Ready / Size / Plan dropdowns and Home filters. Change labels here without code deploys.",
@@ -36,15 +48,6 @@ const CLUSTERS = [
     ],
   },
   {
-    title: "People",
-    preview: "Teams, composition, and seniority capacity drive sprints — not cost first.",
-    feature: "config.teams" as const,
-    links: [
-      ["/teams", "Teams"],
-      ["/admin/team-composition", "Team composition"],
-    ],
-  },
-  {
     title: "Money",
     preview: "CHF sprint and daily rates. Project override is optional and audited.",
     feature: "config.rates" as const,
@@ -61,7 +64,13 @@ export default async function AdminHomePage() {
   const role = session?.user.role;
   const visible = CLUSTERS.filter((cluster) => {
     if (cluster.feature === "config.users") return can(role, "config.users") || can(role, "config.rbac");
-    if (cluster.title === "People") return can(role, "config.teams") || can(role, "config.mappings");
+    if (cluster.title === "Organisation") {
+      return (
+        can(role, "org.setup") ||
+        can(role, "org.budget") ||
+        can(role, "config.teams")
+      );
+    }
     return can(role, cluster.feature);
   });
 
@@ -85,6 +94,8 @@ export default async function AdminHomePage() {
                 .filter(([href]) => {
                   if (href === "/admin/rbac") return can(role, "config.rbac");
                   if (href === "/admin/users") return can(role, "config.users");
+                  if (href === "/admin/organisation") return can(role, "org.setup");
+                  if (href === "/admin/crew-budgets") return can(role, "org.budget");
                   if (href.startsWith("/teams") || href.includes("composition")) return can(role, "config.teams");
                   if (href.includes("cost") || href.includes("daily")) return can(role, "config.rates");
                   if (href.includes("resource-mapping")) return can(role, "config.mappings");
