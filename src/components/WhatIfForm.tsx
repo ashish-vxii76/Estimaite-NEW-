@@ -1,12 +1,28 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { DEFAULT_CONFIG } from "@/domain/estimation/defaultConfig";
-import type { EstimateCalculationInput } from "@/domain/estimation/types";
+import type {
+  EstimateCalculationInput,
+  EstimateCalculationResult,
+} from "@/domain/estimation/types";
 import { formatMoney } from "@/lib/utils";
 import type { ScenarioTeam } from "@/lib/scenarioTeams";
 
 export type { ScenarioTeam } from "@/lib/scenarioTeams";
+
+export type ScenarioAcceptPayload = {
+  estimate: {
+    teamId: string;
+    availableDev: number;
+    availableQa: number;
+    devResourceLevel: string;
+    qaResourceLevel: string;
+    planningMode: string;
+  };
+  result: EstimateCalculationResult;
+};
 
 type WhatIfResult = {
   teamId?: string;
@@ -38,6 +54,16 @@ export type SavedScenarioSnapshot = {
   maxSprints?: number | null;
   selectedTeamId: string;
   scenario: ScenarioPayload;
+};
+
+type MixRow = {
+  bestDevLevel: string;
+  bestQaLevel: string;
+  devCount: number;
+  qaCount: number;
+  sprints: number;
+  cost: number | null;
+  effort: number;
 };
 
 const OBJECTIVES: { value: string; label: string }[] = [
@@ -88,27 +114,33 @@ export function WhatIfForm({
   defaultTeamId,
   owningTeamId,
   estimateId,
+  estimateStatus = "DRAFT",
   initialSaved,
+  canAccept = false,
+  onSaved,
+  onAccepted,
   mode = "standalone",
 }: {
   teams: ScenarioTeam[];
-  /** When set, scenarios run against this governed estimate input (sandbox only). */
   base?: EstimateCalculationInput;
-  /** Default selected team (CR owner on estimate tab). */
   defaultTeamId?: string;
-  /** CR owning team — shown in sensitivity copy. */
   owningTeamId?: string;
-  /** Estimate id — required to persist a scenario snapshot. */
   estimateId?: string;
-  /** Previously saved sandbox snapshot for this CR. */
+  estimateStatus?: string;
   initialSaved?: SavedScenarioSnapshot | null;
+  canAccept?: boolean;
+  onSaved?: (snapshot: SavedScenarioSnapshot) => void;
+  onAccepted?: (payload: ScenarioAcceptPayload) => void;
   mode?: "standalone" | "estimate";
 }) {
+  const router = useRouter();
   const lockedTeamId =
     mode === "estimate" ? owningTeamId || defaultTeamId || teams[0]?.teamId || "" : "";
   const [teamId, setTeamId] = useState(lockedTeamId || defaultTeamId || teams[0]?.teamId || "");
   const [objective, setObjective] = useState(initialSaved?.objective || "LOWEST_COST");
-  const [maxSprints, setMaxSprints] = useState(Number(initialSaved?.maxSprints) || 3);
+  const [maxSprints, setMaxSprints] = useState(
+    initialSaved?.maxSprints != null ? Number(initialSaved.maxSprints) : 3,
+  );
   const [scenario, setScenario] = useState<ScenarioPayload | null>(
     initialSaved?.scenario ?? null,
   );
@@ -121,30 +153,52 @@ export function WhatIfForm({
   );
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [accepting, setAccepting] = useState(false);
   const [dirty, setDirty] = useState(!initialSaved?.scenario);
+  const [expandTeamId, setExpandTeamId] = useState("");
+  const [allMixes, setAllMixes] = useState<MixRow[] | null>(null);
+  const [mixesBusy, setMixesBusy] = useState(false);
+  const [acceptSource, setAcceptSource] = useState<"selected" | "recommended">("selected");
+  const [applyTeam, setApplyTeam] = useState(false);
 
-  /** Only Cheapest within N consumes a sprint deadline. */
+  useEffect(() => {
+    if (!initialSaved?.scenario) return;
+    setScenario(initialSaved.scenario);
+    setObjective(initialSaved.objective || "LOWEST_COST");
+    if (initialSaved.maxSprints != null) setMaxSprints(Number(initialSaved.maxSprints));
+    setDirty(false);
+    setMessage(`Loaded saved scenario from ${new Date(initialSaved.savedAt).toLocaleString()}`);
+  }, [initialSaved]);
+
   const deadlineEnabled = objective === "CHEAPEST_WITHIN_N_SPRINTS";
-  /** On the CR tab, team is always the owning team (read-only). Standalone stays editable. */
   const teamLocked = mode === "estimate";
   const effectiveTeamId = teamLocked ? lockedTeamId || teamId : teamId;
   const selectedTeam = teams.find((t) => t.teamId === effectiveTeamId);
-  const usingEstimateBase = Boolean(base);
   const owningName =
     teams.find((t) => t.teamId === (owningTeamId || defaultTeamId || lockedTeamId))?.teamName ??
     "owning team";
   const canSave = mode === "estimate" && Boolean(estimateId) && Boolean(scenario);
+  const acceptAllowed =
+    canAccept &&
+    mode === "estimate" &&
+    Boolean(estimateId) &&
+    Boolean(scenario) &&
+    ["READY_FOR_REVIEW", "REVIEWED"].includes(estimateStatus);
 
   const objectiveLabel = useMemo(
     () => OBJECTIVES.find((o) => o.value === objective)?.label ?? objective,
     [objective],
   );
 
+  const acceptMix =
+    acceptSource === "recommended" ? scenario?.recommended : scenario?.selected;
+
   async function run() {
     setError("");
     setMessage("");
     setBusy(true);
-    setScenario(null);
+    setAllMixes(null);
+    setExpandTeamId("");
     setStandaloneResult(null);
     try {
       if (!selectedTeam) {
@@ -165,7 +219,7 @@ export function WhatIfForm({
         });
         const data = await res.json();
         if (!res.ok) {
-          setError(data.error ?? "Failed");
+          setError(typeof data.error === "string" ? data.error : "Failed");
           return;
         }
         setScenario(data.scenario as ScenarioPayload);
@@ -183,7 +237,7 @@ export function WhatIfForm({
         });
         const data = await res.json();
         if (!res.ok) {
-          setError(data.error ?? "Failed");
+          setError(typeof data.error === "string" ? data.error : "Failed");
           return;
         }
         setStandaloneResult(data.result as WhatIfResult);
@@ -214,12 +268,98 @@ export function WhatIfForm({
         setError(typeof data.error === "string" ? data.error : "Save failed");
         return;
       }
+      const snapshot = data.scenario as SavedScenarioSnapshot;
       setDirty(false);
       setMessage(
-        `Scenario saved ${data.scenario?.savedAt ? new Date(data.scenario.savedAt).toLocaleString() : ""}`.trim(),
+        `Scenario saved ${snapshot.savedAt ? new Date(snapshot.savedAt).toLocaleString() : ""}`.trim(),
       );
+      onSaved?.(snapshot);
+      router.refresh();
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function loadMixes(teamIdToExpand: string) {
+    if (!teamIdToExpand) {
+      setExpandTeamId("");
+      setAllMixes(null);
+      return;
+    }
+    setMixesBusy(true);
+    setError("");
+    try {
+      const res = await fetch("/api/what-if", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          base: base ?? FALLBACK_BASE,
+          teams,
+          selectedTeamId: effectiveTeamId,
+          objective,
+          maxSprints: deadlineEnabled ? maxSprints : undefined,
+          expandTeamId: teamIdToExpand,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(typeof data.error === "string" ? data.error : "Failed to load mixes");
+        return;
+      }
+      setExpandTeamId(teamIdToExpand);
+      setAllMixes((data.allMixes as MixRow[]) ?? []);
+    } finally {
+      setMixesBusy(false);
+    }
+  }
+
+  async function accept() {
+    if (!estimateId || !acceptMix?.feasible || !acceptMix.teamId) return;
+    const teamNote = applyTeam
+      ? `\n\nAlso reassign this CR to ${acceptMix.teamName}.`
+      : "\n\nCR team ownership will stay unchanged.";
+    const ok = window.confirm(
+      `Accept this scenario into the governed estimate?\n\n` +
+        `${acceptMix.devCount} ${acceptMix.bestDevLevel} Dev + ${acceptMix.qaCount} ${acceptMix.bestQaLevel} QA` +
+        `\nThis updates Plan & cost fields and recalculates SP/cost/sprints.` +
+        teamNote,
+    );
+    if (!ok) return;
+    setError("");
+    setMessage("");
+    setAccepting(true);
+    try {
+      const res = await fetch(`/api/estimates/${estimateId}/scenario/accept`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: acceptSource,
+          applyTeam,
+          mix: {
+            teamId: acceptMix.teamId,
+            teamName: acceptMix.teamName,
+            bestDevLevel: acceptMix.bestDevLevel,
+            bestQaLevel: acceptMix.bestQaLevel,
+            devCount: acceptMix.devCount,
+            qaCount: acceptMix.qaCount,
+          },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(typeof data.error === "string" ? data.error : "Accept failed");
+        return;
+      }
+      setMessage("Scenario accepted into the governed estimate. Audit trail updated.");
+      if (data.estimate && data.result) {
+        onAccepted?.({
+          estimate: data.estimate,
+          result: data.result as EstimateCalculationResult,
+        });
+      }
+      router.refresh();
+    } finally {
+      setAccepting(false);
     }
   }
 
@@ -227,9 +367,9 @@ export function WhatIfForm({
     <div className={mode === "estimate" ? "space-y-5" : "card space-y-4 p-5"}>
       {mode === "estimate" ? (
         <p className="text-sm text-[var(--muted)]">
-          Pick an objective and run. Team is fixed to this CR&apos;s owner ({owningName}). Deadline
-          unlocks only for &ldquo;Cheapest within N sprints&rdquo;. Save stores the sandbox snapshot
-          on this CR — it does not change SP, cost, team, or status.
+          Pick an objective and run. Baseline team is this CR&apos;s owner ({owningName}). Deadline
+          unlocks only for &ldquo;Cheapest within N sprints&rdquo;. Save keeps a sandbox snapshot;
+          Accept (review stage only) promotes staffing into the governed estimate.
         </p>
       ) : (
         <p className="text-sm text-[var(--muted)]">
@@ -247,6 +387,8 @@ export function WhatIfForm({
             onChange={(e) => {
               setObjective(e.target.value);
               setDirty(true);
+              setAllMixes(null);
+              setExpandTeamId("");
             }}
           >
             {OBJECTIVES.map((o) => (
@@ -261,7 +403,8 @@ export function WhatIfForm({
           <input
             type="number"
             min={1}
-            value={maxSprints}
+            value={deadlineEnabled ? maxSprints : ""}
+            placeholder="—"
             disabled={!deadlineEnabled}
             title={
               deadlineEnabled
@@ -275,26 +418,29 @@ export function WhatIfForm({
             className="mt-1 w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 disabled:cursor-not-allowed disabled:bg-[var(--bg)]"
           />
         </label>
-        <label className={`text-sm ${teamLocked ? "opacity-50" : ""}`}>
-          {teamLocked ? "CR team (baseline)" : "Selected team"}
-          <select
-            className="mt-1 w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 disabled:cursor-not-allowed disabled:bg-[var(--bg)]"
-            value={effectiveTeamId}
-            disabled={teamLocked}
-            title={
-              teamLocked
-                ? "Fixed to this CR's owning team. Cross-team options appear in the comparison table."
-                : undefined
-            }
-            onChange={(e) => setTeamId(e.target.value)}
-          >
-            {teams.map((t) => (
-              <option key={t.teamId} value={t.teamId}>
-                {t.teamName}
-              </option>
-            ))}
-          </select>
-        </label>
+        {teamLocked ? (
+          <div className="text-sm">
+            <p className="text-[var(--muted)]">CR team (baseline)</p>
+            <p className="mt-1 rounded-lg border border-[var(--line)] bg-[var(--bg)] px-3 py-2 font-medium text-[var(--navy)]">
+              {owningName}
+            </p>
+          </div>
+        ) : (
+          <label className="text-sm">
+            Selected team
+            <select
+              className="mt-1 w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2"
+              value={effectiveTeamId}
+              onChange={(e) => setTeamId(e.target.value)}
+            >
+              {teams.map((t) => (
+                <option key={t.teamId} value={t.teamId}>
+                  {t.teamName}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
 
       {selectedTeam ? (
@@ -302,7 +448,7 @@ export function WhatIfForm({
           Roster: max {selectedTeam.maxDev} Dev / {selectedTeam.maxQa} QA · levels{" "}
           {selectedTeam.availableLevels.join(", ") || "none"} · blend{" "}
           {selectedTeam.locationBlendLabel}
-          {usingEstimateBase ? " · base = this CR" : " · base = generic defaults"}
+          {base ? " · base = this CR" : " · base = generic defaults"}
         </p>
       ) : null}
 
@@ -332,12 +478,84 @@ export function WhatIfForm({
       {message ? <p className="text-sm text-[var(--navy)]">{message}</p> : null}
 
       {mode === "estimate" && scenario ? (
-        <ScenarioOutcome
-          scenario={scenario}
-          objectiveLabel={objectiveLabel}
-          owningTeamName={owningName}
-          currency={base?.currency ?? selectedTeam?.currency ?? "CHF"}
-        />
+        <>
+          <ScenarioOutcome
+            scenario={scenario}
+            objectiveLabel={objectiveLabel}
+            owningTeamName={owningName}
+            currency={base?.currency ?? selectedTeam?.currency ?? "CHF"}
+            teams={teams}
+            expandTeamId={expandTeamId}
+            allMixes={allMixes}
+            mixesBusy={mixesBusy}
+            onExpandTeam={loadMixes}
+          />
+          {acceptAllowed ? (
+            <section className="space-y-3 rounded-xl border border-[var(--line)] bg-white p-4">
+              <div>
+                <p className="kicker">Accept into estimate</p>
+                <h3 className="font-display text-lg font-semibold text-[var(--navy)]">
+                  Promote staffing (review stage)
+                </h3>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  Available while status is Ready for review or Reviewed. Recalculates the governed
+                  pack and writes an audit event.
+                </p>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="text-sm">
+                  Apply mix from
+                  <select
+                    className="mt-1 w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2"
+                    value={acceptSource}
+                    onChange={(e) =>
+                      setAcceptSource(e.target.value as "selected" | "recommended")
+                    }
+                  >
+                    <option value="selected">
+                      Baseline team best ({scenario.selected.teamName})
+                    </option>
+                    <option value="recommended" disabled={!scenario.recommended?.feasible}>
+                      Recommended team
+                      {scenario.recommended?.feasible
+                        ? ` (${scenario.recommended.teamName})`
+                        : " (none)"}
+                    </option>
+                  </select>
+                </label>
+                <label className="flex items-start gap-2 text-sm md:mt-6">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={applyTeam}
+                    onChange={(e) => setApplyTeam(e.target.checked)}
+                    disabled={
+                      !acceptMix?.teamId || acceptMix.teamId === (owningTeamId || lockedTeamId)
+                    }
+                  />
+                  <span>
+                    Also reassign CR team to the mix&apos;s team
+                    <span className="block text-xs text-[var(--muted)]">
+                      Off by default — ownership stays with {owningName}.
+                    </span>
+                  </span>
+                </label>
+              </div>
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={accepting || !acceptMix?.feasible}
+                onClick={accept}
+              >
+                {accepting ? "Accepting…" : "Accept scenario"}
+              </button>
+            </section>
+          ) : mode === "estimate" && scenario ? (
+            <p className="text-xs text-[var(--muted)]">
+              Accept is available during Ready for review / Reviewed when you can edit estimates.
+            </p>
+          ) : null}
+        </>
       ) : null}
       {mode === "standalone" && standaloneResult ? (
         <StandaloneOutcome result={standaloneResult} objectiveLabel={objectiveLabel} />
@@ -351,25 +569,36 @@ function ScenarioOutcome({
   objectiveLabel,
   owningTeamName,
   currency,
+  teams,
+  expandTeamId,
+  allMixes,
+  mixesBusy,
+  onExpandTeam,
 }: {
   scenario: ScenarioPayload;
   objectiveLabel: string;
   owningTeamName: string;
   currency: string;
+  teams: ScenarioTeam[];
+  expandTeamId: string;
+  allMixes: MixRow[] | null;
+  mixesBusy: boolean;
+  onExpandTeam: (teamId: string) => void;
 }) {
   const selected = scenario.selected;
   const recommended = scenario.recommended;
+  const expandName = teams.find((t) => t.teamId === expandTeamId)?.teamName;
 
   return (
     <div className="space-y-6 border-t border-[var(--line)] pt-5">
       <section className="space-y-3">
         <div>
-          <p className="kicker">1 · Selected team</p>
+          <p className="kicker">1 · Baseline team</p>
           <h3 className="font-display text-lg font-semibold text-[var(--navy)]">
             Recommended for {selected.teamName}
           </h3>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Best mix on the selected team for {objectiveLabel}.
+            Best mix on the CR baseline team for {objectiveLabel}.
           </p>
         </div>
         {selected.feasible ? (
@@ -447,6 +676,62 @@ function ScenarioOutcome({
             </tbody>
           </table>
         </div>
+
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="text-sm">
+            Show all mixes for
+            <select
+              className="mt-1 block min-w-[180px] rounded-lg border border-[var(--line)] bg-white px-3 py-2"
+              value={expandTeamId}
+              onChange={(e) => onExpandTeam(e.target.value)}
+            >
+              <option value="">Hidden</option>
+              {teams.map((t) => (
+                <option key={t.teamId} value={t.teamId}>
+                  {t.teamName}
+                </option>
+              ))}
+            </select>
+          </label>
+          {mixesBusy ? <p className="text-sm text-[var(--muted)]">Loading mixes…</p> : null}
+        </div>
+
+        {expandTeamId && allMixes ? (
+          <div className="overflow-x-auto rounded-xl border border-dashed border-[var(--line)]">
+            <p className="bg-[var(--panel-2)] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
+              All mixes · {expandName} · {allMixes.length} combinations
+            </p>
+            <table className="w-full min-w-[640px] text-left text-sm">
+              <thead className="text-xs uppercase tracking-wide text-[var(--muted)]">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Dev</th>
+                  <th className="px-3 py-2 font-medium">QA</th>
+                  <th className="px-3 py-2 font-medium">Dev#</th>
+                  <th className="px-3 py-2 font-medium">QA#</th>
+                  <th className="px-3 py-2 font-medium">Sprints</th>
+                  <th className="px-3 py-2 font-medium">Cost</th>
+                  <th className="px-3 py-2 font-medium">Effort</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allMixes.map((row, idx) => (
+                  <tr
+                    key={`${row.bestDevLevel}-${row.bestQaLevel}-${row.devCount}-${row.qaCount}-${idx}`}
+                    className="border-t border-[var(--line)]"
+                  >
+                    <td className="px-3 py-1.5">{row.bestDevLevel}</td>
+                    <td className="px-3 py-1.5">{row.bestQaLevel}</td>
+                    <td className="px-3 py-1.5">{row.devCount}</td>
+                    <td className="px-3 py-1.5">{row.qaCount}</td>
+                    <td className="px-3 py-1.5">{row.sprints}</td>
+                    <td className="px-3 py-1.5">{formatMoney(row.cost, currency)}</td>
+                    <td className="px-3 py-1.5">{row.effort}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
       </section>
 
       <section className="rounded-xl border border-[var(--line)] bg-[var(--panel-2)] p-4">
@@ -464,8 +749,8 @@ function ScenarioOutcome({
           </p>
         ) : null}
         <p className="mt-2 text-xs text-[var(--muted)]">
-          Sensitivity view — the CR stays with {owningTeamName}; this shows the trade if
-          reassigned. Does not change the estimate.
+          Sensitivity view — the CR stays with {owningTeamName} unless you Accept with team
+          reassignment. Does not change the estimate until Accept.
         </p>
       </section>
 
