@@ -54,8 +54,8 @@ describe("left navigation tree", () => {
     expect(find("admin-rbac")?.href).toBe("/admin/rbac");
     expect(canSeeNav(find("admin-rbac")!, "ADMINISTRATOR")).toBe(true);
     expect(canSeeNav(find("admin-rbac")!, "APPROVER")).toBe(false);
-    expect(canSeeNav(find("portfolio")!, "APPROVER")).toBe(true);
-    expect(canSeeNav(find("portfolio")!, "REQUESTER")).toBe(false);
+    expect(canSeeNav(find("portfolio-rollup")!, "APPROVER")).toBe(true);
+    expect(canSeeNav(find("portfolio-rollup")!, "REQUESTER")).toBe(false);
     expect(canSeeNav(find("admin-users")!, "FINANCE")).toBe(false);
     expect(canSeeNav(find("admin-users")!, "ADMINISTRATOR")).toBe(true);
     expect(canCreate(find("estimates")!, "APPROVER")).toBe(false);
