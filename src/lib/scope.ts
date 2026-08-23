@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { seesAllTeams } from "@/lib/rbac";
+import { seesAllTeams } from "@/lib/access";
 import type { Prisma } from "@prisma/client";
 
 export type ScopeUser = {

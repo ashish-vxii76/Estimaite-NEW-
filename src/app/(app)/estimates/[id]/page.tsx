@@ -4,8 +4,7 @@ import { auth } from "@/auth";
 import { EstimateWizard } from "@/components/EstimateWizard";
 import { toScenarioTeams } from "@/lib/scenarioTeams";
 import { StatusBadge } from "@/components/ui";
-import { can } from "@/lib/access";
-import { writesOwnRecordsOnly } from "@/lib/rbac";
+import { can, writesOwnRecordsOnly } from "@/lib/access";
 import { canSeeEstimate, fromSession, teamsForUser } from "@/lib/scope";
 import { getActiveConfig } from "@/services/configService";
 

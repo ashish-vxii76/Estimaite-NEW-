@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireFeature, requireUser, requireVisibleEstimate } from "@/lib/api-auth";
 import { applyOverride } from "@/services/estimateService";
-import { writesOwnRecordsOnly } from "@/lib/rbac";
+import { writesOwnRecordsOnly } from "@/lib/access";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { session, error } = await requireUser();
