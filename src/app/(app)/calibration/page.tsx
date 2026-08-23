@@ -3,11 +3,13 @@ import { CalibrationActions } from "@/components/CalibrationActions";
 import { ExplanationPanel } from "@/components/ui";
 import { auth } from "@/auth";
 import { can } from "@/lib/access";
-import { estimateScope, fromSession } from "@/lib/scope";
+import { fromSession, resolveEstimateScope } from "@/lib/scope";
 
 export default async function CalibrationPage() {
   const session = await auth();
-  const [data] = await Promise.all([getCalibration(estimateScope(fromSession(session!.user)))]);
+  const [data] = await Promise.all([
+    getCalibration(await resolveEstimateScope(fromSession(session!.user))),
+  ]);
   const canApply = can(session?.user.role, "calibration.apply", "RW");
 
   return (

@@ -5,7 +5,7 @@ import { HomeCharts } from "@/components/HomeCharts";
 import { HomeFilters } from "@/components/HomeFilters";
 import { HomeActionsPanel } from "@/components/HomeActionsPanel";
 import { can } from "@/lib/access";
-import { estimateScope, fromSession } from "@/lib/scope";
+import { fromSession, resolveEstimateScope, teamsForUser } from "@/lib/scope";
 import { welcomeLine } from "@/lib/roles";
 import { getActiveConfig } from "@/services/configService";
 import { buildHomeActions } from "@/lib/homeInbox";
@@ -14,17 +14,28 @@ import { releaseWhere } from "@/lib/releasePeriod";
 export default async function HomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ team?: string; workItemType?: string; release?: string }>;
+  searchParams: Promise<{
+    team?: string;
+    workItemType?: string;
+    release?: string;
+    crew?: string;
+  }>;
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
   if (!can(session.user.role, "home")) redirect("/estimates");
 
-  const { team: teamFilter = "", workItemType = "", release = "" } = await searchParams;
-  const scope = estimateScope(fromSession(session.user));
+  const {
+    team: teamFilter = "",
+    workItemType = "",
+    release = "",
+    crew: crewFilter = "",
+  } = await searchParams;
+  const scope = await resolveEstimateScope(fromSession(session.user));
   const filter = {
     ...scope,
     ...(teamFilter ? { teamId: teamFilter } : {}),
+    ...(crewFilter && !teamFilter ? { team: { crewId: crewFilter } } : {}),
     ...(workItemType ? { workItemType } : {}),
     ...releaseWhere(release),
   };
@@ -41,6 +52,7 @@ export default async function HomePage({
     team,
     config,
     teams,
+    orgUnits,
   ] = await Promise.all([
     prisma.estimate.count({ where: filter }),
     prisma.estimate.count({ where: { ...filter, status: { in: ["DRAFT", "RETURNED"] } } }),
@@ -62,14 +74,10 @@ export default async function HomePage({
       ? prisma.team.findUnique({ where: { id: session.user.teamId }, select: { name: true } })
       : Promise.resolve(null),
     getActiveConfig(),
-    prisma.team.findMany({
-      where:
-        session.user.role === "ADMINISTRATOR"
-          ? undefined
-          : session.user.teamId
-            ? { id: session.user.teamId }
-            : { id: "__none__" },
-      select: { id: true, name: true },
+    teamsForUser(fromSession(session.user)),
+    prisma.orgUnit.findMany({
+      where: { active: true },
+      select: { id: true, name: true, type: true, parentId: true },
       orderBy: { name: "asc" },
     }),
   ]);
@@ -98,6 +106,10 @@ export default async function HomePage({
   const showActions = can(session.user.role, "home.actions");
   const actions = showActions ? buildHomeActions(session.user.role) : [];
 
+  const filteredTeams = crewFilter
+    ? teams.filter((t) => t.crewId === crewFilter)
+    : teams;
+
   return (
     <div className="space-y-6">
       <div>
@@ -113,11 +125,13 @@ export default async function HomePage({
       </div>
 
       <HomeFilters
-        teams={teams.map((t) => ({ value: t.id, label: t.name }))}
+        teams={filteredTeams.map((t) => ({ value: t.id, label: t.name }))}
         quarters={quarters}
+        orgUnits={orgUnits}
         team={teamFilter}
         workItemType={workItemType}
         release={release}
+        crew={crewFilter}
       />
 
       <div className="grid gap-4 md:grid-cols-5">

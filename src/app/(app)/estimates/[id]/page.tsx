@@ -5,7 +5,7 @@ import { EstimateWizard } from "@/components/EstimateWizard";
 import { toScenarioTeams } from "@/lib/scenarioTeams";
 import { StatusBadge } from "@/components/ui";
 import { can, writesOwnRecordsOnly } from "@/lib/access";
-import { canSeeEstimate, fromSession, teamsForUser } from "@/lib/scope";
+import { canSeeEstimateAsync, fromSession, teamsForUser } from "@/lib/scope";
 import { getActiveConfig } from "@/services/configService";
 
 export default async function EstimateDetailPage({
@@ -25,17 +25,21 @@ export default async function EstimateDetailPage({
     },
   });
   if (!estimate) notFound();
-  if (!canSeeEstimate(fromSession(session!.user), estimate)) notFound();
+  if (!(await canSeeEstimateAsync(fromSession(session!.user), estimate))) notFound();
 
   const ownOnly = writesOwnRecordsOnly(session?.user.role);
   const authored = estimate.createdById === session?.user.id;
   const canEdit =
     can(session?.user.role, "estimates.edit", "RW") && (!ownOnly || authored);
 
-  const [teams, locations, config] = await Promise.all([
+  const [teams, locations, config, orgUnits] = await Promise.all([
     teamsForUser(fromSession(session!.user)),
     prisma.location.findMany({ where: { active: true } }),
     getActiveConfig(),
+    prisma.orgUnit.findMany({
+      where: { active: true },
+      select: { id: true, type: true, name: true, parentId: true },
+    }),
   ]);
   const result = estimate.resultJson ? JSON.parse(estimate.resultJson) : null;
   let savedScenario = null;
@@ -63,6 +67,7 @@ export default async function EstimateDetailPage({
         estimateId={estimate.id}
         teams={teams}
         locations={locations}
+        orgUnits={orgUnits}
         complexityDimensions={config.complexityDimensions}
         releaseQuarters={config.releaseQuarters}
         readinessCriteria={config.readinessCriteria}

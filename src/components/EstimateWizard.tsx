@@ -44,6 +44,15 @@ type Team = {
   teamSprintRate: number;
   resourceSprintRate: number;
   mappedLocation: string;
+  crewId?: string | null;
+  crew?: { id: string; name: string; parentId: string | null } | null;
+};
+
+type OrgUnitRow = {
+  id: string;
+  type: string;
+  name: string;
+  parentId: string | null;
 };
 
 type Location = {
@@ -75,6 +84,7 @@ export function EstimateWizard({
   initial,
   teams,
   locations,
+  orgUnits = [],
   complexityDimensions = DEFAULT_CONFIG.complexityDimensions,
   releaseQuarters = DEFAULT_CONFIG.releaseQuarters,
   readinessCriteria = DEFAULT_CONFIG.readinessCriteria,
@@ -98,6 +108,7 @@ export function EstimateWizard({
   initial?: Record<string, unknown>;
   teams: Team[];
   locations: Location[];
+  orgUnits?: OrgUnitRow[];
   /** Hydrated Size-step dimensions (labels score 1–5). Defaults to DEFAULT_CONFIG. */
   complexityDimensions?: ComplexityDimensionConfig[];
   releaseQuarters?: string[];
@@ -290,6 +301,36 @@ export function EstimateWizard({
   }, [form, locations, teams]);
 
   const selectedTeam = teams.find((t) => t.id === form.teamId);
+
+  const orgPathLabels = useMemo(() => {
+    const byId = new Map(orgUnits.map((u) => [u.id, u]));
+    const crew =
+      selectedTeam?.crew ??
+      (selectedTeam?.crewId ? byId.get(selectedTeam.crewId) : null) ??
+      null;
+    if (!crew) {
+      return {
+        company: "—",
+        division: "—",
+        subDivision: "—",
+        stream: "—",
+        crew: "—",
+        pod: selectedTeam?.name ?? "—",
+      };
+    }
+    const stream = crew.parentId ? byId.get(crew.parentId) : null;
+    const sub = stream?.parentId ? byId.get(stream.parentId) : null;
+    const division = sub?.parentId ? byId.get(sub.parentId) : null;
+    const company = division?.parentId ? byId.get(division.parentId) : null;
+    return {
+      company: company?.name ?? "—",
+      division: division?.name ?? "—",
+      subDivision: sub?.name ?? "—",
+      stream: stream?.name ?? "—",
+      crew: crew.name,
+      pod: selectedTeam?.name ?? "—",
+    };
+  }, [orgUnits, selectedTeam]);
 
   function applyTeam(teamId: string) {
     const team = teams.find((t) => t.id === teamId);
@@ -621,6 +662,18 @@ export function EstimateWizard({
                   onChange={(e) => setForm({ ...form, requester: e.target.value })}
                 />
               </Field>
+              <div className="md:col-span-2 rounded-lg border border-[var(--line)] bg-[var(--panel-2)] p-3">
+                <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
+                  Organisation (from Pod)
+                </p>
+                <p className="mt-1 text-sm text-[var(--navy)]">
+                  {orgPathLabels.company} → {orgPathLabels.division} → {orgPathLabels.subDivision} →{" "}
+                  {orgPathLabels.stream} → {orgPathLabels.crew} → {orgPathLabels.pod}
+                </p>
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  Derived from the selected Pod&apos;s Crew. Change Pod on Plan &amp; cost.
+                </p>
+              </div>
               <Field label="Project">
                 <input value={form.project} onChange={(e) => setForm({ ...form, project: e.target.value })} />
               </Field>
@@ -1201,6 +1254,10 @@ export function EstimateWizard({
                     ["Requester", form.requester || "—"],
                     ["Project", form.project || "—"],
                     ["Programme", form.programme || "—"],
+                    [
+                      "Organisation",
+                      `${orgPathLabels.company} → ${orgPathLabels.division} → ${orgPathLabels.subDivision} → ${orgPathLabels.stream} → ${orgPathLabels.crew} → ${orgPathLabels.pod}`,
+                    ],
                     ["Release year", parsedRelease.year || "—"],
                     ["Release quarter", parsedRelease.quarter || "—"],
                     ["GitLab / JIRA ID", form.jiraId || "—"],

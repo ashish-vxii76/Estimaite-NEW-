@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { can, type FeatureId } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
-import { canSeeEstimate, fromSession } from "@/lib/scope";
+import { canSeeEstimateAsync, fromSession } from "@/lib/scope";
 import { getCachedRbacMatrix, getRbacMatrix } from "@/services/rbacService";
 
 export async function requireUser() {
@@ -23,7 +23,7 @@ export async function requireVisibleEstimate(user: {
   if (!estimate) {
     return { estimate: null, error: NextResponse.json({ error: "Not found" }, { status: 404 }) };
   }
-  if (!canSeeEstimate(fromSession(user), estimate)) {
+  if (!(await canSeeEstimateAsync(fromSession(user), estimate))) {
     return { estimate: null, error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
   return { estimate, error: null };

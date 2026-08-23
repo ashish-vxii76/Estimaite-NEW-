@@ -96,8 +96,20 @@ export const NAV_TREE: NavNode[] = [
         label: "Organisation",
         children: [
           {
+            id: "organisation-setup",
+            label: "Organisation setup",
+            href: "/admin/organisation",
+            feature: "org.setup",
+          },
+          {
+            id: "crew-budgets",
+            label: "Crew budgets",
+            href: "/admin/crew-budgets",
+            feature: "org.budget",
+          },
+          {
             id: "teams",
-            label: "Teams",
+            label: "Teams (Pods)",
             href: "/teams",
             feature: "config.teams",
             createHref: "/teams/new",
@@ -190,7 +202,9 @@ export function canSeeNav(node: NavNode, role: string, matrix?: RbacMatrix): boo
       can(role, "config.rates", "R", matrix) ||
       can(role, "config.mappings", "R", matrix) ||
       can(role, "config.users", "R", matrix) ||
-      can(role, "config.rbac", "R", matrix)
+      can(role, "config.rbac", "R", matrix) ||
+      can(role, "org.setup", "R", matrix) ||
+      can(role, "org.budget", "R", matrix)
     );
   }
   return true;

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireFeature, requireUser } from "@/lib/api-auth";
 import { estimateInputSchema, updateEstimate } from "@/services/estimateService";
-import { canSeeEstimate, fromSession } from "@/lib/scope";
+import { canSeeEstimateAsync, fromSession } from "@/lib/scope";
 import { writesOwnRecordsOnly } from "@/lib/access";
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -23,12 +23,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     },
   });
   if (!estimate) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (
-    !canSeeEstimate(
-      fromSession(session!.user),
-      estimate,
-    )
-  ) {
+  if (!(await canSeeEstimateAsync(fromSession(session!.user), estimate))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   return NextResponse.json({
@@ -50,12 +45,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const existing = await prisma.estimate.findUnique({ where: { id } });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (
-    !canSeeEstimate(
-      fromSession(session!.user),
-      existing,
-    )
-  ) {
+  if (!(await canSeeEstimateAsync(fromSession(session!.user), existing))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   if (writesOwnRecordsOnly(session!.user.role) && existing.createdById !== session!.user.id) {

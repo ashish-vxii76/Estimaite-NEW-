@@ -29,7 +29,7 @@ export const FEATURES = [
   { id: "estimates.delete", group: "Estimate lifecycle", label: "Delete (hard)" },
   { id: "estimates.export", group: "Estimate lifecycle", label: "Export estimate / data" },
   { id: "portfolio.view", group: "Portfolio, tools & analytics", label: "Portfolio roll-up & CR register" },
-  { id: "portfolio.budget", group: "Portfolio, tools & analytics", label: "Portfolio budget (set)" },
+  { id: "portfolio.budget", group: "Portfolio, tools & analytics", label: "Crew budgets (legacy portfolio budget grant)" },
   { id: "whatIf", group: "Portfolio, tools & analytics", label: "What-If / Scenarios tab" },
   { id: "calibration.view", group: "Portfolio, tools & analytics", label: "Calibration (view)" },
   { id: "calibration.apply", group: "Portfolio, tools & analytics", label: "Apply calibration → config" },
@@ -39,6 +39,8 @@ export const FEATURES = [
   { id: "config.mappings", group: "Configuration", label: "Mappings & thresholds" },
   { id: "config.users", group: "Configuration", label: "User & role management" },
   { id: "config.rbac", group: "Configuration", label: "RBAC matrix" },
+  { id: "org.setup", group: "Organisation", label: "Organisation setup (tree & seats)" },
+  { id: "org.budget", group: "Organisation", label: "Crew yearly budgets" },
   {
     id: "scope.allTeams",
     group: "Record scope",
@@ -211,6 +213,15 @@ export const DEFAULT_RBAC: Record<FeatureId, Record<AppRole, Access>> = {
   "config.rbac": cell({
     ADMINISTRATOR: RW,
   }),
+  "org.setup": cell({
+    ADMINISTRATOR: RW,
+    DELIVERY_LEAD: R,
+  }),
+  "org.budget": cell({
+    ADMINISTRATOR: RW,
+    FINANCE: RW,
+    DELIVERY_LEAD: RW,
+  }),
   /** Cross-team visibility. Blank = own team only (via user.teamId). */
   "scope.allTeams": cell({
     ADMINISTRATOR: R,
@@ -306,6 +317,8 @@ export function writesOwnRecordsOnly(
 export const PATH_FEATURES: { prefix: string; feature: FeatureId; mode: "R" | "RW" }[] = [
   { prefix: "/admin/users", feature: "config.users", mode: "R" },
   { prefix: "/admin/rbac", feature: "config.rbac", mode: "R" },
+  { prefix: "/admin/organisation", feature: "org.setup", mode: "R" },
+  { prefix: "/admin/crew-budgets", feature: "org.budget", mode: "R" },
   { prefix: "/admin/team-composition", feature: "config.teams", mode: "R" },
   { prefix: "/teams", feature: "config.teams", mode: "R" },
   { prefix: "/admin/cost-mapping", feature: "config.rates", mode: "R" },
@@ -347,7 +360,9 @@ export function canAccessPath(
       can(role, "config.rates", "R", matrix) ||
       can(role, "config.mappings", "R", matrix) ||
       can(role, "config.users", "R", matrix) ||
-      can(role, "config.rbac", "R", matrix)
+      can(role, "config.rbac", "R", matrix) ||
+      can(role, "org.setup", "R", matrix) ||
+      can(role, "org.budget", "R", matrix)
     );
   }
   const mapped = featureForPath(pathname);

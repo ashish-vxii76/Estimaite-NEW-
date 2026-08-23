@@ -33,6 +33,7 @@ export async function POST(request: Request) {
       costMethod: "Resource Cost per Sprint",
       effectiveFrom: new Date(),
       active: true,
+      ...(body.crewId ? { crewId: String(body.crewId) } : {}),
     },
   });
   return NextResponse.json({ team }, { status: 201 });

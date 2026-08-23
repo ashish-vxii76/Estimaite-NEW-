@@ -6,7 +6,7 @@ import { EstimateFilters } from "@/components/EstimateFilters";
 import { formatMoney } from "@/lib/utils";
 import type { EstimateCalculationResult } from "@/domain/estimation/types";
 import { can } from "@/lib/access";
-import { estimateScope, fromSession } from "@/lib/scope";
+import { fromSession, resolveEstimateScope, teamsForUser } from "@/lib/scope";
 import { getActiveConfig } from "@/services/configService";
 import { releaseWhere } from "@/lib/releasePeriod";
 
@@ -20,6 +20,7 @@ export default async function EstimatesPage({
     workItemType?: string;
     tshirt?: string;
     flag?: string;
+    crew?: string;
   }>;
 }) {
   const session = await auth();
@@ -30,8 +31,9 @@ export default async function EstimatesPage({
     workItemType = "",
     tshirt = "",
     flag = "",
+    crew = "",
   } = await searchParams;
-  const scope = estimateScope(fromSession(session!.user));
+  const scope = await resolveEstimateScope(fromSession(session!.user));
   const where = {
     ...scope,
     ...(status === "DRAFT"
@@ -41,15 +43,22 @@ export default async function EstimatesPage({
         : {}),
     ...releaseWhere(release),
     ...(team ? { teamId: team } : {}),
+    ...(crew && !team ? { team: { crewId: crew } } : {}),
     ...(workItemType ? { workItemType } : {}),
   };
-  const [estimates, config] = await Promise.all([
+  const [estimates, config, teams, orgUnits] = await Promise.all([
     prisma.estimate.findMany({
       where,
-      include: { team: true },
+      include: { team: { include: { crew: true } } },
       orderBy: { updatedAt: "desc" },
     }),
     getActiveConfig(),
+    teamsForUser(fromSession(session!.user)),
+    prisma.orgUnit.findMany({
+      where: { active: true, type: "CREW" },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
   const canCreate = can(session?.user.role, "estimates.create", "RW");
   const quarters = config.releaseQuarters ?? [];
@@ -67,6 +76,8 @@ export default async function EstimatesPage({
       }
       return true;
     });
+
+  const filteredTeams = crew ? teams.filter((t) => t.crewId === crew) : teams;
 
   return (
     <div className="space-y-5">
@@ -89,6 +100,10 @@ export default async function EstimatesPage({
         release={release}
         tshirt={tshirt}
         flag={flag}
+        crew={crew}
+        team={team}
+        crews={orgUnits}
+        teams={filteredTeams.map((t) => ({ id: t.id, name: t.name }))}
       />
 
       <div className="card overflow-x-auto">
@@ -98,7 +113,8 @@ export default async function EstimatesPage({
               <th className="px-4 py-3">Reference</th>
               <th>Type</th>
               <th>Title</th>
-              <th>Team</th>
+              <th>Crew</th>
+              <th>Pod</th>
               <th>Release</th>
               <th>T-shirt</th>
               <th>SP</th>
@@ -110,7 +126,7 @@ export default async function EstimatesPage({
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td className="px-4 py-8 text-[var(--muted)]" colSpan={10}>
+                <td className="px-4 py-8 text-[var(--muted)]" colSpan={11}>
                   No estimates in this filter for this profile.
                 </td>
               </tr>
@@ -129,6 +145,7 @@ export default async function EstimatesPage({
                     </td>
                     <td>{row.workItemType === "EPIC" ? "Epic" : "Issue"}</td>
                     <td>{row.title}</td>
+                    <td>{row.team.crew?.name ?? "—"}</td>
                     <td>{row.team.name}</td>
                     <td>{row.release || "—"}</td>
                     <td className="font-semibold text-[var(--navy)]">
