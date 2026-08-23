@@ -685,11 +685,17 @@ function ScenarioOutcome({
           <label className="text-sm">
             Show all mixes for
             <select
-              className="mt-1 block min-w-[180px] rounded-lg border border-[var(--line)] bg-white px-3 py-2"
+              className="mt-1 block min-w-[200px] rounded-lg border border-[var(--line)] bg-white px-3 py-2"
               value={expandTeamId}
               onChange={(e) => onExpandTeam(e.target.value)}
             >
-              <option value="">Hidden</option>
+              {expandTeamId ? (
+                <option value="">Hide mixes</option>
+              ) : (
+                <option value="" disabled>
+                  Select a team…
+                </option>
+              )}
               {teams.map((t) => (
                 <option key={t.teamId} value={t.teamId}>
                   {t.teamName}
