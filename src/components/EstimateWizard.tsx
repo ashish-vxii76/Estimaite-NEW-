@@ -6,6 +6,13 @@ import Link from "next/link";
 import { DEFAULT_CONFIG } from "@/domain/estimation/defaultConfig";
 import { calculateComplexityIndex } from "@/domain/estimation/complexity";
 import { formatMoney } from "@/lib/utils";
+import {
+  formatRelease,
+  formatReleaseYearOnly,
+  parseRelease,
+  quartersForYear,
+  yearsFromCatalogue,
+} from "@/lib/releasePeriod";
 import { GovernedSummary } from "@/components/GovernedSummary";
 import { ActualsForm } from "@/components/ActualsForm";
 import { WhatIfForm, type ScenarioTeam, type SavedScenarioSnapshot } from "@/components/WhatIfForm";
@@ -173,6 +180,13 @@ export function EstimateWizard({
     locationId: locations.find((l) => l.name === (teams[0]?.mappedLocation ?? ""))?.id ?? locations[0]?.id ?? "",
     locationName: teams[0]?.mappedLocation ?? locations[0]?.name ?? "",
   });
+
+  const releaseYears = useMemo(() => yearsFromCatalogue(quarters), [quarters]);
+  const parsedRelease = useMemo(() => parseRelease(form.release), [form.release]);
+  const quartersForSelectedYear = useMemo(
+    () => quartersForYear(quarters, parsedRelease.year),
+    [quarters, parsedRelease.year],
+  );
 
   useEffect(() => {
     setStatus(estimateStatus);
@@ -616,13 +630,62 @@ export function EstimateWizard({
                   onChange={(e) => setForm({ ...form, programme: e.target.value })}
                 />
               </Field>
+              <Field label="Release year">
+                <select
+                  value={parsedRelease.year}
+                  onChange={(e) => {
+                    const year = e.target.value;
+                    if (!year) {
+                      setForm({ ...form, release: "" });
+                      return;
+                    }
+                    const nextQuarters = quartersForYear(quarters, year);
+                    const keep =
+                      parsedRelease.quarter && nextQuarters.includes(parsedRelease.quarter)
+                        ? parsedRelease.quarter
+                        : "";
+                    setForm({
+                      ...form,
+                      release: keep
+                        ? formatRelease(year, keep)
+                        : formatReleaseYearOnly(year),
+                    });
+                  }}
+                >
+                  <option value="">Select year</option>
+                  {releaseYears.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+              </Field>
               <Field label="Release quarter">
                 <select
-                  value={form.release}
-                  onChange={(e) => setForm({ ...form, release: e.target.value })}
+                  value={parsedRelease.quarter}
+                  disabled={!parsedRelease.year}
+                  className={!parsedRelease.year ? "cursor-not-allowed opacity-60" : undefined}
+                  title={parsedRelease.year ? undefined : "Select a release year first"}
+                  onChange={(e) => {
+                    const quarter = e.target.value;
+                    if (!parsedRelease.year) return;
+                    if (!quarter) {
+                      setForm({
+                        ...form,
+                        release: formatReleaseYearOnly(parsedRelease.year),
+                      });
+                      return;
+                    }
+                    setForm({
+                      ...form,
+                      release: formatRelease(parsedRelease.year, quarter),
+                    });
+                  }}
                 >
-                  <option value="">Select quarter</option>
-                  {quarters.map((q) => (
+                  <option value="">
+                    {parsedRelease.year ? "Select quarter" : "Select year first"}
+                  </option>
+                  {quartersForSelectedYear.map((q) => (
                     <option key={q} value={q}>
                       {q}
                     </option>
@@ -1138,7 +1201,8 @@ export function EstimateWizard({
                     ["Requester", form.requester || "—"],
                     ["Project", form.project || "—"],
                     ["Programme", form.programme || "—"],
-                    ["Release quarter", form.release || "—"],
+                    ["Release year", parsedRelease.year || "—"],
+                    ["Release quarter", parsedRelease.quarter || "—"],
                     ["GitLab / JIRA ID", form.jiraId || "—"],
                   ]}
                 />

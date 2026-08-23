@@ -3,6 +3,13 @@
 import { useRouter } from "next/navigation";
 import { DELIVERY_FLAGS } from "@/domain/estimation/portfolio";
 import { T_SHIRTS } from "@/domain/estimation/types";
+import {
+  formatRelease,
+  formatReleaseYearOnly,
+  parseRelease,
+  quartersForYear,
+  yearsFromCatalogue,
+} from "@/lib/releasePeriod";
 
 const STATUS_OPTIONS = [
   { value: "", label: "All statuses" },
@@ -29,6 +36,9 @@ export function EstimateFilters({
   flag: string;
 }) {
   const router = useRouter();
+  const years = yearsFromCatalogue(quarters);
+  const parsed = parseRelease(release);
+  const yearQuarters = quartersForYear(quarters, parsed.year);
 
   function apply(next: {
     status?: string;
@@ -70,14 +80,49 @@ export function EstimateFilters({
         </select>
       </label>
       <label className="text-sm">
+        Release year
+        <select
+          className={selectClass}
+          value={parsed.year}
+          onChange={(e) => {
+            const year = e.target.value;
+            if (!year) {
+              apply({ release: "" });
+              return;
+            }
+            const qs = quartersForYear(quarters, year);
+            const keep = parsed.quarter && qs.includes(parsed.quarter) ? parsed.quarter : "";
+            apply({
+              release: keep ? formatRelease(year, keep) : formatReleaseYearOnly(year),
+            });
+          }}
+        >
+          <option value="">All years</option>
+          {years.map((y) => (
+            <option key={y} value={y}>
+              {y}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className={`text-sm ${parsed.year ? "" : "opacity-60"}`}>
         Release quarter
         <select
           className={selectClass}
-          value={release}
-          onChange={(e) => apply({ release: e.target.value })}
+          value={parsed.quarter}
+          disabled={!parsed.year}
+          onChange={(e) => {
+            const quarter = e.target.value;
+            if (!parsed.year) return;
+            if (!quarter) {
+              apply({ release: formatReleaseYearOnly(parsed.year) });
+              return;
+            }
+            apply({ release: formatRelease(parsed.year, quarter) });
+          }}
         >
-          <option value="">All quarters</option>
-          {quarters.map((q) => (
+          <option value="">{parsed.year ? "All quarters" : "Select year first"}</option>
+          {yearQuarters.map((q) => (
             <option key={q} value={q}>
               {q}
             </option>
@@ -100,7 +145,7 @@ export function EstimateFilters({
         </select>
       </label>
       <label className="text-sm">
-        Flag
+        Delivery flag
         <select
           className={selectClass}
           value={flag}
@@ -114,16 +159,16 @@ export function EstimateFilters({
           ))}
         </select>
       </label>
-      <label className="text-sm md:col-span-2 xl:col-span-4 xl:max-w-xs">
+      <label className="text-sm">
         Status
         <select
           className={selectClass}
           value={status}
           onChange={(e) => apply({ status: e.target.value })}
         >
-          {STATUS_OPTIONS.map((opt) => (
-            <option key={opt.value || "all"} value={opt.value}>
-              {opt.label}
+          {STATUS_OPTIONS.map((o) => (
+            <option key={o.value || "all"} value={o.value}>
+              {o.label}
             </option>
           ))}
         </select>

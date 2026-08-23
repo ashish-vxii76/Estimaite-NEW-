@@ -8,6 +8,7 @@ import type { EstimateCalculationResult } from "@/domain/estimation/types";
 import { can } from "@/lib/access";
 import { estimateScope, fromSession } from "@/lib/scope";
 import { getActiveConfig } from "@/services/configService";
+import { releaseWhere } from "@/lib/releasePeriod";
 
 export default async function EstimatesPage({
   searchParams,
@@ -38,7 +39,7 @@ export default async function EstimatesPage({
       : status
         ? { status }
         : {}),
-    ...(release ? { release } : {}),
+    ...releaseWhere(release),
     ...(team ? { teamId: team } : {}),
     ...(workItemType ? { workItemType } : {}),
   };
