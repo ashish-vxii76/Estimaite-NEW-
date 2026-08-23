@@ -46,6 +46,8 @@ type ScenarioPayload = {
   selected: WhatIfResult;
   byTeam: WhatIfResult[];
   recommended: WhatIfResult | null;
+  /** How the current sandbox selected mix was chosen. */
+  selectionSource?: "objective" | "manual";
 };
 
 export type SavedScenarioSnapshot = {
@@ -65,6 +67,48 @@ type MixRow = {
   cost: number | null;
   effort: number;
 };
+
+function mixKey(row: {
+  bestDevLevel: string;
+  bestQaLevel: string;
+  devCount: number;
+  qaCount: number;
+}) {
+  return `${row.bestDevLevel}|${row.bestQaLevel}|${row.devCount}|${row.qaCount}`;
+}
+
+function sameMix(
+  a: {
+    bestDevLevel: string;
+    bestQaLevel: string;
+    devCount: number;
+    qaCount: number;
+  },
+  b: {
+    bestDevLevel: string;
+    bestQaLevel: string;
+    devCount: number;
+    qaCount: number;
+  },
+) {
+  return mixKey(a) === mixKey(b);
+}
+
+/** Client-side ranking aligned with what-if objectives (for sandbox recommended refresh). */
+function betterSandbox(a: WhatIfResult, b: WhatIfResult, objective: string) {
+  const costOf = (r: WhatIfResult) => r.cost ?? Number.POSITIVE_INFINITY;
+  if (objective === "FEWEST_SPRINTS" || objective === "BEST_VALUE" || objective === "FASTEST_DELIVERY") {
+    if (a.sprints !== b.sprints) return a.sprints < b.sprints;
+    if (costOf(a) !== costOf(b)) return costOf(a) < costOf(b);
+    return a.effort < b.effort;
+  }
+  if (objective === "LEAST_EFFORT") {
+    if (a.effort !== b.effort) return a.effort < b.effort;
+    return costOf(a) < costOf(b);
+  }
+  if (costOf(a) !== costOf(b)) return costOf(a) < costOf(b);
+  return a.sprints < b.sprints;
+}
 
 const OBJECTIVES: { value: string; label: string }[] = [
   { value: "LOWEST_COST", label: "Lowest cost" },
@@ -226,7 +270,10 @@ export function WhatIfForm({
           setError(typeof data.error === "string" ? data.error : "Failed");
           return;
         }
-        setScenario(data.scenario as ScenarioPayload);
+        setScenario({
+          ...(data.scenario as ScenarioPayload),
+          selectionSource: "objective",
+        });
         setDirty(true);
       } else {
         const res = await fetch("/api/what-if", {
@@ -315,6 +362,61 @@ export function WhatIfForm({
     } finally {
       setMixesBusy(false);
     }
+  }
+
+  /** Sandbox only — rewrite selected/byTeam; does not touch the governed estimate. */
+  function pickSandboxMix(teamIdForMix: string, mix: MixRow) {
+    if (!scenario || mode !== "estimate") return;
+    const team = teams.find((t) => t.teamId === teamIdForMix);
+    if (!team) return;
+    const baselineId = scenario.selected.teamId || owningTeamId || lockedTeamId;
+    const prior = scenario.byTeam.find((r) => r.teamId === teamIdForMix);
+    const nextRow: WhatIfResult = {
+      teamId: teamIdForMix,
+      teamName: team.teamName,
+      objective,
+      bestDevLevel: mix.bestDevLevel,
+      bestQaLevel: mix.bestQaLevel,
+      devCount: mix.devCount,
+      qaCount: mix.qaCount,
+      sprints: mix.sprints,
+      cost: mix.cost,
+      effort: mix.effort,
+      feasible: true,
+      combinationsTried: prior?.combinationsTried,
+      locationBlend: prior?.locationBlend ?? team.locationBlendLabel,
+      notes: [
+        `Manual sandbox pick for ${objectiveLabel} (was not necessarily the objective-best mix).`,
+      ],
+      rationale: prior?.rationale,
+    };
+    const nextByTeam = scenario.byTeam.map((row) =>
+      row.teamId === teamIdForMix ? nextRow : row,
+    );
+    let recommended: WhatIfResult | null = null;
+    for (const row of nextByTeam) {
+      if (!row.feasible) continue;
+      if (!recommended || betterSandbox(row, recommended, objective)) {
+        recommended = row;
+      }
+    }
+    const nextSelected =
+      baselineId && teamIdForMix === baselineId
+        ? { ...nextRow, notes: [...nextRow.notes] }
+        : scenario.selected;
+    setScenario({
+      selected: nextSelected,
+      byTeam: nextByTeam,
+      recommended,
+      selectionSource: teamIdForMix === baselineId ? "manual" : scenario.selectionSource,
+    });
+    setDirty(true);
+    setAcceptSource(teamIdForMix === baselineId ? "selected" : acceptSource);
+    setMessage(
+      teamIdForMix === baselineId
+        ? `Sandbox selection updated to ${mix.devCount} ${mix.bestDevLevel} Dev + ${mix.qaCount} ${mix.bestQaLevel} QA on ${team.teamName}. Save to keep; Accept still required to change the governed estimate.`
+        : `Sandbox mix for ${team.teamName} updated. Comparison / recommendation refreshed. Does not change the governed estimate.`,
+    );
   }
 
   async function accept() {
@@ -493,6 +595,8 @@ export function WhatIfForm({
             allMixes={allMixes}
             mixesBusy={mixesBusy}
             onExpandTeam={loadMixes}
+            canPickSandbox={mode === "estimate"}
+            onPickSandboxMix={pickSandboxMix}
           />
           {acceptAllowed ? (
             <section className="space-y-3 rounded-xl border border-[var(--line)] bg-white p-4">
@@ -578,6 +682,8 @@ function ScenarioOutcome({
   allMixes,
   mixesBusy,
   onExpandTeam,
+  canPickSandbox,
+  onPickSandboxMix,
 }: {
   scenario: ScenarioPayload;
   objectiveLabel: string;
@@ -588,10 +694,15 @@ function ScenarioOutcome({
   allMixes: MixRow[] | null;
   mixesBusy: boolean;
   onExpandTeam: (teamId: string) => void;
+  canPickSandbox: boolean;
+  onPickSandboxMix: (teamId: string, mix: MixRow) => void;
 }) {
   const selected = scenario.selected;
   const recommended = scenario.recommended;
   const expandName = teams.find((t) => t.teamId === expandTeamId)?.teamName;
+  const sandboxForExpand = scenario.byTeam.find((r) => r.teamId === expandTeamId && r.feasible);
+  const objectiveBestMix = allMixes && allMixes.length > 0 ? allMixes[0] : null;
+  const manualBaseline = scenario.selectionSource === "manual";
 
   return (
     <div className="space-y-6 border-t border-[var(--line)] pt-5">
@@ -599,10 +710,12 @@ function ScenarioOutcome({
         <div>
           <p className="kicker">1 · Baseline team</p>
           <h3 className="font-display text-lg font-semibold text-[var(--navy)]">
-            Recommended for {selected.teamName}
+            {manualBaseline ? "Sandbox selection for" : "Recommended for"} {selected.teamName}
           </h3>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Best mix on the CR baseline team for {objectiveLabel}.
+            {manualBaseline
+              ? "Manual sandbox pick (may differ from objective-best). Still sandbox until Accept."
+              : `Best mix on the CR baseline team for ${objectiveLabel}.`}
           </p>
         </div>
         {selected.feasible ? (
@@ -622,7 +735,8 @@ function ScenarioOutcome({
             Best team for this CR
           </h3>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Each team&apos;s own best combo for the objective (roster + that team&apos;s rates).
+            Each team&apos;s own combo for the objective. Expand a team to audit mixes;{" "}
+            <strong>Use this mix</strong> rewrites the sandbox only (not the governed estimate).
           </p>
         </div>
         <div className="overflow-x-auto rounded-xl border border-[var(--line)]">
@@ -710,8 +824,11 @@ function ScenarioOutcome({
           <div className="overflow-x-auto rounded-xl border border-dashed border-[var(--line)]">
             <p className="bg-[var(--panel-2)] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
               All mixes · {expandName} · {allMixes.length} combinations
+              {canPickSandbox
+                ? " · green = objective-best · blue = sandbox · Use this mix = sandbox only"
+                : ""}
             </p>
-            <table className="w-full min-w-[640px] text-left text-sm">
+            <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="text-xs uppercase tracking-wide text-[var(--muted)]">
                 <tr>
                   <th className="px-3 py-2 font-medium">Dev</th>
@@ -721,23 +838,63 @@ function ScenarioOutcome({
                   <th className="px-3 py-2 font-medium">Sprints</th>
                   <th className="px-3 py-2 font-medium">Cost</th>
                   <th className="px-3 py-2 font-medium">Effort</th>
+                  {canPickSandbox ? <th className="px-3 py-2 font-medium">Sandbox</th> : null}
                 </tr>
               </thead>
               <tbody>
-                {allMixes.map((row, idx) => (
-                  <tr
-                    key={`${row.bestDevLevel}-${row.bestQaLevel}-${row.devCount}-${row.qaCount}-${idx}`}
-                    className="border-t border-[var(--line)]"
-                  >
-                    <td className="px-3 py-1.5">{row.bestDevLevel}</td>
-                    <td className="px-3 py-1.5">{row.bestQaLevel}</td>
-                    <td className="px-3 py-1.5">{row.devCount}</td>
-                    <td className="px-3 py-1.5">{row.qaCount}</td>
-                    <td className="px-3 py-1.5">{row.sprints}</td>
-                    <td className="px-3 py-1.5">{formatMoney(row.cost, currency)}</td>
-                    <td className="px-3 py-1.5">{row.effort}</td>
-                  </tr>
-                ))}
+                {allMixes.map((row, idx) => {
+                  const isObjectiveBest = objectiveBestMix ? sameMix(row, objectiveBestMix) : idx === 0;
+                  const isApplied = Boolean(sandboxForExpand && sameMix(row, sandboxForExpand));
+                  return (
+                    <tr
+                      key={`${mixKey(row)}-${idx}`}
+                      className={`border-t border-[var(--line)] ${
+                        isObjectiveBest && !isApplied
+                          ? "bg-emerald-50/80"
+                          : isApplied
+                            ? "bg-sky-50/80"
+                            : ""
+                      }`}
+                    >
+                      <td className="px-3 py-1.5">
+                        {row.bestDevLevel}
+                        {isObjectiveBest ? (
+                          <span className="ml-2 text-[10px] font-semibold uppercase text-emerald-700">
+                            best
+                          </span>
+                        ) : null}
+                        {isApplied ? (
+                          <span className="ml-2 text-[10px] font-semibold uppercase text-sky-700">
+                            sandbox
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="px-3 py-1.5">{row.bestQaLevel}</td>
+                      <td className="px-3 py-1.5">{row.devCount}</td>
+                      <td className="px-3 py-1.5">{row.qaCount}</td>
+                      <td className="px-3 py-1.5">{row.sprints}</td>
+                      <td className="px-3 py-1.5">{formatMoney(row.cost, currency)}</td>
+                      <td className="px-3 py-1.5">{row.effort}</td>
+                      {canPickSandbox ? (
+                        <td className="px-3 py-1.5">
+                          <button
+                            type="button"
+                            className="btn-ghost px-2 py-1 text-xs"
+                            disabled={isApplied}
+                            title={
+                              isApplied
+                                ? "Already the sandbox mix for this team"
+                                : "Rewrite sandbox only — does not change the governed estimate"
+                            }
+                            onClick={() => onPickSandboxMix(expandTeamId, row)}
+                          >
+                            {isApplied ? "In sandbox" : "Use this mix"}
+                          </button>
+                        </td>
+                      ) : null}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
