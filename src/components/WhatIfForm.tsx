@@ -167,7 +167,11 @@ export function WhatIfForm({
     setObjective(initialSaved.objective || "LOWEST_COST");
     if (initialSaved.maxSprints != null) setMaxSprints(Number(initialSaved.maxSprints));
     setDirty(false);
-    setMessage(`Loaded saved scenario from ${new Date(initialSaved.savedAt).toLocaleString()}`);
+    setMessage((prev) =>
+      prev.startsWith("Scenario saved") || prev.startsWith("Scenario accepted")
+        ? prev
+        : `Loaded saved scenario from ${new Date(initialSaved.savedAt).toLocaleString()}`,
+    );
   }, [initialSaved]);
 
   const deadlineEnabled = objective === "CHEAPEST_WITHIN_N_SPRINTS";
