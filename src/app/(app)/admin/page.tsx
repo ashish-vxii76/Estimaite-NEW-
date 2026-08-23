@@ -5,7 +5,7 @@ import { can } from "@/lib/access";
 const CLUSTERS = [
   {
     title: "Access",
-    preview: "Who can sign in, which role they hold, which team they belong to, and the RBAC grid.",
+    preview: "Who can sign in, which role they hold, which team they belong to, and the RBAC grid (functions + record scope).",
     feature: "config.users" as const,
     links: [
       ["/admin/users", "Login credentials"],

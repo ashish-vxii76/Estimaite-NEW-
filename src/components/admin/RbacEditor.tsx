@@ -89,9 +89,12 @@ export function RbacEditor({
           <p className="kicker">Access</p>
           <h1 className="font-display text-2xl font-semibold text-[var(--navy)]">RBAC matrix</h1>
           <p className="mt-1 max-w-3xl text-sm text-[var(--muted)]">
-            Configurable source of truth for menus and APIs. <strong>RW</strong> is read-write,{" "}
-            <strong>R</strong> is read only, blank is no access. Team scope still applies: a Vikings
-            Approver only sees Vikings. Admin must keep RW on this page and on login credentials.
+            Configurable source of truth for menus, APIs, and record scope.{" "}
+            <strong>RW</strong> is read-write, <strong>R</strong> is read only, blank is no access.
+            Under <em>Record scope</em>, grant <strong>All teams</strong> for cross-team visibility and{" "}
+            <strong>Write any on team</strong> to edit teammates&apos; estimates (blank = own records
+            only). Function grants still required. Admin must keep RW on this page, login credentials,
+            and All teams scope.
           </p>
         </div>
         {canEdit ? (

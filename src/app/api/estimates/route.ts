@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireFeature, requireUser } from "@/lib/api-auth";
 import { createEstimate, estimateInputSchema } from "@/services/estimateService";
 import { estimateScope, fromSession } from "@/lib/scope";
-import { seesAllTeams } from "@/lib/rbac";
+import { seesAllTeams } from "@/lib/access";
 
 export async function GET() {
   const { session, error } = await requireUser();

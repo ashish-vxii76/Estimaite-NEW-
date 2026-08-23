@@ -50,6 +50,9 @@ export function assertAdminNotLockedOut(matrix: RbacMatrix) {
   if (!matrix["home.actions"].ADMINISTRATOR) {
     throw new Error("Admin must keep Home actions so admin shortcuts remain reachable");
   }
+  if (!matrix["scope.allTeams"].ADMINISTRATOR) {
+    throw new Error("Admin must keep All teams scope so administration is not trapped on one team");
+  }
 }
 
 export async function saveRbacMatrix(matrixInput: unknown, actorUserId?: string) {

@@ -39,6 +39,16 @@ export const FEATURES = [
   { id: "config.mappings", group: "Configuration", label: "Mappings & thresholds" },
   { id: "config.users", group: "Configuration", label: "User & role management" },
   { id: "config.rbac", group: "Configuration", label: "RBAC matrix" },
+  {
+    id: "scope.allTeams",
+    group: "Record scope",
+    label: "All teams — see records across every team",
+  },
+  {
+    id: "scope.writeAnyOnTeam",
+    group: "Record scope",
+    label: "Write any on team — edit teammates’ estimates (not only own)",
+  },
 ] as const;
 
 export type FeatureId = (typeof FEATURES)[number]["id"];
@@ -201,6 +211,22 @@ export const DEFAULT_RBAC: Record<FeatureId, Record<AppRole, Access>> = {
   "config.rbac": cell({
     ADMINISTRATOR: RW,
   }),
+  /** Cross-team visibility. Blank = own team only (via user.teamId). */
+  "scope.allTeams": cell({
+    ADMINISTRATOR: R,
+  }),
+  /**
+   * When blank, write actions (edit/submit/calculate/override) are limited to records
+   * the user authored. R or RW lifts that to any visible team record — still needs the
+   * matching function grant (e.g. estimates.edit).
+   */
+  "scope.writeAnyOnTeam": cell({
+    ADMINISTRATOR: R,
+    REVIEWER: R,
+    APPROVER: R,
+    FINANCE: R,
+    VIEWER: R,
+  }),
 };
 
 export const RBAC = DEFAULT_RBAC;
@@ -208,10 +234,11 @@ export const RBAC = DEFAULT_RBAC;
 export type RbacMatrix = Record<FeatureId, Record<AppRole, Access>>;
 
 export const GOVERNANCE_RULES = [
-  "Own-records scope: Requester, Estimator and Delivery Lead may write only records they authored; they may read others on their team.",
-  "Admin, Reviewer and Approver act across all records on their team (Admin: all teams) within granted functions.",
-  "No self-review / self-approval — including Admin — enforced on the record.",
-  "Two-person rule: Mark reviewed and Approve/reject must be different users.",
+  "Record scope is matrix-driven: scope.allTeams and scope.writeAnyOnTeam (Access → RBAC).",
+  "Default: Requester / Estimator / Delivery Lead have no write-any-on-team — they write only records they authored; they may read others on their team.",
+  "Default: Admin has all-teams; Reviewer / Approver / Finance / Viewer may write any on their team when they also have the function grant.",
+  "No self-review / self-approval — including Admin — enforced on the record (not matrix).",
+  "Two-person rule: Mark reviewed and Approve/reject must be different users (not matrix).",
   "Reopening an approved estimate clears review and approval.",
   "Server-side enforcement: hiding a control is not a permission.",
   "Deny by default: no explicit grant means no access.",
@@ -257,12 +284,23 @@ export function can(
   return access === "RW";
 }
 
-export function seesAllTeams(role: string | null | undefined): boolean {
-  return role === "ADMINISTRATOR";
+/** True when the role may see estimates/teams across every team (matrix: scope.allTeams). */
+export function seesAllTeams(
+  role: string | null | undefined,
+  matrix: RbacMatrix = DEFAULT_RBAC,
+): boolean {
+  return can(role, "scope.allTeams", "R", matrix);
 }
 
-export function writesOwnRecordsOnly(role: string | null | undefined): boolean {
-  return role === "REQUESTER" || role === "ESTIMATOR" || role === "DELIVERY_LEAD";
+/**
+ * True when write actions are limited to estimates the user authored.
+ * Inverse of matrix grant scope.writeAnyOnTeam.
+ */
+export function writesOwnRecordsOnly(
+  role: string | null | undefined,
+  matrix: RbacMatrix = DEFAULT_RBAC,
+): boolean {
+  return !can(role, "scope.writeAnyOnTeam", "R", matrix);
 }
 
 export const PATH_FEATURES: { prefix: string; feature: FeatureId; mode: "R" | "RW" }[] = [

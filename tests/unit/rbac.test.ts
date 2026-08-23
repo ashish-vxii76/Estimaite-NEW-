@@ -131,6 +131,14 @@ const PDF: Record<FeatureId, Partial<Record<AppRole, Access>>> = {
   },
   "config.users": { ADMINISTRATOR: "RW" },
   "config.rbac": { ADMINISTRATOR: "RW" },
+  "scope.allTeams": { ADMINISTRATOR: "R" },
+  "scope.writeAnyOnTeam": {
+    ADMINISTRATOR: "R",
+    REVIEWER: "R",
+    APPROVER: "R",
+    FINANCE: "R",
+    VIEWER: "R",
+  },
 };
 
 describe("RBAC matrix", () => {
@@ -192,8 +200,22 @@ describe("RBAC matrix", () => {
 
   it("limits write-own roles", () => {
     expect(writesOwnRecordsOnly("REQUESTER")).toBe(true);
+    expect(writesOwnRecordsOnly("ESTIMATOR")).toBe(true);
+    expect(writesOwnRecordsOnly("DELIVERY_LEAD")).toBe(true);
     expect(writesOwnRecordsOnly("APPROVER")).toBe(false);
     expect(writesOwnRecordsOnly("ADMINISTRATOR")).toBe(false);
+  });
+
+  it("derives team and write scope from matrix cells, not role names", () => {
+    const custom = normalizeMatrix({
+      ...RBAC,
+      "scope.allTeams": { ...RBAC["scope.allTeams"], APPROVER: "R" },
+      "scope.writeAnyOnTeam": { ...RBAC["scope.writeAnyOnTeam"], ESTIMATOR: "R" },
+    });
+    expect(seesAllTeams("APPROVER", custom)).toBe(true);
+    expect(seesAllTeams("APPROVER")).toBe(false);
+    expect(writesOwnRecordsOnly("ESTIMATOR", custom)).toBe(false);
+    expect(writesOwnRecordsOnly("ESTIMATOR")).toBe(true);
   });
 
   it("applies a saved overlay so Requester can be granted portfolio", () => {

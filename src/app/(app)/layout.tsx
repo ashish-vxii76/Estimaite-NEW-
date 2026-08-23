@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { getRbacMatrix } from "@/services/rbacService";
-import { can, canAccessPath } from "@/lib/access";
+import { can, canAccessPath, seesAllTeams } from "@/lib/access";
 import { buildNotifications } from "@/lib/homeInbox";
 import { fromSession } from "@/lib/scope";
 
@@ -21,7 +21,8 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   }
 
   let profiles: { email: string; name: string; role: string; teamName: string | null }[] = [];
-  let teamName: string | null = session.user.role === "ADMINISTRATOR" ? "All teams" : null;
+  const crossTeam = seesAllTeams(session.user.role);
+  let teamName: string | null = crossTeam ? "All teams" : null;
   try {
     const [users, team] = await Promise.all([
       prisma.user.findMany({
@@ -39,7 +40,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
       role: p.role,
       teamName: p.team?.name ?? null,
     }));
-    if (session.user.role !== "ADMINISTRATOR") teamName = team?.name ?? null;
+    if (!crossTeam) teamName = team?.name ?? null;
   } catch {
     const users = await prisma.user.findMany({
       where: { active: true },
