@@ -1054,68 +1054,262 @@ export function EstimateWizard({
         )}
 
         {moment === "final" && result && (
-          <section className="card space-y-6 p-6">
-            <header>
-              <p className="kicker">Final review</p>
-              <h3 className="font-display text-xl font-semibold text-[var(--navy)]">
-                Board-pack check before submit
-              </h3>
-              <p className="mt-1 text-sm text-[var(--muted)]">
-                Read-only summary of the CR. Submit for review when the pack is complete.
+          <section className="card space-y-5 p-6">
+            <header className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="kicker">Final review</p>
+                <h3 className="font-display text-xl font-semibold text-[var(--navy)]">
+                  Board-pack check before submit
+                </h3>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  Read-only pack of everything entered and calculated. Submit when ready.
+                </p>
+              </div>
+              <p className="rounded-lg border border-[var(--line)] bg-[var(--bg)] px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--navy)]">
+                {status.replace(/_/g, " ")}
               </p>
             </header>
 
-            <div className="overflow-hidden rounded-xl border border-[var(--line)]">
-              <table className="w-full text-sm">
-                <tbody>
-                  {[
+            {/* Headline strip — board decision at a glance */}
+            <div className="grid gap-3 rounded-xl border border-[var(--line)] bg-[var(--bg)] p-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--muted)]">
+                  Delivery flag
+                </p>
+                <p className="mt-0.5 font-display text-lg font-semibold text-[var(--navy)]">
+                  {result.deliveryFlag}
+                </p>
+                {result.governanceDecision !== result.deliveryFlag ? (
+                  <p className="text-xs text-[var(--muted)]">Govern: {result.governanceDecision}</p>
+                ) : null}
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--muted)]">
+                  Effective size
+                </p>
+                <p className="mt-0.5 font-display text-lg font-semibold text-[var(--navy)]">
+                  {result.effectiveTshirt} · {result.selectedSp} SP
+                </p>
+                <p className="text-xs text-[var(--muted)]">
+                  Assessed {result.assessedTshirt} · index {result.complexityIndex}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--muted)]">
+                  Plan
+                </p>
+                <p className="mt-0.5 font-display text-lg font-semibold text-[var(--navy)]">
+                  {result.finalSprints} sprint{result.finalSprints === 1 ? "" : "s"}
+                </p>
+                <p className="text-xs text-[var(--muted)]">
+                  {result.plannedDev} Dev / {result.plannedQa} QA · {result.utilisation}% util
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--muted)]">
+                  AI-adjusted cost
+                </p>
+                <p className="mt-0.5 font-display text-lg font-semibold text-[var(--navy)]">
+                  {result.costApplicability && result.costApplicability !== "OK"
+                    ? "Deferred"
+                    : formatMoney(result.aiAdjustedDeliveryCost, result.currency)}
+                </p>
+                <p className="text-xs text-[var(--muted)]">
+                  Confidence {result.confidence} · DoR {result.readinessScore}/{dorCriteria.length}{" "}
+                  ({result.dorStatus})
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-5 lg:grid-cols-2">
+              <ReviewBlock title="1 · Identity (Ready)">
+                <ReviewGrid
+                  rows={[
+                    ["Work item type", form.workItemType === "EPIC" ? "Epic ROM" : "Issue / Story"],
                     ["CR / reference", form.reference],
                     ["Title", form.title],
+                    ["Requester", form.requester || "—"],
+                    ["Project", form.project || "—"],
+                    ["Programme", form.programme || "—"],
                     ["Release quarter", form.release || "—"],
                     ["GitLab / JIRA ID", form.jiraId || "—"],
-                    ["Delivery flag", result.deliveryFlag],
+                  ]}
+                />
+                {form.description ? (
+                  <p className="mt-3 border-t border-[var(--line)] pt-3 text-sm text-[var(--navy)]">
+                    <span className="block text-[10px] font-semibold uppercase tracking-wider text-[var(--muted)]">
+                      Description
+                    </span>
+                    {form.description}
+                  </p>
+                ) : null}
+              </ReviewBlock>
+
+              <ReviewBlock title="2 · Definition of Ready">
+                <ul className="grid gap-2 sm:grid-cols-2">
+                  {dorCriteria.map((c) => {
+                    const answer = form.readiness[c.id] ?? "—";
+                    const yes = answer === "YES";
+                    return (
+                      <li
+                        key={c.id}
+                        className="flex items-start justify-between gap-2 rounded-lg border border-[var(--line)] px-2.5 py-2 text-sm"
+                      >
+                        <span className="text-[var(--navy)]">{c.label}</span>
+                        <span
+                          className={`shrink-0 text-xs font-semibold uppercase ${
+                            yes ? "text-emerald-700" : "text-[var(--warn)]"
+                          }`}
+                        >
+                          {answer}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className="mt-2 text-xs text-[var(--muted)]">
+                  Score {result.readinessScore}/{dorCriteria.length} · {result.dorStatus}
+                </p>
+              </ReviewBlock>
+
+              <ReviewBlock title="3 · Size">
+                <ReviewGrid
+                  rows={[
+                    ["Complexity index", String(result.complexityIndex)],
+                    ["Assessed T-shirt", result.assessedTshirt],
+                    ["Effective T-shirt", result.effectiveTshirt],
+                    ["Stance", form.stance],
+                    ["Optimistic SP", String(result.optimisticSp)],
+                    ["Neutral SP", String(result.baselineSp ?? result.selectedSp)],
+                    ["Pessimistic SP", String(result.pessimisticSp)],
+                    ["Selected SP", String(result.selectedSp)],
+                    ["Dev / QA SP", `${result.devSp} / ${result.qaSp}`],
+                    ["Complexity multiplier", String(result.complexityMultiplier)],
+                  ]}
+                />
+                <div className="mt-3 border-t border-[var(--line)] pt-3">
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--muted)]">
+                    Dimension scores
+                  </p>
+                  <ul className="grid gap-1.5 sm:grid-cols-2">
+                    {sizeDimensions.map((d) => {
+                      const score = Number(form.scores[d.id] ?? 0);
+                      const label = d.options?.[score - 1];
+                      return (
+                        <li key={d.id} className="flex justify-between gap-2 text-sm">
+                          <span className="text-[var(--muted)]">{d.name}</span>
+                          <span className="font-medium text-[var(--navy)]">
+                            {score}
+                            {label ? ` — ${label}` : ""}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              </ReviewBlock>
+
+              <ReviewBlock title="4 · Plan & cost">
+                <ReviewGrid
+                  rows={[
+                    ["Team", selectedTeam?.name ?? "—"],
+                    ...(form.workItemType === "EPIC"
+                      ? ([["Costing", "Deferred — ROM Epic"]] as [string, string][])
+                      : ([
+                          ["Costing basis", form.costingBasis || "—"],
+                          ["Cost method", form.costMethod || "—"],
+                          [
+                            "Location",
+                            form.costingBasis === "TEAM"
+                              ? selectedTeam?.mappedLocation || "—"
+                              : form.locationName || "—",
+                          ],
+                          [
+                            "Project override rate",
+                            form.projectOverrideRate
+                              ? String(form.projectOverrideRate)
+                              : "—",
+                          ],
+                          [
+                            "Other / fixed cost",
+                            form.otherFixedCost
+                              ? formatMoney(form.otherFixedCost, result.currency)
+                              : "—",
+                          ],
+                        ] as [string, string][])),
+                    ["Dev seniority", devLevel?.name ?? form.devResourceLevel],
+                    ["QA seniority", qaLevel?.name ?? form.qaResourceLevel],
+                    ["Dev days / point", String(devLevel?.daysPerPoint ?? "—")],
+                    ["QA days / point", String(qaLevel?.daysPerPoint ?? "—")],
                     [
-                      "AI-adjusted cost",
-                      formatMoney(result.aiAdjustedDeliveryCost, result.currency),
+                      "Planning mode",
+                      form.planningMode === "RESOURCE_CONSTRAINED"
+                        ? "Resource-constrained"
+                        : "Sprint-constrained",
                     ],
-                    ["Estimate Stance", form.stance],
-                    ["Effective T-Shirt (stance-adjusted)", result.effectiveTshirt],
-                    ["Optimistic SP (one size down)", String(result.optimisticSp)],
-                    ["Neutral SP (assessed size)", String(result.baselineSp ?? result.selectedSp)],
-                    ["Pessimistic SP (one size up)", String(result.pessimisticSp)],
-                    ["Selected SP (per stance)", String(result.selectedSp)],
-                    ["Complexity Effort Multiplier", String(result.complexityMultiplier)],
-                    ["Dev Days per Point", String(devLevel?.daysPerPoint ?? "—")],
-                    ["QA Days per Point", String(qaLevel?.daysPerPoint ?? "—")],
-                    ["Adjusted Dev Effort (PD)", String(result.adjustedDevEffortPd)],
-                    ["Adjusted QA Effort (PD)", String(result.adjustedQaEffortPd)],
-                    ["Adjusted Total Effort (PD)", String(result.adjustedTotalEffortPd)],
-                    ["Blended Daily Rate (per team)", String(result.blendedDailyRate)],
+                    ["Available Dev / QA", `${form.availableDev} / ${form.availableQa}`],
+                    ["Target sprints", String(form.targetSprints)],
                     [
-                      "Effort-Based Delivery Cost",
+                      "Dev / QA AI productivity",
+                      `${Math.round(form.devAiProductivity * 100)}% / ${Math.round(form.qaAiProductivity * 100)}%`,
+                    ],
+                  ]}
+                />
+              </ReviewBlock>
+
+              <ReviewBlock title="5 · Delivery economics" className="lg:col-span-2">
+                <ReviewGrid
+                  columns={3}
+                  rows={[
+                    ["Adjusted Dev effort (PD)", String(result.adjustedDevEffortPd)],
+                    ["Adjusted QA effort (PD)", String(result.adjustedQaEffortPd)],
+                    ["Adjusted total effort (PD)", String(result.adjustedTotalEffortPd)],
+                    ["Blended daily rate", String(result.blendedDailyRate)],
+                    [
+                      "Effort-based cost",
                       result.effortBasedCost == null
                         ? "—"
                         : formatMoney(result.effortBasedCost, result.currency),
                     ],
                     [
-                      "Epic Breakdown - Suggested Stories",
-                      result.epicStories == null ? "—" : String(result.epicStories),
+                      "Baseline delivery cost",
+                      formatMoney(result.baselineDeliveryCost, result.currency),
                     ],
                     [
-                      "Epic Breakdown - Approx SP / Story",
-                      result.epicSpPerStory == null ? "—" : String(result.epicSpPerStory),
+                      "AI-adjusted delivery cost",
+                      formatMoney(result.aiAdjustedDeliveryCost, result.currency),
                     ],
-                    ["Epic Breakdown - Summary", result.epicSummary ?? "—"],
-                  ].map(([label, value]) => (
-                    <tr key={label} className="border-t border-[var(--line)] first:border-t-0">
-                      <th className="w-[40%] bg-[var(--panel-2)] px-3 py-2 text-left font-medium text-[var(--navy)]">
-                        {label}
-                      </th>
-                      <td className="bg-emerald-50/60 px-3 py-2 font-semibold text-[var(--navy)]">{value}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                    [
+                      "AI cost avoidance",
+                      formatMoney(result.estimatedAiCostAvoidance, result.currency),
+                    ],
+                    ["Utilisation", `${result.utilisation}%`],
+                    ["Final sprints", String(result.finalSprints)],
+                    ["Planned Dev / QA", `${result.plannedDev} / ${result.plannedQa}`],
+                    ["Currency", result.currency],
+                  ]}
+                />
+                {form.workItemType === "EPIC" ? (
+                  <div className="mt-3 border-t border-[var(--line)] pt-3">
+                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--muted)]">
+                      Epic breakdown
+                    </p>
+                    <ReviewGrid
+                      rows={[
+                        [
+                          "Suggested stories",
+                          result.epicStories == null ? "—" : String(result.epicStories),
+                        ],
+                        [
+                          "Approx SP / story",
+                          result.epicSpPerStory == null ? "—" : String(result.epicSpPerStory),
+                        ],
+                        ["Summary", result.epicSummary ?? "—"],
+                      ]}
+                    />
+                  </div>
+                ) : null}
+              </ReviewBlock>
             </div>
 
             <div className="flex flex-wrap justify-between gap-2">
@@ -1305,6 +1499,52 @@ function Field({
         {children}
       </div>
     </label>
+  );
+}
+
+function ReviewBlock({
+  title,
+  children,
+  className = "",
+}: {
+  title: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={`rounded-xl border border-[var(--line)] p-4 ${className}`}>
+      <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">
+        {title}
+      </h4>
+      {children}
+    </section>
+  );
+}
+
+function ReviewGrid({
+  rows,
+  columns = 2,
+}: {
+  rows: [string, string][];
+  columns?: 2 | 3;
+}) {
+  return (
+    <dl
+      className={`grid gap-x-4 gap-y-2 ${
+        columns === 3 ? "sm:grid-cols-2 lg:grid-cols-3" : "sm:grid-cols-2"
+      }`}
+    >
+      {rows.map(([label, value]) => (
+        <div key={label} className="min-w-0">
+          <dt className="text-[10px] font-semibold uppercase tracking-wider text-[var(--muted)]">
+            {label}
+          </dt>
+          <dd className="truncate text-sm font-semibold text-[var(--navy)]" title={value}>
+            {value}
+          </dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
