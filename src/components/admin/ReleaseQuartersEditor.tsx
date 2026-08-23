@@ -45,8 +45,8 @@ export function ReleaseQuartersEditor({
       <div>
         <h1 className="text-2xl font-semibold">Release quarters</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          One quarter per line (e.g. 2026-Q1). These drive the Ready step dropdown and Home /
-          Estimates filters.
+          One per line as <code className="text-xs">YYYY-Qn</code> (e.g. 2026-Q1). Ready step
+          asks for Year first, then Quarter from this catalogue. Home / Estimates filters match.
         </p>
       </div>
       <section className="card space-y-3 p-5">

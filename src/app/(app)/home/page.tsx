@@ -9,6 +9,7 @@ import { estimateScope, fromSession } from "@/lib/scope";
 import { welcomeLine } from "@/lib/roles";
 import { getActiveConfig } from "@/services/configService";
 import { buildHomeActions } from "@/lib/homeInbox";
+import { releaseWhere } from "@/lib/releasePeriod";
 
 export default async function HomePage({
   searchParams,
@@ -25,7 +26,7 @@ export default async function HomePage({
     ...scope,
     ...(teamFilter ? { teamId: teamFilter } : {}),
     ...(workItemType ? { workItemType } : {}),
-    ...(release ? { release } : {}),
+    ...releaseWhere(release),
   };
 
   const [
