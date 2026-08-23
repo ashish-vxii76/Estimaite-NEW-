@@ -431,6 +431,116 @@ export async function saveEstimateScenario(
   return { estimate: updated, scenario: snapshot };
 }
 
+/**
+ * Promote a sandbox mix into the governed estimate (review/approval stage only).
+ * Updates staffing (+ optional team), recalculates, audits — does not change status.
+ */
+export async function acceptEstimateScenario(
+  id: string,
+  payload: {
+    source: "selected" | "recommended";
+    applyTeam: boolean;
+    mix: {
+      teamId: string;
+      teamName: string;
+      bestDevLevel: string;
+      bestQaLevel: string;
+      devCount: number;
+      qaCount: number;
+    };
+  },
+  userId: string,
+) {
+  const estimate = await prisma.estimate.findUnique({
+    where: { id },
+    include: { team: true },
+  });
+  if (!estimate) throw new Error("Estimate not found");
+  if (!["READY_FOR_REVIEW", "REVIEWED"].includes(estimate.status)) {
+    throw new Error("Accept is only available during Ready for review or Reviewed");
+  }
+
+  const config = await getActiveConfig();
+  const byName = Object.fromEntries(config.resourceLevels.map((l) => [l.name.toLowerCase(), l]));
+  const byId = Object.fromEntries(config.resourceLevels.map((l) => [l.id, l]));
+  const resolveLevel = (value: string) =>
+    byId[value] ?? byName[value.toLowerCase()] ?? null;
+  const devLevel = resolveLevel(payload.mix.bestDevLevel);
+  const qaLevel = resolveLevel(payload.mix.bestQaLevel);
+  if (!devLevel || !qaLevel) {
+    throw new Error("Could not map scenario resource levels to configuration");
+  }
+
+  const nextTeamId = payload.applyTeam ? payload.mix.teamId : estimate.teamId;
+  if (payload.applyTeam) {
+    const team = await prisma.team.findUnique({ where: { id: nextTeamId } });
+    if (!team || !team.active) throw new Error("Selected team is not available");
+  }
+
+  const before = {
+    teamId: estimate.teamId,
+    teamName: estimate.team.name,
+    devResourceLevel: estimate.devResourceLevel,
+    qaResourceLevel: estimate.qaResourceLevel,
+    availableDev: estimate.availableDev,
+    availableQa: estimate.availableQa,
+    planningMode: estimate.planningMode,
+    result: estimate.resultJson ? JSON.parse(estimate.resultJson) : null,
+  };
+
+  await prisma.estimate.update({
+    where: { id },
+    data: {
+      teamId: nextTeamId,
+      devResourceLevel: devLevel.id,
+      qaResourceLevel: qaLevel.id,
+      availableDev: payload.mix.devCount,
+      availableQa: payload.mix.qaCount,
+      planningMode: "RESOURCE_CONSTRAINED",
+    },
+  });
+
+  const recalculatedBundle = await calculateAndPersist(id, userId);
+  if (!recalculatedBundle) throw new Error("Estimate not found after accept");
+  const { estimate: recalculated, result } = recalculatedBundle;
+  const after = {
+    teamId: recalculated.teamId,
+    teamName: recalculated.team?.name ?? payload.mix.teamName,
+    devResourceLevel: recalculated.devResourceLevel,
+    qaResourceLevel: recalculated.qaResourceLevel,
+    availableDev: recalculated.availableDev,
+    availableQa: recalculated.availableQa,
+    planningMode: recalculated.planningMode,
+    selectedSp: result.selectedSp,
+    aiAdjustedDeliveryCost: result.aiAdjustedDeliveryCost,
+    finalSprints: result.finalSprints,
+  };
+
+  await audit(
+    id,
+    userId,
+    "SCENARIO_ACCEPTED",
+    JSON.stringify({
+      source: payload.source,
+      applyTeam: payload.applyTeam,
+      before: {
+        teamId: before.teamId,
+        teamName: before.teamName,
+        devResourceLevel: before.devResourceLevel,
+        qaResourceLevel: before.qaResourceLevel,
+        availableDev: before.availableDev,
+        availableQa: before.availableQa,
+        selectedSp: before.result?.selectedSp ?? null,
+        aiAdjustedDeliveryCost: before.result?.aiAdjustedDeliveryCost ?? null,
+        finalSprints: before.result?.finalSprints ?? null,
+      },
+    }),
+    JSON.stringify(after),
+  );
+
+  return { estimate: recalculated, result, before, after };
+}
+
 async function audit(
   estimateId: string,
   userId: string | undefined,

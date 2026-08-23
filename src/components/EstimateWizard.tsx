@@ -129,6 +129,9 @@ export function EstimateWizard({
   const [status, setStatus] = useState(estimateStatus);
   const [overrideSp, setOverrideSp] = useState(8);
   const [overrideReason, setOverrideReason] = useState("");
+  const [localSavedScenario, setLocalSavedScenario] = useState<SavedScenarioSnapshot | null>(
+    savedScenario ?? null,
+  );
   const [form, setForm] = useState({
     workItemType: (initial?.workItemType as string) ?? "ISSUE",
     reference: (initial?.reference as string) ?? `CR-${Date.now().toString().slice(-6)}`,
@@ -174,6 +177,10 @@ export function EstimateWizard({
   useEffect(() => {
     setStatus(estimateStatus);
   }, [estimateStatus]);
+
+  useEffect(() => {
+    setLocalSavedScenario(savedScenario ?? null);
+  }, [savedScenario]);
 
   // Restore costing basis from stored commercial mix when editing.
   useEffect(() => {
@@ -1332,43 +1339,96 @@ export function EstimateWizard({
           </section>
         )}
 
-        {moment === "scenarios" && (
-          <section className="card space-y-5 p-6">
+        {/* Keep Scenarios mounted (hidden) so run/save state survives tab switches. */}
+        {scenariosUnlocked && capabilities.canWhatIf && scenarioTeams.length > 0 ? (
+          <section
+            className={`card space-y-5 p-6 ${moment === "scenarios" ? "" : "hidden"}`}
+            aria-hidden={moment !== "scenarios"}
+          >
             <header>
               <p className="kicker">Scenarios</p>
               <h3 className="font-display text-xl font-semibold text-[var(--navy)]">
                 What-if — best mix &amp; best team for this CR
               </h3>
               <p className="mt-1 text-sm text-[var(--muted)]">
-                Choose an objective and run. Team is locked to this CR&apos;s owner; deadline only
-                for Cheapest within N. Sandbox — never changes SP, cost, team, or status.
+                Choose an objective and run. Baseline team is this CR&apos;s owner; deadline only for
+                Cheapest within N. Save is sandbox; Accept (review stage) promotes staffing into the
+                governed estimate.
               </p>
             </header>
-            {!scenariosUnlocked ? (
-              <p className="text-sm text-[var(--muted)]">
-                Submit this estimate for review to unlock Scenarios.
-              </p>
-            ) : !capabilities.canWhatIf ? (
-              <p className="text-sm text-[var(--muted)]">
-                Your role cannot run what-if scenarios. Ask an admin for Access → RBAC → What-If.
-              </p>
-            ) : scenarioTeams.length === 0 ? (
-              <p className="text-sm text-[var(--muted)]">
-                No team roster is available for scenarios in your scope.
-              </p>
-            ) : (
-              <WhatIfForm
-                teams={scenarioTeams}
-                base={whatIfBase}
-                defaultTeamId={form.teamId}
-                owningTeamId={form.teamId}
-                estimateId={id}
-                initialSaved={savedScenario}
-                mode="estimate"
-              />
-            )}
+            <WhatIfForm
+              teams={scenarioTeams}
+              base={whatIfBase}
+              defaultTeamId={form.teamId}
+              owningTeamId={form.teamId}
+              estimateId={id}
+              estimateStatus={status}
+              initialSaved={localSavedScenario}
+              canAccept={capabilities.canEdit}
+              onSaved={setLocalSavedScenario}
+              onAccepted={({ estimate: next, result: nextResult }) => {
+                setForm((f) => ({
+                  ...f,
+                  teamId: next.teamId,
+                  availableDev: next.availableDev,
+                  availableQa: next.availableQa,
+                  devResourceLevel: next.devResourceLevel,
+                  qaResourceLevel: next.qaResourceLevel,
+                  planningMode: next.planningMode || f.planningMode,
+                }));
+                setResult(nextResult);
+              }}
+              mode="estimate"
+            />
           </section>
-        )}
+        ) : null}
+
+        {moment === "scenarios" && !scenariosUnlocked ? (
+          <section className="card space-y-5 p-6">
+            <header>
+              <p className="kicker">Scenarios</p>
+              <h3 className="font-display text-xl font-semibold text-[var(--navy)]">
+                What-if — best mix &amp; best team for this CR
+              </h3>
+            </header>
+            <p className="text-sm text-[var(--muted)]">
+              Submit this estimate for review to unlock Scenarios.
+            </p>
+          </section>
+        ) : null}
+
+        {moment === "scenarios" &&
+        scenariosUnlocked &&
+        !capabilities.canWhatIf ? (
+          <section className="card space-y-5 p-6">
+            <header>
+              <p className="kicker">Scenarios</p>
+              <h3 className="font-display text-xl font-semibold text-[var(--navy)]">
+                What-if — best mix &amp; best team for this CR
+              </h3>
+            </header>
+            <p className="text-sm text-[var(--muted)]">
+              Your role cannot run what-if scenarios. Ask an admin for Access → RBAC → What-If.
+            </p>
+          </section>
+        ) : null}
+
+        {moment === "scenarios" &&
+        scenariosUnlocked &&
+        capabilities.canWhatIf &&
+        scenarioTeams.length === 0 ? (
+          <section className="card space-y-5 p-6">
+            <header>
+              <p className="kicker">Scenarios</p>
+              <h3 className="font-display text-xl font-semibold text-[var(--navy)]">
+                What-if — best mix &amp; best team for this CR
+              </h3>
+            </header>
+            <p className="text-sm text-[var(--muted)]">
+              No team roster is available for scenarios in your scope.
+            </p>
+          </section>
+        ) : null}
 
         {moment === "actuals" && (
           <section className="space-y-5">

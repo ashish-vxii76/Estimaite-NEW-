@@ -215,6 +215,89 @@ export function runWhatIfScenario(input: {
   return { selected, byTeam: sorted, recommended };
 }
 
+/** All scored mixes for one team (for optional audit expand). */
+export function listWhatIfMixes(input: {
+  base: EstimateCalculationInput;
+  config: EstimationConfig;
+  team: TeamComposition;
+  objective: WhatIfObjective;
+  maxSprints?: number;
+}): Array<{
+  devLevelId: string;
+  qaLevelId: string;
+  bestDevLevel: string;
+  bestQaLevel: string;
+  devCount: number;
+  qaCount: number;
+  sprints: number;
+  cost: number | null;
+  effort: number;
+}> {
+  const levels = input.config.resourceLevels.filter((l) =>
+    input.team.availableLevels.includes(l.id),
+  );
+  const teamBase = applyTeamToBase(input.base, input.team);
+  const rows: ReturnType<typeof listWhatIfMixes> = [];
+  for (const devLevel of levels) {
+    for (const qaLevel of levels) {
+      for (let devCount = 1; devCount <= input.team.maxDev; devCount += 1) {
+        for (let qaCount = 1; qaCount <= input.team.maxQa; qaCount += 1) {
+          const candidate = scoreCandidate(
+            teamBase,
+            input.config,
+            devLevel,
+            qaLevel,
+            devCount,
+            qaCount,
+          );
+          if (
+            input.objective === "CHEAPEST_WITHIN_N_SPRINTS" &&
+            candidate.sprints > (input.maxSprints ?? Number.POSITIVE_INFINITY)
+          ) {
+            continue;
+          }
+          rows.push({
+            devLevelId: devLevel.id,
+            qaLevelId: qaLevel.id,
+            bestDevLevel: candidate.devLevel,
+            bestQaLevel: candidate.qaLevel,
+            devCount: candidate.devCount,
+            qaCount: candidate.qaCount,
+            sprints: candidate.sprints,
+            cost: candidate.cost,
+            effort: candidate.effort,
+          });
+        }
+      }
+    }
+  }
+  return rows.sort((a, b) => {
+    const left = {
+      devLevel: a.bestDevLevel,
+      qaLevel: a.bestQaLevel,
+      devCount: a.devCount,
+      qaCount: a.qaCount,
+      sprints: a.sprints,
+      cost: a.cost,
+      effort: a.effort,
+    };
+    const right = {
+      devLevel: b.bestDevLevel,
+      qaLevel: b.bestQaLevel,
+      devCount: b.devCount,
+      qaCount: b.qaCount,
+      sprints: b.sprints,
+      cost: b.cost,
+      effort: b.effort,
+    };
+    return better(left, right, input.objective)
+      ? -1
+      : better(right, left, input.objective)
+        ? 1
+        : 0;
+  });
+}
+
 function applyTeamToBase(
   base: EstimateCalculationInput,
   team: TeamComposition,

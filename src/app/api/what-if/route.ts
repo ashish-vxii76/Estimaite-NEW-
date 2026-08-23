@@ -5,6 +5,7 @@ import { getActiveConfig } from "@/services/configService";
 import {
   runWhatIf,
   runWhatIfScenario,
+  listWhatIfMixes,
   type EstimateCalculationInput,
 } from "@/domain/estimation";
 
@@ -59,6 +60,8 @@ const schema = z.object({
     "CHEAPEST_WITHIN_N_SPRINTS",
   ]),
   maxSprints: z.number().optional(),
+  /** When set with multi-team scenario, also return all mixes for this team. */
+  expandTeamId: z.string().optional(),
 });
 
 export async function POST(request: Request) {
@@ -114,9 +117,24 @@ export async function POST(request: Request) {
       objective: parsed.data.objective,
       maxSprints: parsed.data.maxSprints,
     });
+    let allMixes: ReturnType<typeof listWhatIfMixes> | undefined;
+    if (parsed.data.expandTeamId) {
+      const expandTeam = teams.find((t) => t.teamId === parsed.data.expandTeamId);
+      if (expandTeam) {
+        allMixes = listWhatIfMixes({
+          base,
+          config,
+          team: expandTeam,
+          objective: parsed.data.objective,
+          maxSprints: parsed.data.maxSprints,
+        });
+      }
+    }
     return NextResponse.json({
       result: scenario.selected,
       scenario,
+      allMixes,
+      expandTeamId: parsed.data.expandTeamId ?? null,
     });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 400 });
