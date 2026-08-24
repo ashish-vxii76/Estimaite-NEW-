@@ -6,11 +6,9 @@ import type { CalibrationRow } from "@/domain/estimation/calibration";
 
 export function CalibrationActions({
   rows,
-  crew = "",
   team = "",
 }: {
   rows: CalibrationRow[];
-  crew?: string;
   team?: string;
 }) {
   const router = useRouter();
@@ -22,7 +20,7 @@ export function CalibrationActions({
     const res = await fetch("/api/calibration/apply", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ crew: crew || undefined, team: team || undefined }),
+      body: JSON.stringify({ team: team || undefined }),
     });
     const data = await res.json();
     setMessage(
@@ -44,11 +42,8 @@ export function CalibrationActions({
       </button>
       <p className="text-xs text-[var(--muted)]">
         Suggestions never apply themselves. This publishes a new configuration version after
-        administrator approval
-        {crew || team
-          ? " using samples from the Crew / Pod filter above"
-          : " using samples in your org scope"}
-        .
+        administrator approval using samples from your locked org path
+        {team ? " and selected Pod" : ""}.
       </p>
       {message ? <p className="text-sm text-[var(--ok)]">{message}</p> : null}
     </div>

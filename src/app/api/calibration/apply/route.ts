@@ -3,12 +3,21 @@ import { requireFeature, requireUser } from "@/lib/api-auth";
 import { getActiveConfig, patchActiveConfig } from "@/services/configService";
 import { getCalibration } from "@/services/portfolioService";
 import { fromSession, resolveEstimateScope } from "@/lib/scope";
+import { lockedOrgPathForUser } from "@/lib/lockedOrgPath";
 import type { Prisma } from "@prisma/client";
 
-function orgWhere(crew?: string | null, team?: string | null): Prisma.EstimateWhereInput {
-  if (team) return { teamId: team };
-  if (crew) return { team: { crewId: crew } };
-  return {};
+async function calibrationWhere(
+  user: { id: string; role: string; teamId?: string | null },
+  team?: string | null,
+): Promise<Prisma.EstimateWhereInput> {
+  const scope = await resolveEstimateScope(fromSession(user));
+  const locked = await lockedOrgPathForUser(user.id);
+  const orgWhere: Prisma.EstimateWhereInput = team
+    ? { teamId: team }
+    : locked.crewId
+      ? { team: { crewId: locked.crewId } }
+      : {};
+  return { ...scope, ...orgWhere };
 }
 
 export async function POST(request: Request) {
@@ -18,12 +27,10 @@ export async function POST(request: Request) {
   if (forbidden) return forbidden;
   const body = await request.json().catch(() => ({}));
   const levelIds = Array.isArray(body.levelIds) ? (body.levelIds as string[]) : null;
-  const crew = typeof body.crew === "string" ? body.crew : null;
   const team = typeof body.team === "string" ? body.team : null;
-  const scope = await resolveEstimateScope(fromSession(session!.user));
   const [config, calibration] = await Promise.all([
     getActiveConfig(),
-    getCalibration({ ...scope, ...orgWhere(crew, team) }),
+    getCalibration(await calibrationWhere(session!.user, team)),
   ]);
   const resourceLevels = config.resourceLevels.map((level) => {
     const row = calibration.rows.find((r) => r.id === level.id);

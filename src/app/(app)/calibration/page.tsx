@@ -1,45 +1,41 @@
 import { getCalibration } from "@/services/portfolioService";
 import { CalibrationActions } from "@/components/CalibrationActions";
-import { OrgCrewTeamFilters } from "@/components/OrgCrewTeamFilters";
+import { OrgLockedPathFilters } from "@/components/OrgLockedPathFilters";
 import { ExplanationPanel } from "@/components/ui";
 import { auth } from "@/auth";
 import { can } from "@/lib/access";
 import { fromSession, resolveEstimateScope, teamsForUser } from "@/lib/scope";
-import { prisma } from "@/lib/prisma";
+import { lockedOrgPathForUser } from "@/lib/lockedOrgPath";
 import type { Prisma } from "@prisma/client";
 
 export default async function CalibrationPage({
   searchParams,
 }: {
-  searchParams: Promise<{ crew?: string; team?: string }>;
+  searchParams: Promise<{ team?: string }>;
 }) {
   const session = await auth();
-  const { crew: crewFilter = "", team: teamFilter = "" } = await searchParams;
+  const { team: teamFilter = "" } = await searchParams;
   const scope = await resolveEstimateScope(fromSession(session!.user));
+  const lockedPath = await lockedOrgPathForUser(session!.user.id);
   const orgWhere: Prisma.EstimateWhereInput = teamFilter
     ? { teamId: teamFilter }
-    : crewFilter
-      ? { team: { crewId: crewFilter } }
+    : lockedPath.crewId
+      ? { team: { crewId: lockedPath.crewId } }
       : {};
   const where: Prisma.EstimateWhereInput = { ...scope, ...orgWhere };
 
-  const [data, teams, crews] = await Promise.all([
+  const [data, teams] = await Promise.all([
     getCalibration(where),
     teamsForUser(fromSession(session!.user)),
-    prisma.orgUnit.findMany({
-      where: { type: "CREW", active: true },
-      select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    }),
   ]);
   const canApply = can(session?.user.role, "calibration.apply", "RW");
-  const filteredTeams = crewFilter
-    ? teams.filter((t) => t.crewId === crewFilter)
+  const pods = lockedPath.crewId
+    ? teams.filter((t) => t.crewId === lockedPath.crewId)
     : teams;
 
   const scopeLabel = [
-    crewFilter ? crews.find((c) => c.id === crewFilter)?.name ?? "Crew" : null,
-    teamFilter ? filteredTeams.find((t) => t.id === teamFilter)?.name ?? "Pod" : null,
+    lockedPath.crewName !== "All" ? lockedPath.crewName : null,
+    teamFilter ? pods.find((t) => t.id === teamFilter)?.name ?? "Pod" : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -52,15 +48,14 @@ export default async function CalibrationPage({
         <p className="mt-1 text-sm text-[var(--muted)]">
           Actual vs estimate → suggested Days/Point. Derived from Register Actual/Est ratios by Dev
           resource level (CRs with actuals)
-          {scopeLabel ? ` for ${scopeLabel}` : " in your org scope"}.
+          {scopeLabel ? ` for ${scopeLabel}` : " in your locked org path"}.
         </p>
       </div>
 
-      <OrgCrewTeamFilters
+      <OrgLockedPathFilters
         basePath="/calibration"
-        crews={crews}
-        teams={filteredTeams.map((t) => ({ id: t.id, name: t.name }))}
-        crew={crewFilter}
+        path={lockedPath}
+        teams={pods.map((t) => ({ id: t.id, name: t.name }))}
         team={teamFilter}
       />
 
@@ -115,7 +110,7 @@ export default async function CalibrationPage({
       <ExplanationPanel {...data.explanation} />
 
       {canApply ? (
-        <CalibrationActions rows={data.rows} crew={crewFilter} team={teamFilter} />
+        <CalibrationActions rows={data.rows} team={teamFilter} />
       ) : (
         <p className="text-sm text-[var(--muted)]">
           Administrator approval is required to apply suggested Days/Point to configuration.

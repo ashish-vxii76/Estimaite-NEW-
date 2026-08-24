@@ -2,12 +2,21 @@ import { NextResponse } from "next/server";
 import { requireFeature, requireUser } from "@/lib/api-auth";
 import { getCalibration } from "@/services/portfolioService";
 import { fromSession, resolveEstimateScope } from "@/lib/scope";
+import { lockedOrgPathForUser } from "@/lib/lockedOrgPath";
 import type { Prisma } from "@prisma/client";
 
-function orgWhere(crew?: string | null, team?: string | null): Prisma.EstimateWhereInput {
-  if (team) return { teamId: team };
-  if (crew) return { team: { crewId: crew } };
-  return {};
+async function calibrationWhere(
+  user: { id: string; role: string; teamId?: string | null },
+  team?: string | null,
+): Promise<Prisma.EstimateWhereInput> {
+  const scope = await resolveEstimateScope(fromSession(user));
+  const locked = await lockedOrgPathForUser(user.id);
+  const orgWhere: Prisma.EstimateWhereInput = team
+    ? { teamId: team }
+    : locked.crewId
+      ? { team: { crewId: locked.crewId } }
+      : {};
+  return { ...scope, ...orgWhere };
 }
 
 export async function GET(request: Request) {
@@ -16,9 +25,7 @@ export async function GET(request: Request) {
   const forbidden = requireFeature(session!.user.role, "calibration.view");
   if (forbidden) return forbidden;
   const url = new URL(request.url);
-  const crew = url.searchParams.get("crew");
   const team = url.searchParams.get("team");
-  const scope = await resolveEstimateScope(fromSession(session!.user));
-  const data = await getCalibration({ ...scope, ...orgWhere(crew, team) });
+  const data = await getCalibration(await calibrationWhere(session!.user, team));
   return NextResponse.json(data);
 }

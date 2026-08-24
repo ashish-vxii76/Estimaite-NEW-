@@ -1,31 +1,29 @@
 import { WhatIfForm } from "@/components/WhatIfForm";
-import { OrgCrewTeamFilters } from "@/components/OrgCrewTeamFilters";
+import { OrgLockedPathFilters } from "@/components/OrgLockedPathFilters";
 import { toScenarioTeams } from "@/lib/scenarioTeams";
 import { auth } from "@/auth";
 import { fromSession, teamsForUser } from "@/lib/scope";
+import { lockedOrgPathForUser } from "@/lib/lockedOrgPath";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 
 export default async function WhatIfPage({
   searchParams,
 }: {
-  searchParams: Promise<{ crew?: string; team?: string }>;
+  searchParams: Promise<{ team?: string }>;
 }) {
   const session = await auth();
-  const { crew: crewFilter = "", team: teamFilter = "" } = await searchParams;
-  const [teams, locations, crews] = await Promise.all([
+  const { team: teamFilter = "" } = await searchParams;
+  const [teams, locations, lockedPath] = await Promise.all([
     teamsForUser(fromSession(session!.user)),
     prisma.location.findMany({ where: { active: true } }),
-    prisma.orgUnit.findMany({
-      where: { type: "CREW", active: true },
-      select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    }),
+    lockedOrgPathForUser(session!.user.id),
   ]);
 
-  let filtered = teams;
-  if (crewFilter) filtered = filtered.filter((t) => t.crewId === crewFilter);
-  if (teamFilter) filtered = filtered.filter((t) => t.id === teamFilter);
+  const pods = lockedPath.crewId
+    ? teams.filter((t) => t.crewId === lockedPath.crewId)
+    : teams;
+  const filtered = teamFilter ? pods.filter((t) => t.id === teamFilter) : pods;
 
   return (
     <div className="space-y-4">
@@ -34,8 +32,7 @@ export default async function WhatIfPage({
       <p className="text-sm text-[var(--muted)]">
         Generic sandbox against your roster. Prefer the{" "}
         <strong className="font-semibold text-[var(--navy)]">Scenarios</strong> tab on a submitted
-        estimate for CR-specific analysis (selected-team mix, cross-team table, sensitivity
-        recommendation). Scenarios never modify an approved estimate.
+        estimate for CR-specific analysis. Organisation path is locked; only Pod is open.
       </p>
       <p className="text-sm text-[var(--muted)]">
         <Link href="/estimates?status=READY_FOR_REVIEW" className="underline">
@@ -44,21 +41,17 @@ export default async function WhatIfPage({
         and use Scenarios there when you have a governed pack.
       </p>
 
-      <OrgCrewTeamFilters
+      <OrgLockedPathFilters
         basePath="/what-if"
-        crews={crews}
-        teams={(crewFilter ? teams.filter((t) => t.crewId === crewFilter) : teams).map((t) => ({
-          id: t.id,
-          name: t.name,
-        }))}
-        crew={crewFilter}
+        path={lockedPath}
+        teams={pods.map((t) => ({ id: t.id, name: t.name }))}
         team={teamFilter}
       />
 
       {filtered.length === 0 ? (
         <p className="card p-5 text-sm text-[var(--muted)]">
-          No pods in this Crew / Pod filter. Clear the filters or attach pods under a Crew in
-          Organisation setup.
+          No pods in this locked path. Attach pods under your Crew in Organisation setup, or clear
+          the Pod filter.
         </p>
       ) : (
         <WhatIfForm teams={toScenarioTeams(filtered, locations)} mode="standalone" />
