@@ -5,10 +5,16 @@ import { StatusBadge } from "@/components/ui";
 import { EstimateFilters } from "@/components/EstimateFilters";
 import { formatMoney } from "@/lib/utils";
 import type { EstimateCalculationResult } from "@/domain/estimation/types";
-import { can } from "@/lib/access";
+import { can, seesAllTeams } from "@/lib/access";
 import { fromSession, resolveEstimateScope, teamsForUser } from "@/lib/scope";
 import { getActiveConfig } from "@/services/configService";
 import { releaseWhere } from "@/lib/releasePeriod";
+import { lockedOrgPathForUser } from "@/lib/lockedOrgPath";
+import {
+  estimateWhereForOrgCascade,
+  lockIdsFromPath,
+  teamsMatchingCascade,
+} from "@/lib/orgCascade";
 
 export default async function EstimatesPage({
   searchParams,
@@ -20,6 +26,10 @@ export default async function EstimatesPage({
     workItemType?: string;
     tshirt?: string;
     flag?: string;
+    company?: string;
+    division?: string;
+    subDivision?: string;
+    stream?: string;
     crew?: string;
   }>;
 }) {
@@ -27,39 +37,58 @@ export default async function EstimatesPage({
   const {
     status = "",
     release = "",
-    team = "",
+    team: teamParam = "",
     workItemType = "",
     tshirt = "",
     flag = "",
-    crew = "",
+    company: companyParam = "",
+    division: divisionParam = "",
+    subDivision: subParam = "",
+    stream: streamParam = "",
+    crew: crewParam = "",
   } = await searchParams;
+
+  const orgEditable = seesAllTeams(session!.user.role);
+  const lockedPath = await lockedOrgPathForUser(session!.user.id);
   const scope = await resolveEstimateScope(fromSession(session!.user));
+
+  const [config, teams, orgUnits] = await Promise.all([
+    getActiveConfig(),
+    teamsForUser(fromSession(session!.user)),
+    prisma.orgUnit.findMany({
+      where: { active: true },
+      select: { id: true, name: true, type: true, parentId: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
+
+  const lockIds = lockIdsFromPath(orgUnits, lockedPath);
+  const company = orgEditable ? companyParam : lockIds.companyId;
+  const division = orgEditable ? divisionParam : lockIds.divisionId;
+  const subDivision = orgEditable ? subParam : lockIds.subDivisionId;
+  const stream = orgEditable ? streamParam : lockIds.streamId;
+  const crew = orgEditable ? crewParam : lockIds.crewId || crewParam;
+  const teamFilter = teamParam;
+
+  const cascade = { company, division, subDivision, stream, crew, team: teamFilter };
+  const orgWhere = estimateWhereForOrgCascade(orgUnits, cascade);
   const where = {
     ...scope,
+    ...orgWhere,
     ...(status === "DRAFT"
       ? { status: { in: ["DRAFT", "RETURNED"] as string[] } }
       : status
         ? { status }
         : {}),
     ...releaseWhere(release),
-    ...(team ? { teamId: team } : {}),
-    ...(crew && !team ? { team: { crewId: crew } } : {}),
     ...(workItemType ? { workItemType } : {}),
   };
-  const [estimates, config, teams, orgUnits] = await Promise.all([
-    prisma.estimate.findMany({
-      where,
-      include: { team: { include: { crew: true } } },
-      orderBy: { updatedAt: "desc" },
-    }),
-    getActiveConfig(),
-    teamsForUser(fromSession(session!.user)),
-    prisma.orgUnit.findMany({
-      where: { active: true, type: "CREW" },
-      select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    }),
-  ]);
+
+  const estimates = await prisma.estimate.findMany({
+    where,
+    include: { team: { include: { crew: true } } },
+    orderBy: { updatedAt: "desc" },
+  });
   const canCreate = can(session?.user.role, "estimates.create", "RW");
   const quarters = config.releaseQuarters ?? [];
 
@@ -77,7 +106,13 @@ export default async function EstimatesPage({
       return true;
     });
 
-  const filteredTeams = crew ? teams.filter((t) => t.crewId === crew) : teams;
+  const podOptions = teamsMatchingCascade(orgUnits, teams, {
+    company,
+    division,
+    subDivision,
+    stream,
+    crew,
+  });
 
   return (
     <div className="space-y-5">
@@ -100,10 +135,16 @@ export default async function EstimatesPage({
         release={release}
         tshirt={tshirt}
         flag={flag}
+        orgUnits={orgUnits}
+        teams={podOptions.map((t) => ({ id: t.id, name: t.name, crewId: t.crewId }))}
+        orgEditable={orgEditable}
+        lockedPath={lockedPath}
+        company={company}
+        division={division}
+        subDivision={subDivision}
+        stream={stream}
         crew={crew}
-        team={team}
-        crews={orgUnits}
-        teams={filteredTeams.map((t) => ({ id: t.id, name: t.name }))}
+        team={teamFilter}
       />
 
       <div className="card overflow-x-auto">
