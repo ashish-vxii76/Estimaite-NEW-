@@ -1,16 +1,44 @@
 import { getCalibration } from "@/services/portfolioService";
 import { CalibrationActions } from "@/components/CalibrationActions";
+import { OrgLockedPathFilters } from "@/components/OrgLockedPathFilters";
 import { ExplanationPanel } from "@/components/ui";
 import { auth } from "@/auth";
 import { can } from "@/lib/access";
-import { fromSession, resolveEstimateScope } from "@/lib/scope";
+import { fromSession, resolveEstimateScope, teamsForUser } from "@/lib/scope";
+import { lockedOrgPathForUser } from "@/lib/lockedOrgPath";
+import type { Prisma } from "@prisma/client";
 
-export default async function CalibrationPage() {
+export default async function CalibrationPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ team?: string }>;
+}) {
   const session = await auth();
-  const [data] = await Promise.all([
-    getCalibration(await resolveEstimateScope(fromSession(session!.user))),
+  const { team: teamFilter = "" } = await searchParams;
+  const scope = await resolveEstimateScope(fromSession(session!.user));
+  const lockedPath = await lockedOrgPathForUser(session!.user.id);
+  const orgWhere: Prisma.EstimateWhereInput = teamFilter
+    ? { teamId: teamFilter }
+    : lockedPath.crewId
+      ? { team: { crewId: lockedPath.crewId } }
+      : {};
+  const where: Prisma.EstimateWhereInput = { ...scope, ...orgWhere };
+
+  const [data, teams] = await Promise.all([
+    getCalibration(where),
+    teamsForUser(fromSession(session!.user)),
   ]);
   const canApply = can(session?.user.role, "calibration.apply", "RW");
+  const pods = lockedPath.crewId
+    ? teams.filter((t) => t.crewId === lockedPath.crewId)
+    : teams;
+
+  const scopeLabel = [
+    lockedPath.crewName !== "All" ? lockedPath.crewName : null,
+    teamFilter ? pods.find((t) => t.id === teamFilter)?.name ?? "Pod" : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div className="space-y-6">
@@ -18,10 +46,18 @@ export default async function CalibrationPage() {
         <p className="kicker">Learn → Recalibrate</p>
         <h1 className="text-2xl font-semibold">Calibration</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Actual vs estimate → suggested Days/Point. Derived from the Register Actual/Est ratios by
-          Dev resource level (CRs with actuals).
+          Actual vs estimate → suggested Days/Point. Derived from Register Actual/Est ratios by Dev
+          resource level (CRs with actuals)
+          {scopeLabel ? ` for ${scopeLabel}` : " in your locked org path"}.
         </p>
       </div>
+
+      <OrgLockedPathFilters
+        basePath="/calibration"
+        path={lockedPath}
+        teams={pods.map((t) => ({ id: t.id, name: t.name }))}
+        team={teamFilter}
+      />
 
       <div className="grid gap-4 md:grid-cols-3">
         <div className="card p-4">
@@ -74,7 +110,7 @@ export default async function CalibrationPage() {
       <ExplanationPanel {...data.explanation} />
 
       {canApply ? (
-        <CalibrationActions rows={data.rows} />
+        <CalibrationActions rows={data.rows} team={teamFilter} />
       ) : (
         <p className="text-sm text-[var(--muted)]">
           Administrator approval is required to apply suggested Days/Point to configuration.

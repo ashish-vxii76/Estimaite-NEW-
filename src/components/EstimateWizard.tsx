@@ -1486,6 +1486,7 @@ export function EstimateWizard({
               estimateStatus={status}
               initialSaved={localSavedScenario}
               canAccept={capabilities.canEdit}
+              orgUnits={orgUnits}
               onSaved={setLocalSavedScenario}
               onAccepted={({ estimate: next, result: nextResult }) => {
                 setForm((f) => ({

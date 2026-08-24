@@ -9,6 +9,7 @@ import type {
 } from "@/domain/estimation/types";
 import { formatMoney } from "@/lib/utils";
 import type { ScenarioTeam } from "@/lib/scenarioTeams";
+import { lockedOrgPathFromUnits, type LockedOrgPathView } from "@/lib/lockedOrgPath";
 
 export type { ScenarioTeam } from "@/lib/scenarioTeams";
 
@@ -164,6 +165,7 @@ export function WhatIfForm({
   onSaved,
   onAccepted,
   mode = "standalone",
+  orgUnits = [],
 }: {
   teams: ScenarioTeam[];
   base?: EstimateCalculationInput;
@@ -176,6 +178,8 @@ export function WhatIfForm({
   onSaved?: (snapshot: SavedScenarioSnapshot) => void;
   onAccepted?: (payload: ScenarioAcceptPayload) => void;
   mode?: "standalone" | "estimate";
+  /** Org tree for locked Company→Crew path on estimate Scenarios. */
+  orgUnits?: { id: string; type: string; name: string; parentId: string | null }[];
 }) {
   const router = useRouter();
   const lockedTeamId =
@@ -185,6 +189,8 @@ export function WhatIfForm({
   const [maxSprints, setMaxSprints] = useState(
     initialSaved?.maxSprints != null ? Number(initialSaved.maxSprints) : 3,
   );
+  /** Estimate mode: optional Pod narrow within the CR’s locked Crew. */
+  const [podFilter, setPodFilter] = useState("");
   const [scenario, setScenario] = useState<ScenarioPayload | null>(
     initialSaved?.scenario ?? null,
   );
@@ -220,11 +226,32 @@ export function WhatIfForm({
 
   const deadlineEnabled = objective === "CHEAPEST_WITHIN_N_SPRINTS";
   const teamLocked = mode === "estimate";
+  const owningId = owningTeamId || defaultTeamId || lockedTeamId;
+  const owningTeam = teams.find((t) => t.teamId === owningId);
+  const lockedCrewId = owningTeam?.crewId ?? null;
+  const lockedPath: LockedOrgPathView = useMemo(
+    () => lockedOrgPathFromUnits(orgUnits, lockedCrewId),
+    [orgUnits, lockedCrewId],
+  );
+  const crewPods = useMemo(() => {
+    if (!lockedCrewId) return teams;
+    return teams.filter((t) => t.crewId === lockedCrewId);
+  }, [teams, lockedCrewId]);
+  /**
+   * Estimate: pods in the CR’s Crew (locked path); optional Pod filter.
+   * Owner always stays. Standalone: teams already scoped by the page.
+   */
+  const scopedTeams = useMemo(() => {
+    if (!teamLocked) return teams;
+    const basePods = crewPods.length ? crewPods : teams;
+    if (!podFilter) return basePods;
+    return basePods.filter((t) => t.teamId === podFilter || t.teamId === owningId);
+  }, [teamLocked, teams, crewPods, podFilter, owningId]);
   const effectiveTeamId = teamLocked ? lockedTeamId || teamId : teamId;
-  const selectedTeam = teams.find((t) => t.teamId === effectiveTeamId);
-  const owningName =
-    teams.find((t) => t.teamId === (owningTeamId || defaultTeamId || lockedTeamId))?.teamName ??
-    "owning team";
+  const selectedTeam =
+    scopedTeams.find((t) => t.teamId === effectiveTeamId) ??
+    teams.find((t) => t.teamId === effectiveTeamId);
+  const owningName = owningTeam?.teamName ?? "owning team";
   const canSave = mode === "estimate" && Boolean(estimateId) && Boolean(scenario);
   const acceptAllowed =
     canAccept &&
@@ -259,7 +286,7 @@ export function WhatIfForm({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             base: base ?? FALLBACK_BASE,
-            teams,
+            teams: scopedTeams,
             selectedTeamId: effectiveTeamId,
             objective,
             maxSprints: deadlineEnabled ? maxSprints : undefined,
@@ -473,9 +500,9 @@ export function WhatIfForm({
     <div className={mode === "estimate" ? "space-y-5" : "card space-y-4 p-5"}>
       {mode === "estimate" ? (
         <p className="text-sm text-[var(--muted)]">
-          Pick an objective and run. Baseline team is this CR&apos;s owner ({owningName}). Deadline
-          unlocks only for &ldquo;Cheapest within N sprints&rdquo;. Save keeps a sandbox snapshot;
-          Accept (review stage only) promotes staffing into the governed estimate.
+          Pick an objective and run. Baseline team is this CR&apos;s owner ({owningName}). Company →
+          Crew are locked from the CR; only Pod is open to narrow who competes in the cross-team
+          table (owner always stays).
         </p>
       ) : (
         <p className="text-sm text-[var(--muted)]">
@@ -483,6 +510,56 @@ export function WhatIfForm({
           estimate for CR-specific analysis.
         </p>
       )}
+
+      {mode === "estimate" ? (
+        <section className="space-y-3 rounded-xl border border-[var(--line)] bg-[var(--panel-2)] p-4">
+          <p className="text-xs text-[var(--muted)]">
+            Organisation path locked from this CR’s Pod. Only Pod / Team is open.
+          </p>
+          <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+            {(
+              [
+                ["Company", lockedPath.companyName],
+                ["Division", lockedPath.divisionName],
+                ["Sub-Division", lockedPath.subDivisionName],
+                ["Stream", lockedPath.streamName],
+                ["Crew", lockedPath.crewName],
+              ] as const
+            ).map(([label, value]) => (
+              <label key={label} className="text-sm">
+                {label}
+                <input
+                  className="mt-1 w-full cursor-not-allowed rounded-lg border border-[var(--line)] bg-[var(--bg)] px-3 py-2 text-sm opacity-90"
+                  value={value}
+                  readOnly
+                  tabIndex={-1}
+                />
+              </label>
+            ))}
+            <label className="text-sm">
+              Pod / Team
+              <select
+                className="mt-1 w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2"
+                value={podFilter}
+                onChange={(e) => {
+                  setPodFilter(e.target.value);
+                  setDirty(true);
+                  setScenario(null);
+                  setAllMixes(null);
+                  setExpandTeamId("");
+                }}
+              >
+                <option value="">All pods in Crew</option>
+                {crewPods.map((t) => (
+                  <option key={t.teamId} value={t.teamId}>
+                    {t.teamName}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </section>
+      ) : null}
 
       <div className="grid gap-3 md:grid-cols-3">
         <label className="text-sm">
@@ -529,6 +606,7 @@ export function WhatIfForm({
             <p className="text-[var(--muted)]">CR team (baseline)</p>
             <p className="mt-1 rounded-lg border border-[var(--line)] bg-[var(--bg)] px-3 py-2 font-medium text-[var(--navy)]">
               {owningName}
+              {lockedPath.crewName !== "All" ? ` · ${lockedPath.crewName}` : ""}
             </p>
           </div>
         ) : (
@@ -539,9 +617,10 @@ export function WhatIfForm({
               value={effectiveTeamId}
               onChange={(e) => setTeamId(e.target.value)}
             >
-              {teams.map((t) => (
+              {scopedTeams.map((t) => (
                 <option key={t.teamId} value={t.teamId}>
                   {t.teamName}
+                  {t.crewName ? ` (${t.crewName})` : ""}
                 </option>
               ))}
             </select>
@@ -590,7 +669,7 @@ export function WhatIfForm({
             objectiveLabel={objectiveLabel}
             owningTeamName={owningName}
             currency={base?.currency ?? selectedTeam?.currency ?? "CHF"}
-            teams={teams}
+            teams={scopedTeams}
             expandTeamId={expandTeamId}
             allMixes={allMixes}
             mixesBusy={mixesBusy}

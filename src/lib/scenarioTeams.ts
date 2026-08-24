@@ -3,6 +3,8 @@ import type { LocationAllocation, RosterMember } from "@/domain/estimation/types
 export type ScenarioTeam = {
   teamId: string;
   teamName: string;
+  crewId?: string | null;
+  crewName?: string | null;
   availableLevels: string[];
   maxDev: number;
   maxQa: number;
@@ -23,6 +25,8 @@ type TeamSource = {
   teamSprintRate: number;
   resourceSprintRate: number;
   locationMixJson?: string | null;
+  crewId?: string | null;
+  crew?: { id: string; name: string } | null;
   members: { name: string; resourceLevel: string; roleStream: string; location?: string | null }[];
 };
 
@@ -95,6 +99,8 @@ export function toScenarioTeams(
     return {
       teamId: t.id,
       teamName: t.name,
+      crewId: t.crewId ?? t.crew?.id ?? null,
+      crewName: t.crew?.name ?? null,
       availableLevels: [...new Set(t.members.map((m) => m.resourceLevel))],
       maxDev: Math.max(1, t.members.filter((m) => m.roleStream === "DEV").length),
       maxQa: Math.max(1, t.members.filter((m) => m.roleStream === "QA").length),
