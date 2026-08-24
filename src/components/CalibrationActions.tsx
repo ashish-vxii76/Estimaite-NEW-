@@ -4,7 +4,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { CalibrationRow } from "@/domain/estimation/calibration";
 
-export function CalibrationActions({ rows }: { rows: CalibrationRow[] }) {
+export function CalibrationActions({
+  rows,
+  crew = "",
+  team = "",
+}: {
+  rows: CalibrationRow[];
+  crew?: string;
+  team?: string;
+}) {
   const router = useRouter();
   const [message, setMessage] = useState("");
   const applicable = rows.filter((row) => row.suggestedDaysPerPoint != null);
@@ -14,7 +22,7 @@ export function CalibrationActions({ rows }: { rows: CalibrationRow[] }) {
     const res = await fetch("/api/calibration/apply", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
+      body: JSON.stringify({ crew: crew || undefined, team: team || undefined }),
     });
     const data = await res.json();
     setMessage(
@@ -36,7 +44,11 @@ export function CalibrationActions({ rows }: { rows: CalibrationRow[] }) {
       </button>
       <p className="text-xs text-[var(--muted)]">
         Suggestions never apply themselves. This publishes a new configuration version after
-        administrator approval.
+        administrator approval
+        {crew || team
+          ? " using samples from the Crew / Pod filter above"
+          : " using samples in your org scope"}
+        .
       </p>
       {message ? <p className="text-sm text-[var(--ok)]">{message}</p> : null}
     </div>

@@ -1,16 +1,48 @@
 import { getCalibration } from "@/services/portfolioService";
 import { CalibrationActions } from "@/components/CalibrationActions";
+import { OrgCrewTeamFilters } from "@/components/OrgCrewTeamFilters";
 import { ExplanationPanel } from "@/components/ui";
 import { auth } from "@/auth";
 import { can } from "@/lib/access";
-import { fromSession, resolveEstimateScope } from "@/lib/scope";
+import { fromSession, resolveEstimateScope, teamsForUser } from "@/lib/scope";
+import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 
-export default async function CalibrationPage() {
+export default async function CalibrationPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ crew?: string; team?: string }>;
+}) {
   const session = await auth();
-  const [data] = await Promise.all([
-    getCalibration(await resolveEstimateScope(fromSession(session!.user))),
+  const { crew: crewFilter = "", team: teamFilter = "" } = await searchParams;
+  const scope = await resolveEstimateScope(fromSession(session!.user));
+  const orgWhere: Prisma.EstimateWhereInput = teamFilter
+    ? { teamId: teamFilter }
+    : crewFilter
+      ? { team: { crewId: crewFilter } }
+      : {};
+  const where: Prisma.EstimateWhereInput = { ...scope, ...orgWhere };
+
+  const [data, teams, crews] = await Promise.all([
+    getCalibration(where),
+    teamsForUser(fromSession(session!.user)),
+    prisma.orgUnit.findMany({
+      where: { type: "CREW", active: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
   const canApply = can(session?.user.role, "calibration.apply", "RW");
+  const filteredTeams = crewFilter
+    ? teams.filter((t) => t.crewId === crewFilter)
+    : teams;
+
+  const scopeLabel = [
+    crewFilter ? crews.find((c) => c.id === crewFilter)?.name ?? "Crew" : null,
+    teamFilter ? filteredTeams.find((t) => t.id === teamFilter)?.name ?? "Pod" : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div className="space-y-6">
@@ -18,10 +50,19 @@ export default async function CalibrationPage() {
         <p className="kicker">Learn → Recalibrate</p>
         <h1 className="text-2xl font-semibold">Calibration</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Actual vs estimate → suggested Days/Point. Derived from the Register Actual/Est ratios by
-          Dev resource level (CRs with actuals).
+          Actual vs estimate → suggested Days/Point. Derived from Register Actual/Est ratios by Dev
+          resource level (CRs with actuals)
+          {scopeLabel ? ` for ${scopeLabel}` : " in your org scope"}.
         </p>
       </div>
+
+      <OrgCrewTeamFilters
+        basePath="/calibration"
+        crews={crews}
+        teams={filteredTeams.map((t) => ({ id: t.id, name: t.name }))}
+        crew={crewFilter}
+        team={teamFilter}
+      />
 
       <div className="grid gap-4 md:grid-cols-3">
         <div className="card p-4">
@@ -74,7 +115,7 @@ export default async function CalibrationPage() {
       <ExplanationPanel {...data.explanation} />
 
       {canApply ? (
-        <CalibrationActions rows={data.rows} />
+        <CalibrationActions rows={data.rows} crew={crewFilter} team={teamFilter} />
       ) : (
         <p className="text-sm text-[var(--muted)]">
           Administrator approval is required to apply suggested Days/Point to configuration.

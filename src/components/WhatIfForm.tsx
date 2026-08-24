@@ -185,6 +185,7 @@ export function WhatIfForm({
   const [maxSprints, setMaxSprints] = useState(
     initialSaved?.maxSprints != null ? Number(initialSaved.maxSprints) : 3,
   );
+  const [crewFilter, setCrewFilter] = useState("");
   const [scenario, setScenario] = useState<ScenarioPayload | null>(
     initialSaved?.scenario ?? null,
   );
@@ -220,11 +221,28 @@ export function WhatIfForm({
 
   const deadlineEnabled = objective === "CHEAPEST_WITHIN_N_SPRINTS";
   const teamLocked = mode === "estimate";
+  const owningId = owningTeamId || defaultTeamId || lockedTeamId;
+  const crews = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of teams) {
+      if (t.crewId && t.crewName) map.set(t.crewId, t.crewName);
+    }
+    return [...map.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [teams]);
+  /** Teams in the Crew filter; estimate mode always keeps the CR owner visible. */
+  const scopedTeams = useMemo(() => {
+    if (!crewFilter) return teams;
+    return teams.filter(
+      (t) => t.crewId === crewFilter || (teamLocked && owningId && t.teamId === owningId),
+    );
+  }, [teams, crewFilter, teamLocked, owningId]);
   const effectiveTeamId = teamLocked ? lockedTeamId || teamId : teamId;
-  const selectedTeam = teams.find((t) => t.teamId === effectiveTeamId);
+  const selectedTeam = scopedTeams.find((t) => t.teamId === effectiveTeamId) ??
+    teams.find((t) => t.teamId === effectiveTeamId);
   const owningName =
-    teams.find((t) => t.teamId === (owningTeamId || defaultTeamId || lockedTeamId))?.teamName ??
-    "owning team";
+    teams.find((t) => t.teamId === owningId)?.teamName ?? "owning team";
   const canSave = mode === "estimate" && Boolean(estimateId) && Boolean(scenario);
   const acceptAllowed =
     canAccept &&
@@ -232,6 +250,13 @@ export function WhatIfForm({
     Boolean(estimateId) &&
     Boolean(scenario) &&
     ["READY_FOR_REVIEW", "REVIEWED"].includes(estimateStatus);
+
+  useEffect(() => {
+    if (!crewFilter) return;
+    if (teamLocked) return;
+    if (selectedTeam && scopedTeams.some((t) => t.teamId === effectiveTeamId)) return;
+    setTeamId(scopedTeams[0]?.teamId ?? "");
+  }, [crewFilter, scopedTeams, teamLocked, selectedTeam, effectiveTeamId]);
 
   const objectiveLabel = useMemo(
     () => OBJECTIVES.find((o) => o.value === objective)?.label ?? objective,
@@ -259,7 +284,7 @@ export function WhatIfForm({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             base: base ?? FALLBACK_BASE,
-            teams,
+            teams: scopedTeams,
             selectedTeamId: effectiveTeamId,
             objective,
             maxSprints: deadlineEnabled ? maxSprints : undefined,
@@ -475,14 +500,40 @@ export function WhatIfForm({
         <p className="text-sm text-[var(--muted)]">
           Pick an objective and run. Baseline team is this CR&apos;s owner ({owningName}). Deadline
           unlocks only for &ldquo;Cheapest within N sprints&rdquo;. Save keeps a sandbox snapshot;
-          Accept (review stage only) promotes staffing into the governed estimate.
+          Accept (review stage only) promotes staffing into the governed estimate. Crew filter
+          narrows which pods compete in the cross-team table (owner always stays).
         </p>
       ) : (
         <p className="text-sm text-[var(--muted)]">
           Team-level sandbox with a generic base estimate. Prefer the Scenarios tab on a submitted
-          estimate for CR-specific analysis.
+          estimate for CR-specific analysis. Use Crew to limit the pod list.
         </p>
       )}
+
+      {mode === "estimate" && crews.length > 0 ? (
+        <label className="block text-sm md:max-w-sm">
+          Crew
+          <select
+            className="mt-1 w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2"
+            value={crewFilter}
+            onChange={(e) => {
+              setCrewFilter(e.target.value);
+              setDirty(true);
+              setScenario(null);
+              setStandaloneResult(null);
+              setAllMixes(null);
+              setExpandTeamId("");
+            }}
+          >
+            <option value="">All crews in scope</option>
+            {crews.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
 
       <div className="grid gap-3 md:grid-cols-3">
         <label className="text-sm">
@@ -529,6 +580,9 @@ export function WhatIfForm({
             <p className="text-[var(--muted)]">CR team (baseline)</p>
             <p className="mt-1 rounded-lg border border-[var(--line)] bg-[var(--bg)] px-3 py-2 font-medium text-[var(--navy)]">
               {owningName}
+              {crewFilter && selectedTeam?.crewName
+                ? ` · comparing within ${crews.find((c) => c.id === crewFilter)?.name ?? "Crew"}`
+                : ""}
             </p>
           </div>
         ) : (
@@ -539,9 +593,10 @@ export function WhatIfForm({
               value={effectiveTeamId}
               onChange={(e) => setTeamId(e.target.value)}
             >
-              {teams.map((t) => (
+              {scopedTeams.map((t) => (
                 <option key={t.teamId} value={t.teamId}>
                   {t.teamName}
+                  {t.crewName ? ` (${t.crewName})` : ""}
                 </option>
               ))}
             </select>
@@ -590,7 +645,7 @@ export function WhatIfForm({
             objectiveLabel={objectiveLabel}
             owningTeamName={owningName}
             currency={base?.currency ?? selectedTeam?.currency ?? "CHF"}
-            teams={teams}
+            teams={scopedTeams}
             expandTeamId={expandTeamId}
             allMixes={allMixes}
             mixesBusy={mixesBusy}
