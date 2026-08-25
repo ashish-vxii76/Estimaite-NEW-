@@ -139,9 +139,9 @@
 /* header */
 .lp-header { position: sticky; top: 0; z-index: 30; backdrop-filter: blur(12px);
   background: color-mix(in srgb, var(--bg) 78%, transparent); border-bottom: 1px solid var(--line-soft); }
-.lp-header .wrap { min-height: 128px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.lp-header .wrap { min-height: 76px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .lp-brand { display: inline-flex; align-items: center; line-height: 0; flex-shrink: 0; }
-.lp-logo { height: 106px; width: auto; display: block; object-fit: contain; object-position: left center; max-width: min(520px, 62vw); }
+.lp-logo { height: 70px; width: auto; display: block; object-fit: contain; object-position: left center; max-width: min(340px, 55vw); }
 .lp-logo-dark { display: none; mix-blend-mode: lighten; }  /* melt the black tile into the dark bg */
 :root[data-theme="dark"] .lp-logo-light { display: none; }
 :root[data-theme="dark"] .lp-logo-dark { display: block; }
