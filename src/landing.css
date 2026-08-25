@@ -141,7 +141,7 @@
   background: color-mix(in srgb, var(--bg) 78%, transparent); border-bottom: 1px solid var(--line-soft); }
 .lp-header .wrap { min-height: 76px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .lp-brand { display: inline-flex; align-items: center; line-height: 0; flex-shrink: 0; }
-.lp-logo { height: 38px; width: auto; display: block; object-fit: contain; object-position: left center; max-width: min(190px, 42vw); }
+.lp-logo { height: 53px; width: auto; display: block; object-fit: contain; object-position: left center; max-width: min(266px, 52vw); }
 .lp-logo-dark { display: none; mix-blend-mode: lighten; }  /* melt the black tile into the dark bg */
 :root[data-theme="dark"] .lp-logo-light { display: none; }
 :root[data-theme="dark"] .lp-logo-dark { display: block; }
