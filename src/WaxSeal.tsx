@@ -1,57 +1,76 @@
 import React from "react";
 
-export type WaxSealVariant = "gold" | "green" | "red";
+/**
+ * Inline SVG wax seal — replaces the former PNG assets.
+ * ~3KB shared geometry, recolors per theme via `currentColor`, no alpha holes,
+ * razor-sharp at any size. Render <SealDefs/> once per page, then <WaxSeal/> anywhere.
+ */
 
-export type WaxSealSize = "small" | "medium" | "large" | "xl";
+const SEAL_RIM =
+  "M 191.5,100 L 190.68,103.96 L 188.41,107.74 L 185.26,111.23 L 181.99,114.46 L 179.31,117.58 L 177.76,120.83 L 177.46,122.58 L 177.75,126.39 L 178.83,130.65 L 180.02,135.21 L 180.62,139.76 L 180.06,143.92 L 178.06,147.37 L 174.74,149.94 L 170.5,151.69 L 165.96,152.94 L 161.73,154.14 L 158.29,155.8 L 155.8,158.29 L 154.14,161.73 L 152.35,168.23 L 150.9,172.7 L 148.77,176.55 L 145.75,179.24 L 141.91,180.51 L 137.51,180.43 L 132.91,179.45 L 128.47,178.23 L 124.43,177.48 L 120.83,177.76 L 117.58,179.31 L 114.46,181.99 L 111.23,185.26 L 107.74,188.41 L 103.96,190.68 L 100,191.5 L 96.04,190.68 L 92.26,188.41 L 88.77,185.26 L 85.54,181.99 L 82.42,179.31 L 79.17,177.76 L 75.57,177.48 L 71.53,178.23 L 67.09,179.45 L 62.49,180.43 L 58.09,180.51 L 54.25,179.24 L 51.23,176.55 L 49.1,172.7 L 47.65,168.23 L 45.86,161.73 L 44.2,158.29 L 41.71,155.8 L 38.27,154.14 L 34.04,152.94 L 29.5,151.69 L 25.26,149.94 L 21.94,147.37 L 19.94,143.92 L 19.38,139.76 L 19.98,135.21 L 21.17,130.65 L 22.25,126.39 L 22.54,122.58 L 22.24,120.83 L 20.69,117.58 L 18.01,114.46 L 14.74,111.23 L 11.59,107.74 L 9.32,103.96 L 8.5,100 L 9.32,96.04 L 11.59,92.26 L 14.74,88.77 L 18.01,85.54 L 20.69,82.42 L 22.24,79.17 L 22.54,77.42 L 22.25,73.61 L 21.17,69.35 L 19.98,64.79 L 19.38,60.24 L 19.94,56.08 L 21.94,52.63 L 25.26,50.06 L 29.5,48.31 L 34.04,47.06 L 38.27,45.86 L 41.71,44.2 L 44.2,41.71 L 45.86,38.27 L 47.65,31.77 L 49.1,27.3 L 51.23,23.45 L 54.25,20.76 L 58.09,19.49 L 62.49,19.57 L 67.09,20.55 L 71.53,21.77 L 75.57,22.52 L 79.17,22.24 L 82.42,20.69 L 85.54,18.01 L 88.77,14.74 L 92.26,11.59 L 96.04,9.32 L 100,8.5 L 103.96,9.32 L 107.74,11.59 L 111.23,14.74 L 114.46,18.01 L 117.58,20.69 L 120.83,22.24 L 124.43,22.52 L 128.47,21.77 L 132.91,20.55 L 137.51,19.57 L 141.91,19.49 L 145.75,20.76 L 148.77,23.45 L 150.9,27.3 L 152.35,31.77 L 154.14,38.27 L 155.8,41.71 L 158.29,44.2 L 161.73,45.86 L 165.96,47.06 L 170.5,48.31 L 174.74,50.06 L 178.06,52.63 L 180.06,56.08 L 180.62,60.24 L 180.02,64.79 L 178.83,69.35 L 177.75,73.61 L 177.46,77.42 L 177.76,79.17 L 179.31,82.42 L 181.99,85.54 L 185.26,88.77 L 188.41,92.26 L 190.68,96.04 L 191.5,100 Z";
+const SEAL_SHEEN =
+  "M 191.5,100 L 188.41,107.74 L 181.99,114.46 L 177.76,120.83 L 178.83,130.65 L 180.62,139.76 L 178.06,147.37 L 170.5,151.69 L 161.73,154.14 L 155.8,158.29 L 152.35,168.23 L 148.77,176.55 L 141.91,180.51 L 132.91,179.45 L 124.43,177.48 L 117.58,179.31 L 111.23,185.26 L 103.96,190.68 L 96.04,190.68 L 88.77,185.26 L 82.42,179.31 L 75.57,177.48 L 67.09,179.45 L 58.09,180.51 L 51.23,176.55 L 47.65,168.23 L 44.2,158.29 L 38.27,154.14 L 29.5,151.69 L 21.94,147.37 L 19.38,139.76 L 21.17,130.65 L 22.54,122.58 L 20.69,117.58 L 14.74,111.23 L 9.32,103.96 L 8.5,100 L 11.59,92.26 L 18.01,85.54 L 22.24,79.17 L 21.17,69.35 L 19.38,60.24 L 21.94,52.63 L 29.5,48.31 L 38.27,45.86 L 44.2,41.71 L 47.65,31.77 L 51.23,23.45 L 58.09,19.49 L 67.09,20.55 L 75.57,22.52 L 82.42,20.69 L 88.77,14.74 L 96.04,9.32 L 100,8.5 Z";
+const STARS = [
+  "M 61.7,63.26 L 62.83,66.3 L 66.07,66.44 L 63.54,68.46 L 64.4,71.58 L 61.7,69.79 L 58.99,71.58 L 59.86,68.46 L 57.32,66.44 L 60.56,66.3 Z",
+  "M 78.87,50.08 L 80,53.12 L 83.24,53.26 L 80.71,55.28 L 81.57,58.41 L 78.87,56.62 L 76.17,58.41 L 77.03,55.28 L 74.49,53.26 L 77.73,53.12 Z",
+  "M 100,45.4 L 101.14,48.44 L 104.37,48.58 L 101.84,50.6 L 102.7,53.72 L 100,51.93 L 97.3,53.72 L 98.16,50.6 L 95.63,48.58 L 98.86,48.44 Z",
+  "M 121.13,50.08 L 122.27,53.12 L 125.51,53.26 L 122.97,55.28 L 123.83,58.41 L 121.13,56.62 L 118.43,58.41 L 119.29,55.28 L 116.76,53.26 L 120,53.12 Z",
+  "M 100,145.4 L 101.14,148.44 L 104.37,148.58 L 101.84,150.6 L 102.7,153.72 L 100,151.93 L 97.3,153.72 L 98.16,150.6 L 95.63,148.58 L 98.86,148.44 Z",
+  "M 121.13,140.72 L 122.27,143.75 L 125.51,143.89 L 122.97,145.91 L 123.83,149.04 L 121.13,147.25 L 118.43,149.04 L 119.29,145.91 L 116.76,143.89 L 120,143.75 Z",
+  "M 78.87,140.72 L 80,143.75 L 83.24,143.89 L 80.71,145.91 L 81.57,149.04 L 78.87,147.25 L 76.17,149.04 L 77.03,145.91 L 74.49,143.89 L 77.73,143.75 Z",
+  "M 138.3,127.54 L 139.44,130.58 L 142.68,130.72 L 140.14,132.74 L 141.01,135.86 L 138.3,134.07 L 135.6,135.86 L 136.46,132.74 L 133.93,130.72 L 137.17,130.58 Z",
+];
 
-interface WaxSealProps {
-  variant: WaxSealVariant;
-  size?: WaxSealSize;
-  className?: string;
-  ariaLabel?: string;
-  decorative?: boolean;
+/** Shared geometry — render exactly once per page. */
+export function SealDefs() {
+  return (
+    <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden="true">
+      <defs>
+        <radialGradient id="lpSheen" cx="34%" cy="26%" r="75%">
+          <stop offset="0%" stopColor="#fff" stopOpacity="0.55" />
+          <stop offset="55%" stopColor="#fff" stopOpacity="0.1" />
+          <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+        </radialGradient>
+        {/* Fills are presentation ATTRIBUTES (not CSS classes) so they survive
+            the <use> shadow tree. rim uses currentColor -> recolors per theme. */}
+        <g id="lpSeal">
+          <path d={SEAL_RIM} fill="currentColor" />
+          <circle cx="100" cy="100" r="66" fill="rgba(0,0,0,0.1)" />
+          <path d={SEAL_SHEEN} fill="url(#lpSheen)" />
+          <circle cx="100" cy="100" r="72" fill="none" stroke="rgba(50,34,0,0.32)" strokeWidth={1.1} />
+          <circle cx="100" cy="100" r="68" fill="none" stroke="rgba(50,34,0,0.32)" strokeWidth={1.1} />
+          {STARS.map((d, i) => (
+            <path key={i} d={d} fill="rgba(50,32,0,0.36)" />
+          ))}
+        </g>
+      </defs>
+    </svg>
+  );
 }
 
-const sealAssets: Record<WaxSealVariant, string> = {
-  gold: "/assets/seals/gold-governed.png",
-  green: "/assets/seals/green-governed.png",
-  red: "/assets/seals/red-rejected.png",
-};
+export type SealVariant = "governed" | "rejected";
 
-const sealLabels: Record<WaxSealVariant, string> = {
-  gold: "Governed",
-  green: "Governed",
-  red: "Rejected",
-};
-
-/**
- * Reusable wax seal.
- *
- * Assets:
- * /public/assets/seals/gold-governed.png
- * /public/assets/seals/green-governed.png
- * /public/assets/seals/red-rejected.png
- */
 export default function WaxSeal({
-  variant,
-  size = "large",
+  variant = "governed",
   className = "",
-  ariaLabel,
-  decorative = false,
-}: WaxSealProps) {
-  const classes = ["wax-seal", `wax-seal-${variant}`, `wax-seal-${size}`, className]
-    .filter(Boolean)
-    .join(" ");
-
+  fontSize = 27,
+}: {
+  variant?: SealVariant;
+  className?: string;
+  fontSize?: number;
+}) {
+  const label = variant === "rejected" ? "REJECTED" : "GOVERNED";
   return (
-    <div
-      className={classes}
-      aria-label={decorative ? undefined : (ariaLabel ?? `${sealLabels[variant]} wax seal`)}
-      aria-hidden={decorative || undefined}
-      role={decorative ? undefined : "img"}
+    <svg
+      className={`lp-seal ${className}`}
+      viewBox="0 0 200 200"
+      role="img"
+      aria-label={`${label} estimate seal`}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={sealAssets[variant]} alt="" draggable={false} loading="eager" />
-    </div>
+      <use href="#lpSeal" />
+      <text x="100" y="107" textAnchor="middle" fontSize={fontSize}>
+        {label}
+      </text>
+    </svg>
   );
 }

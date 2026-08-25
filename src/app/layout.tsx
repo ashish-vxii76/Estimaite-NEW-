@@ -25,10 +25,14 @@ export const metadata: Metadata = {
   description: "AI-powered governed estimation, delivery economics, and calibration",
 };
 
+// Set the landing theme before paint — honors the saved choice, else OS preference.
+const THEME_INIT = `(function(){try{var t=localStorage.getItem('theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','light');}})();`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" data-theme="light" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} ${cormorant.variable} min-h-screen antialiased`}>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
         {children}
       </body>
     </html>
