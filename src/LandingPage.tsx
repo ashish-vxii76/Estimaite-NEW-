@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import WaxSeal, { SealDefs } from "./WaxSeal";
+import { EstimAIteLogo } from "@/components/brand/EstimAIteLogo";
 import "./landing.css";
 
 const HEADLINE = ["The", "estimate", "that", "holds", "up", "in"];
@@ -147,11 +148,9 @@ export default function LandingPage() {
       <div className="lp-page">
         <header className="lp-header">
           <div className="wrap">
-            <a className="lp-brand" href="#top">
-              <span className="lp-mark">AI</span>
-              <b>estim</b>
-              <i>AI</i>
-              <b>te</b>
+            <a className="lp-brand" href="#top" aria-label="estimAIte home">
+              <EstimAIteLogo tone="light" className="lp-logo lp-logo-light" />
+              <EstimAIteLogo tone="dark" className="lp-logo lp-logo-dark" />
             </a>
             <nav className="lp-nav" aria-label="Main">
               <a href="#moments">Moments</a>
@@ -360,8 +359,8 @@ export default function LandingPage() {
 
         <footer className="lp-footer">
           <div className="wrap">
-            <span>© 2026 estimAIte · Governed delivery economics</span>
-            <span>Made in Switzerland</span>
+            <span>© 2026 Ashish Joshi · estimAIte</span>
+            <span>Made in India</span>
           </div>
         </footer>
       </div>
