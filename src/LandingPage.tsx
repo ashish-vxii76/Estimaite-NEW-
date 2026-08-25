@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import WaxSeal, { SealDefs } from "./WaxSeal";
-import { EstimAIteLogo } from "@/components/brand/EstimAIteLogo";
 import "./landing.css";
 
 const HEADLINE = ["The", "estimate", "that", "holds", "up", "in"];
@@ -149,8 +148,10 @@ export default function LandingPage() {
         <header className="lp-header">
           <div className="wrap">
             <a className="lp-brand" href="#top" aria-label="estimAIte home">
-              <EstimAIteLogo tone="light" className="lp-logo lp-logo-light" />
-              <EstimAIteLogo tone="dark" className="lp-logo lp-logo-dark" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img className="lp-logo lp-logo-light" src="/brand/EstimAIte%20-%20Transparent.PNG" alt="estimAIte" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img className="lp-logo lp-logo-dark" src="/brand/EstimAIte%20-Black.png" alt="estimAIte" />
             </a>
             <nav className="lp-nav" aria-label="Main">
               <a href="#moments">Moments</a>
