@@ -4,6 +4,7 @@ import {
   normalizeMatrix,
   type RbacMatrix,
 } from "@/lib/rbac";
+import { appendAuditEvent } from "@/services/auditService";
 
 let cache: RbacMatrix | null = null;
 
@@ -64,13 +65,11 @@ export async function saveRbacMatrix(matrixInput: unknown, actorUserId?: string)
     update: { matrixJson: JSON.stringify(matrix) },
     create: { id: "default", matrixJson: JSON.stringify(matrix) },
   });
-  await prisma.auditEvent.create({
-    data: {
-      userId: actorUserId,
-      action: "RBAC_MATRIX_UPDATED",
-      previousValue: previous?.matrixJson ?? "",
-      newValue: JSON.stringify(matrix),
-    },
+  await appendAuditEvent({
+    userId: actorUserId,
+    action: "RBAC_MATRIX_UPDATED",
+    previousValue: previous?.matrixJson ?? "",
+    newValue: JSON.stringify(matrix),
   });
   cache = matrix;
   return matrix;

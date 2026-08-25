@@ -16,3 +16,4 @@ export * from "./calibration";
 export * from "./whatIf";
 export * from "./readiness";
 export * from "./portfolio";
+export * from "./validateConfig";

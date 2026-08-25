@@ -218,4 +218,8 @@ model AuditEvent {
   previousValue String    @default("")
   newValue      String    @default("")
   createdAt     DateTime  @default(now())
+  prevHash      String    @default("")
+  hash          String    @default("")
+
+  @@index([createdAt, id])
 }

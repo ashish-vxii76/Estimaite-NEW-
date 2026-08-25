@@ -1,6 +1,18 @@
+import { createHash } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_CONFIG, hydrateConfig } from "@/domain/estimation/defaultConfig";
+import { assertValidConfig } from "@/domain/estimation/validateConfig";
 import type { EstimationConfig } from "@/domain/estimation/types";
+import { appendAuditEvent } from "@/services/auditService";
+
+/** #2: a real content hash of the commercial rates, so rateVersionId changes when rates change. */
+function rateVersionOf(config: EstimationConfig): string {
+  const material = JSON.stringify({
+    teams: config.teamCostMappings ?? [],
+    locations: config.locationDailyRates ?? [],
+  });
+  return "rate-" + createHash("sha256").update(material).digest("hex").slice(0, 12);
+}
 
 export async function getActiveConfig(): Promise<EstimationConfig> {
   const row = await prisma.configurationVersion.findFirst({
@@ -13,19 +25,18 @@ export async function getActiveConfig(): Promise<EstimationConfig> {
 
 export async function saveConfigVersion(config: EstimationConfig, actorUserId?: string) {
   const hydrated = hydrateConfig(config);
+  assertValidConfig(hydrated); // #1: refuse invalid config at the boundary, not just in the form
   await prisma.configurationVersion.updateMany({ data: { active: false } });
   const id = `cfg-${Date.now()}`;
-  const next = { ...hydrated, versionId: id };
+  const next = { ...hydrated, versionId: id, rateVersionId: rateVersionOf(hydrated) };
   await prisma.configurationVersion.create({
     data: { id, payload: JSON.stringify(next), active: true },
   });
-  await prisma.auditEvent.create({
-    data: {
-      userId: actorUserId,
-      action: "CONFIGURATION_VERSION_CREATED",
-      previousValue: config.versionId,
-      newValue: id,
-    },
+  await appendAuditEvent({
+    userId: actorUserId,
+    action: "CONFIGURATION_VERSION_CREATED",
+    previousValue: config.versionId,
+    newValue: id,
   });
   await syncOperationalTables(next);
   return next;
