@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
 import type { HomeAction } from "@/lib/homeInbox";
 
 export function HomeActionsPanel({ actions }: { actions: HomeAction[] }) {
@@ -18,10 +19,16 @@ export function HomeActionsPanel({ actions }: { actions: HomeAction[] }) {
           <Link
             key={action.id}
             href={action.href}
-            className="rounded-xl border border-[var(--line)] bg-[var(--panel-2)] px-4 py-3 transition hover:border-[var(--navy)]"
+            className="card-interactive group flex items-start justify-between gap-3 rounded-xl border border-[var(--line)] bg-[var(--panel-2)] px-4 py-3"
           >
-            <p className="font-medium text-[var(--navy)]">{action.label}</p>
-            <p className="mt-1 text-xs text-[var(--muted)]">{action.description}</p>
+            <span>
+              <p className="font-medium text-[var(--navy)]">{action.label}</p>
+              <p className="mt-1 text-xs text-[var(--muted)]">{action.description}</p>
+            </span>
+            <ArrowUpRight
+              size={16}
+              className="mt-0.5 shrink-0 text-[var(--muted)] transition-colors group-hover:text-[var(--gold-2)]"
+            />
           </Link>
         ))}
       </div>

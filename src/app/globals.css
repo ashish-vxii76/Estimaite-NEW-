@@ -1,24 +1,61 @@
 @import "tailwindcss";
 
-:root {
-  --bg: #f3efe6;
-  --panel: #fffcf7;
-  --panel-2: #f6f1e8;
-  --line: #ddd6c8;
+/* ============================================================
+   Design tokens — light is the base; dark overrides by attribute.
+   THEME_INIT (root layout) always stamps data-theme, honoring the
+   saved choice then OS preference, so the attribute is authoritative.
+   ============================================================ */
+:root,
+:root[data-theme="light"] {
+  --bg: #e9e2d1;         /* deeper parchment ground so cards lift */
+  --panel: #fffdf8;      /* card surface — near-white cream */
+  --panel-2: #f4eddf;    /* inset / hover */
+  --line: #ddd3bf;
   --text: #1b2a4a;
   --muted: #5c6b80;
+  --navy: #12233f;       /* heading ink + brand (used widely as text) */
+  --primary: #0a192f;    /* solid button background */
+  --primary-ink: #ffffff;
   --accent: #0f766e;
   --accent-2: #0d9488;
-  --navy: #1e3a5f;
+  --gold: #b08d57;       /* signature accent, carried from the landing */
+  --gold-2: #8a6d3a;
+  --gold-soft: rgba(176, 141, 87, 0.14);
   --warn: #b45309;
   --danger: #b42318;
   --ok: #047857;
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 10px 26px -14px rgba(16, 24, 40, 0.22);
+  --shadow-lg: 0 2px 4px rgba(16, 24, 40, 0.05), 0 24px 48px -20px rgba(16, 24, 40, 0.32);
+  --body-glow: radial-gradient(900px 420px at 100% -10%, #e7eef6 0%, transparent 55%);
+}
+
+:root[data-theme="dark"] {
+  --bg: #0a1020;
+  --panel: #121b30;
+  --panel-2: #0e1627;
+  --line: #26324c;
+  --text: #e7e2d6;
+  --muted: #9aa6bd;
+  --navy: #eaf0fb;       /* flips to light ink so headings stay readable */
+  --primary: #c9ad78;    /* gold button on dark, matching the landing dark */
+  --primary-ink: #0a1020;
+  --accent: #2dd4bf;
+  --accent-2: #5eead4;
+  --gold: #cdb079;
+  --gold-2: #e3caa0;
+  --gold-soft: rgba(205, 176, 121, 0.16);
+  --warn: #f59e0b;
+  --danger: #f87171;
+  --ok: #34d399;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 14px 32px -16px rgba(0, 0, 0, 0.72);
+  --shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.5), 0 28px 56px -22px rgba(0, 0, 0, 0.8);
+  --body-glow: radial-gradient(900px 460px at 100% -12%, rgba(201, 173, 120, 0.12) 0%, transparent 58%);
 }
 
 body {
-  background:
-    radial-gradient(900px 420px at 100% -10%, #e7eef6 0%, transparent 55%),
-    var(--bg);
+  background: var(--body-glow), var(--bg);
   color: var(--text);
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
@@ -36,8 +73,25 @@ input, select, textarea, button {
 .card {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 12px;
-  box-shadow: 0 1px 0 rgba(27, 42, 74, 0.04);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+
+/* Interactive cards get a gold-lit hover lift. */
+.card-interactive {
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+.card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  border-color: color-mix(in srgb, var(--gold) 55%, var(--line));
+}
+
+/* A thin gold rule to head a section or card, echoing the landing seals. */
+.gold-rule {
+  height: 2px;
+  border: 0;
+  background: linear-gradient(90deg, var(--gold), transparent 70%);
 }
 
 .sticky-summary {
@@ -46,8 +100,8 @@ input, select, textarea, button {
 }
 
 .btn-primary {
-  background: var(--navy);
-  color: #fff;
+  background: var(--primary);
+  color: var(--primary-ink);
   border-radius: 8px;
   padding: 0.5rem 1rem;
   font-weight: 600;
@@ -63,6 +117,24 @@ input, select, textarea, button {
   color: var(--text);
   border-radius: 8px;
   padding: 0.5rem 1rem;
+}
+
+/* Gold call-to-action, carried in from the landing for signature moments. */
+.btn-gold {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  background: linear-gradient(180deg, var(--gold-2), var(--gold));
+  color: #14110a;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  box-shadow: var(--shadow-sm);
+}
+.btn-gold:hover {
+  filter: brightness(1.06);
 }
 
 .stamp {
@@ -82,22 +154,22 @@ input, select, textarea, button {
 
 .stamp-danger {
   color: #9f1239;
-  background: color-mix(in srgb, #9f1239 8%, white);
+  background: color-mix(in srgb, #9f1239 8%, var(--panel));
 }
 
 .stamp-navy {
   color: var(--navy);
-  background: color-mix(in srgb, var(--navy) 8%, white);
+  background: color-mix(in srgb, var(--navy) 8%, var(--panel));
 }
 
 .stamp-ok {
   color: #047857;
-  background: color-mix(in srgb, #047857 8%, white);
+  background: color-mix(in srgb, #047857 8%, var(--panel));
 }
 
 .stamp-warn {
   color: #b45309;
-  background: color-mix(in srgb, #b45309 8%, white);
+  background: color-mix(in srgb, #b45309 8%, var(--panel));
 }
 
 .situation {
@@ -114,8 +186,10 @@ input, select, textarea, button {
   color: var(--muted);
 }
 
+/* Display face — the landing's Cormorant Garamond, used for headings only. */
 .font-display {
-  font-family: var(--font-geist-sans), ui-serif, Georgia, serif;
+  font-family: var(--font-landing-serif), ui-serif, Georgia, "Times New Roman", serif;
+  letter-spacing: 0.005em;
 }
 
 .btn-ghost {

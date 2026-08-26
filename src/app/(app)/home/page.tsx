@@ -149,9 +149,10 @@ export default async function HomePage({
 
 function Tile({ label, value }: { label: string; value: number }) {
   return (
-    <div className="card p-4">
-      <p className="text-xs uppercase tracking-wide text-[var(--muted)]">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-[var(--navy)]">{value}</p>
+    <div className="card card-interactive overflow-hidden p-4">
+      <span className="mb-3 block h-0.5 w-8 rounded-full bg-[linear-gradient(90deg,var(--gold-2),var(--gold))]" />
+      <p className="text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">{label}</p>
+      <p className="mt-1 text-3xl font-semibold tabular-nums text-[var(--navy)]">{value}</p>
     </div>
   );
 }

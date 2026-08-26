@@ -3,6 +3,7 @@ import { SideNav } from "@/components/nav/SideNav";
 import { SignOutButton } from "@/components/SignOutButton";
 import { ProfileSwitcher, type ProfileOption } from "@/components/ProfileSwitcher";
 import { NotificationBell } from "@/components/NotificationBell";
+import { HeaderBar } from "@/components/HeaderBar";
 import { roleLabel } from "@/lib/roles";
 import type { RbacMatrix } from "@/lib/rbac";
 import type { AppNotification } from "@/lib/homeInbox";
@@ -48,9 +49,7 @@ export function AppShell({
         />
       </Suspense>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-40 flex h-14 items-center justify-end gap-3 border-b border-[var(--line)] bg-[var(--bg)]/95 px-4 backdrop-blur md:px-8">
-          {showNotifications ? <NotificationBell items={notifications} /> : null}
-        </header>
+        <HeaderBar bell={showNotifications ? <NotificationBell items={notifications} /> : null} />
         <main className="px-4 py-6 md:px-8">{children}</main>
       </div>
     </div>
