@@ -271,15 +271,22 @@ export async function calculateAndPersist(id: string, userId: string) {
   };
 
   const result = calculateEstimate(input, config);
-  const updated = await prisma.estimate.update({
-    where: { id },
-    data: { resultJson: JSON.stringify(result) },
-    include: { team: true, createdBy: true, approvals: true, actuals: true },
+  // Atomic: persist result + version snapshot + audit as one unit.
+  const updated = await prisma.$transaction(async (tx) => {
+    const row = await tx.estimate.update({
+      where: { id },
+      data: { resultJson: JSON.stringify(result) },
+      include: { team: true, createdBy: true, approvals: true, actuals: true },
+    });
+    await tx.estimateVersion.create({
+      data: { estimateId: id, snapshot: JSON.stringify({ estimate: row, result }) },
+    });
+    await appendAuditEvent(
+      { estimateId: id, userId, action: "ESTIMATE_CALCULATED", newValue: result.governanceDecision },
+      tx,
+    );
+    return row;
   });
-  await prisma.estimateVersion.create({
-    data: { estimateId: id, snapshot: JSON.stringify({ estimate: updated, result }) },
-  });
-  await audit(id, userId, "ESTIMATE_CALCULATED", "", result.governanceDecision);
   return { estimate: updated, result };
 }
 
@@ -344,23 +351,28 @@ export async function applyOverride(
   const estimate = await prisma.estimate.findUnique({ where: { id } });
   if (!estimate) return null;
   if (!payload.reason.trim()) throw new Error("Override reason is required");
-  await prisma.estimate.update({
-    where: { id },
-    data: {
-      overrideEnabled: true,
-      overrideSp: payload.overrideSp,
-      overrideReason: payload.reason,
-      overrideRequestedBy: payload.requestedBy,
-      overrideAt: new Date(),
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.estimate.update({
+      where: { id },
+      data: {
+        overrideEnabled: true,
+        overrideSp: payload.overrideSp,
+        overrideReason: payload.reason,
+        overrideRequestedBy: payload.requestedBy,
+        overrideAt: new Date(),
+      },
+    });
+    await appendAuditEvent(
+      {
+        estimateId: id,
+        userId,
+        action: "MANUAL_OVERRIDE",
+        previousValue: String(estimate.overrideSp ?? ""),
+        newValue: String(payload.overrideSp),
+      },
+      tx,
+    );
   });
-  await audit(
-    id,
-    userId,
-    "MANUAL_OVERRIDE",
-    String(estimate.overrideSp ?? ""),
-    String(payload.overrideSp),
-  );
   return calculateAndPersist(id, userId);
 }
 
@@ -390,22 +402,28 @@ export async function captureActuals(
     estimatedSprints: result.finalSprints,
     estimatedCost: result.aiAdjustedDeliveryCost ?? 0,
   });
-  const actuals = await prisma.actualDelivery.upsert({
-    where: { estimateId: id },
-    update: {
-      ...payload,
-      completionDate: payload.completionDate ? new Date(payload.completionDate) : null,
-      varianceJson: JSON.stringify(variance),
-    },
-    create: {
-      estimateId: id,
-      ...payload,
-      completionDate: payload.completionDate ? new Date(payload.completionDate) : null,
-      varianceJson: JSON.stringify(variance),
-    },
+  const actuals = await prisma.$transaction(async (tx) => {
+    const row = await tx.actualDelivery.upsert({
+      where: { estimateId: id },
+      update: {
+        ...payload,
+        completionDate: payload.completionDate ? new Date(payload.completionDate) : null,
+        varianceJson: JSON.stringify(variance),
+      },
+      create: {
+        estimateId: id,
+        ...payload,
+        completionDate: payload.completionDate ? new Date(payload.completionDate) : null,
+        varianceJson: JSON.stringify(variance),
+      },
+    });
+    await tx.estimate.update({ where: { id }, data: { status: "COMPLETED" } });
+    await appendAuditEvent(
+      { estimateId: id, userId, action: "ACTUALS_ENTERED", newValue: JSON.stringify(payload) },
+      tx,
+    );
+    return row;
   });
-  await prisma.estimate.update({ where: { id }, data: { status: "COMPLETED" } });
-  await audit(id, userId, "ACTUALS_ENTERED", "", JSON.stringify(payload));
   return { actuals, variance };
 }
 
