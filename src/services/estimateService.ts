@@ -9,6 +9,7 @@ import {
 import { getActiveConfig } from "@/services/configService";
 import { resolveOrgPathForTeam } from "@/services/orgService";
 import { appendAuditEvent } from "@/services/auditService";
+import { safeJsonParse } from "@/lib/safeJson";
 
 const scoreSchema = z.object({
   dimensionId: z.string(),
@@ -391,7 +392,8 @@ export async function captureActuals(
 ) {
   const estimate = await prisma.estimate.findUnique({ where: { id } });
   if (!estimate?.resultJson) throw new Error("Calculate the estimate before capturing actuals");
-  const result = JSON.parse(estimate.resultJson);
+  const result = safeJsonParse<Record<string, number> | null>(estimate.resultJson, null);
+  if (!result) throw new Error("Estimate result is unreadable — recalculate before capturing actuals");
   const variance = calculateVariance({
     actualDevPd: payload.actualDevPd,
     actualQaPd: payload.actualQaPd,

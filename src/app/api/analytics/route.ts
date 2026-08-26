@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireFeature, requireUser } from "@/lib/api-auth";
 import { fromSession, resolveEstimateScope } from "@/lib/scope";
+import { safeJsonParse } from "@/lib/safeJson";
 
 export async function GET() {
   const { session, error } = await requireUser();
@@ -18,7 +19,7 @@ export async function GET() {
   let actualRatioSum = 0;
   let actualRatioCount = 0;
   for (const estimate of estimates) {
-    const result = JSON.parse(estimate.resultJson ?? "{}");
+    const result = safeJsonParse<{ selectedSp?: number; governanceDecision?: string }>(estimate.resultJson, {});
     const team = estimate.team.name;
     byTeam[team] ??= { count: 0, avgSp: 0 };
     byTeam[team].count += 1;
@@ -26,7 +27,7 @@ export async function GET() {
     governance[result.governanceDecision ?? "UNKNOWN"] =
       (governance[result.governanceDecision ?? "UNKNOWN"] ?? 0) + 1;
     if (estimate.actuals?.varianceJson) {
-      const v = JSON.parse(estimate.actuals.varianceJson);
+      const v = safeJsonParse<{ actualEstimatedEffortRatio?: number }>(estimate.actuals.varianceJson, {});
       if (v.actualEstimatedEffortRatio) {
         actualRatioSum += v.actualEstimatedEffortRatio;
         actualRatioCount += 1;
