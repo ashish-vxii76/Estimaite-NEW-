@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireFeature, requireUser } from "@/lib/api-auth";
 import { getActiveConfig, patchActiveConfig } from "@/services/configService";
+import { apiError } from "@/lib/api-error";
 import { can } from "@/lib/access";
 import type { EstimationConfig } from "@/domain/estimation/types";
 
@@ -50,6 +51,10 @@ export async function PUT(request: Request) {
   else if (section === "estimationConfig") Object.assign(patch, body.estimationConfig ?? {});
   else return NextResponse.json({ error: `Unknown section ${section}` }, { status: 400 });
 
-  const config = await patchActiveConfig(patch, session!.user.id);
-  return NextResponse.json({ config });
+  try {
+    const config = await patchActiveConfig(patch, session!.user.id);
+    return NextResponse.json({ config });
+  } catch (e) {
+    return apiError(e);
+  }
 }

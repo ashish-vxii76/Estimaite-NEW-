@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { can, type FeatureId } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { canSeeEstimateAsync, fromSession } from "@/lib/scope";
-import { getCachedRbacMatrix, getRbacMatrix } from "@/services/rbacService";
+import { getCachedRbacMatrix, getRbacMatrix, isRbacLoaded } from "@/services/rbacService";
 
 export async function requireUser() {
   const session = await auth();
@@ -30,6 +30,10 @@ export async function requireVisibleEstimate(user: {
 }
 
 export function requireFeature(role: string, feature: FeatureId, mode: "R" | "RW" = "R") {
+  // #8: fail closed — never authorize against DEFAULT_RBAC when the real matrix isn't loaded.
+  if (!isRbacLoaded()) {
+    return NextResponse.json({ error: "Authorization temporarily unavailable" }, { status: 503 });
+  }
   if (!can(role, feature, mode, getCachedRbacMatrix())) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
