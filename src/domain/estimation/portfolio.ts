@@ -30,10 +30,15 @@ export function budgetStatus(
   if (budget == null || !Number.isFinite(budget) || budget <= 0) {
     return { rag: "UNSET", label: "set budget" };
   }
-  if (totalAiAdjustedCost <= budget) {
+  // #4 integer money: compare in exact integer cents so IEEE-754 drift in `budget * 1.1`
+  // can never flip the RAG light at a cent boundary. Cross-multiply for the 110% threshold
+  // (total <= budget * 1.1  <=>  totalCents * 10 <= budgetCents * 11) to keep it integer-only.
+  const totalCents = Math.round(totalAiAdjustedCost * 100);
+  const budgetCents = Math.round(budget * 100);
+  if (totalCents <= budgetCents) {
     return { rag: "GREEN", label: "On budget" };
   }
-  if (totalAiAdjustedCost <= budget * 1.1) {
+  if (totalCents * 10 <= budgetCents * 11) {
     return { rag: "AMBER", label: "Watch" };
   }
   return { rag: "RED", label: "Over budget" };

@@ -6,6 +6,8 @@ import { toScenarioTeams } from "@/lib/scenarioTeams";
 import { StatusBadge } from "@/components/ui";
 import { can, writesOwnRecordsOnly } from "@/lib/access";
 import { canSeeEstimateAsync, fromSession, teamsForUser } from "@/lib/scope";
+import { safeJsonParse } from "@/lib/safeJson";
+import type { EstimateCalculationResult } from "@/domain/estimation";
 import { getActiveConfig } from "@/services/configService";
 
 export default async function EstimateDetailPage({
@@ -41,7 +43,7 @@ export default async function EstimateDetailPage({
       select: { id: true, type: true, name: true, parentId: true },
     }),
   ]);
-  const result = estimate.resultJson ? JSON.parse(estimate.resultJson) : null;
+  const result = safeJsonParse<EstimateCalculationResult | null>(estimate.resultJson, null);
   // #15: flag when this estimate was computed under an older configuration version.
   const configStale = estimate.configurationVersionId !== config.versionId;
   let savedScenario = null;

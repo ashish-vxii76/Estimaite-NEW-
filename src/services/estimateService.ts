@@ -91,6 +91,29 @@ function commercialMix(data: Partial<z.infer<typeof estimateInputSchema>>) {
 export async function createEstimate(data: z.infer<typeof estimateInputSchema>, userId: string) {
   const config = await getActiveConfig();
   const orgPath = await resolveOrgPathForTeam(data.teamId);
+  // Real input pinning: snapshot the roster + team rate/mix used, so a later recompute
+  // re-derives identically even if the team's roster or rates change afterwards.
+  const team = await prisma.team.findUnique({ where: { id: data.teamId } });
+  const members = await prisma.teamMember.findMany({ where: { teamId: data.teamId } });
+  const pinnedInputs = {
+    roster: members.map((m) => ({
+      name: m.name,
+      roleStream: m.roleStream,
+      location: m.location,
+      resourceLevel: m.resourceLevel,
+    })),
+    team: team
+      ? {
+          name: team.name,
+          resourceSprintRate: team.resourceSprintRate,
+          teamSprintRate: team.teamSprintRate,
+          standardTeamSize: team.standardTeamSize,
+          currency: team.currency,
+          locationMixJson: team.locationMixJson,
+          mappedLocation: team.mappedLocation,
+        }
+      : null,
+  };
   const estimate = await prisma.estimate.create({
     data: {
       workItemType: data.workItemType,
@@ -121,6 +144,7 @@ export async function createEstimate(data: z.infer<typeof estimateInputSchema>, 
       orgPathJson: orgPath ? JSON.stringify(orgPath) : "",
       configurationVersionId: config.versionId,
       rateVersionId: config.rateVersionId,
+      pinnedInputsJson: JSON.stringify(pinnedInputs),
       createdById: userId,
     },
   });
@@ -200,7 +224,24 @@ export async function calculateAndPersist(id: string, userId: string) {
     configRow ? JSON.parse(configRow.payload) : await getActiveConfig(),
   );
 
-  const teamCost = config.teamCostMappings?.find((t) => t.teamName === estimate.team.name);
+  // Prefer the pinned snapshot taken at creation; fall back to live for legacy estimates.
+  const pinned = safeJsonParse<{
+    roster?: Array<{ name: string; roleStream: string; location: string; resourceLevel: string }>;
+    team?: {
+      name: string;
+      resourceSprintRate: number;
+      teamSprintRate: number;
+      standardTeamSize: number;
+      currency: string;
+      locationMixJson: string;
+      mappedLocation: string;
+    } | null;
+  } | null>(estimate.pinnedInputsJson, null);
+  const pinnedTeam = pinned?.team ?? null;
+
+  const teamCost = config.teamCostMappings?.find(
+    (t) => t.teamName === (pinnedTeam?.name ?? estimate.team.name),
+  );
   const storedMix = safeJsonParse(estimate.locationMixJson, []) as Array<
     EstimateCalculationInput["locationAllocations"][number] & {
       costingBasis?: "TEAM" | "LOCATION";
@@ -210,12 +251,19 @@ export async function calculateAndPersist(id: string, userId: string) {
     }
   >;
   const commercial = Array.isArray(storedMix) ? storedMix[0] : undefined;
-  const teamMix = safeJsonParse(estimate.team.locationMixJson, []) as {
+  const teamMix = safeJsonParse(pinnedTeam?.locationMixJson ?? estimate.team.locationMixJson, []) as {
     location: string;
     allocationPct: number;
   }[];
-  const members = await prisma.teamMember.findMany({ where: { teamId: estimate.teamId } });
-  const roster = members.map((m) => ({
+  const rosterSource =
+    pinned?.roster ??
+    (await prisma.teamMember.findMany({ where: { teamId: estimate.teamId } })).map((m) => ({
+      name: m.name,
+      roleStream: m.roleStream,
+      location: m.location,
+      resourceLevel: m.resourceLevel,
+    }));
+  const roster = rosterSource.map((m) => ({
     name: m.name,
     roleStream: m.roleStream,
     location: m.location,
@@ -243,7 +291,8 @@ export async function calculateAndPersist(id: string, userId: string) {
       });
 
   const costingBasis = (commercial?.costingBasis ?? "TEAM") as EstimateCalculationInput["costingBasis"];
-  const locationName = commercial?.locationName || estimate.team.mappedLocation;
+  const locationName =
+    commercial?.locationName || pinnedTeam?.mappedLocation || estimate.team.mappedLocation;
   const input: EstimateCalculationInput = {
     workItemType: estimate.workItemType as EstimateCalculationInput["workItemType"],
     complexityScores: safeJsonParse(estimate.complexityScoresJson, []),
@@ -256,7 +305,7 @@ export async function calculateAndPersist(id: string, userId: string) {
     projectOverrideRate: commercial?.projectOverrideRate ?? null,
     costingBasis,
     teamId: estimate.teamId,
-    teamName: estimate.team.name,
+    teamName: pinnedTeam?.name ?? estimate.team.name,
     locationName,
     costMethod: commercial?.costMethod ?? "Resource Cost per Sprint",
     devResourceLevelId: estimate.devResourceLevel,
@@ -268,13 +317,15 @@ export async function calculateAndPersist(id: string, userId: string) {
     availableQa: estimate.availableQa,
     targetSprints: estimate.targetSprints,
     costingModel: "RESOURCE_SPRINT",
-    resourceSprintRate: teamCost?.resourceSprintCost ?? estimate.team.resourceSprintRate,
-    teamSprintRate: teamCost?.teamSprintCost ?? estimate.team.teamSprintRate,
+    resourceSprintRate:
+      teamCost?.resourceSprintCost ?? pinnedTeam?.resourceSprintRate ?? estimate.team.resourceSprintRate,
+    teamSprintRate: teamCost?.teamSprintCost ?? pinnedTeam?.teamSprintRate ?? estimate.team.teamSprintRate,
     otherFixedCost: estimate.workItemType === "EPIC" ? 0 : estimate.otherFixedCost,
     locationAllocations,
     roster,
     currency: teamCost?.currency ?? estimate.currency,
-    standardTeamSize: teamCost?.standardTeamSize ?? estimate.team.standardTeamSize,
+    standardTeamSize:
+      teamCost?.standardTeamSize ?? pinnedTeam?.standardTeamSize ?? estimate.team.standardTeamSize,
   };
 
   const result = calculateEstimate(input, config);
