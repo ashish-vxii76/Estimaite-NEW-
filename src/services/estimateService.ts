@@ -8,6 +8,7 @@ import {
 } from "@/domain/estimation";
 import { getActiveConfig } from "@/services/configService";
 import { resolveOrgPathForTeam } from "@/services/orgService";
+import { appendAuditEvent } from "@/services/auditService";
 
 const scoreSchema = z.object({
   dimensionId: z.string(),
@@ -289,8 +290,6 @@ export async function transitionStatus(
   email: string,
   comment = "",
 ) {
-  const estimate = await prisma.estimate.findUnique({ where: { id } });
-  if (!estimate) return null;
   const map: Record<string, { from: string[]; to: string }> = {
     submit: { from: ["DRAFT", "RETURNED"], to: "READY_FOR_REVIEW" },
     review: { from: ["READY_FOR_REVIEW"], to: "REVIEWED" },
@@ -299,30 +298,42 @@ export async function transitionStatus(
     return: { from: ["READY_FOR_REVIEW", "REVIEWED"], to: "RETURNED" },
   };
   const spec = map[action];
-  if (!spec.from.includes(estimate.status)) {
-    throw new Error(`Cannot ${action} from ${estimate.status}`);
-  }
-  if ((action === "review" || action === "approve" || action === "reject") && estimate.createdById === userId) {
-    throw new Error("You cannot review or approve a record you created");
-  }
-  if (action === "approve" || action === "reject") {
-    const prior = await prisma.approval.findFirst({
-      where: { estimateId: id, action: "review" },
-      orderBy: { createdAt: "desc" },
-    });
-    if (prior && prior.actorEmail === email) {
-      throw new Error("Two-person rule: the reviewer cannot also approve or reject");
+
+  // Governance #3: the read (status + segregation-of-duties check) and the write
+  // must be ATOMIC. Doing them in one transaction serializes concurrent transitions,
+  // so two racing approvals can't both pass the two-person check before either writes.
+  return prisma.$transaction(async (tx) => {
+    const estimate = await tx.estimate.findUnique({ where: { id } });
+    if (!estimate) return null;
+
+    if (!spec.from.includes(estimate.status)) {
+      throw new Error(`Cannot ${action} from ${estimate.status}`);
     }
-  }
-  const updated = await prisma.estimate.update({
-    where: { id },
-    data: { status: spec.to },
+    if ((action === "review" || action === "approve" || action === "reject") && estimate.createdById === userId) {
+      throw new Error("You cannot review or approve a record you created");
+    }
+    if (action === "approve" || action === "reject") {
+      const prior = await tx.approval.findFirst({
+        where: { estimateId: id, action: "review" },
+        orderBy: { createdAt: "desc" },
+      });
+      if (prior && prior.actorEmail === email) {
+        throw new Error("Two-person rule: the reviewer cannot also approve or reject");
+      }
+    }
+    const updated = await tx.estimate.update({
+      where: { id },
+      data: { status: spec.to },
+    });
+    await tx.approval.create({
+      data: { estimateId: id, action, comment, actorEmail: email },
+    });
+    await appendAuditEvent(
+      { estimateId: id, userId, action: `ESTIMATE_${action.toUpperCase()}`, previousValue: estimate.status, newValue: spec.to },
+      tx,
+    );
+    return updated;
   });
-  await prisma.approval.create({
-    data: { estimateId: id, action, comment, actorEmail: email },
-  });
-  await audit(id, userId, `ESTIMATE_${action.toUpperCase()}`, estimate.status, spec.to);
-  return updated;
 }
 
 export async function applyOverride(
@@ -559,7 +570,5 @@ async function audit(
   previousValue: string,
   newValue: string,
 ) {
-  await prisma.auditEvent.create({
-    data: { estimateId, userId, action, previousValue, newValue },
-  });
+  await appendAuditEvent({ estimateId, userId, action, previousValue, newValue });
 }

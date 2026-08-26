@@ -4,15 +4,32 @@ import {
   normalizeMatrix,
   type RbacMatrix,
 } from "@/lib/rbac";
+import { appendAuditEvent } from "@/services/auditService";
 
 let cache: RbacMatrix | null = null;
+let loaded = false;
 
+/**
+ * Lenient accessor for sync scope helpers (access.ts / scope.ts) that may run
+ * before the request path warms the cache (e.g. SSR). Falls back to the baseline.
+ */
 export function getCachedRbacMatrix(): RbacMatrix {
   return cache ?? DEFAULT_RBAC;
 }
 
+/**
+ * #8: the *authorization decision* (requireFeature) fails CLOSED using this — if the
+ * matrix was never loaded it returns false, so an org that tightened permissions below
+ * the baseline is never silently loosened back to DEFAULT_RBAC. requireUser() warms the
+ * cache before any requireFeature() check, so this only trips on a genuine failure.
+ */
+export function isRbacLoaded(): boolean {
+  return loaded && cache != null;
+}
+
 export function setCachedRbacMatrix(matrix: RbacMatrix) {
   cache = matrix;
+  loaded = true;
 }
 
 export async function getRbacMatrix(): Promise<RbacMatrix> {
@@ -23,14 +40,17 @@ export async function getRbacMatrix(): Promise<RbacMatrix> {
       await prisma.rbacSettings.create({
         data: { id: "default", matrixJson: JSON.stringify(matrix) },
       });
-      cache = matrix;
+      setCachedRbacMatrix(matrix);
       return matrix;
     }
     const matrix = normalizeMatrix(JSON.parse(row.matrixJson));
-    cache = matrix;
+    setCachedRbacMatrix(matrix);
     return matrix;
   } catch {
-    return cache ?? DEFAULT_RBAC;
+    // Transient failure: serve the last-known-good matrix. If we never loaded one,
+    // fail closed rather than silently dropping to DEFAULT_RBAC.
+    if (loaded && cache) return cache;
+    throw new Error("RBAC matrix unavailable and none cached — refusing to authorize (fail closed).");
   }
 }
 
@@ -64,13 +84,11 @@ export async function saveRbacMatrix(matrixInput: unknown, actorUserId?: string)
     update: { matrixJson: JSON.stringify(matrix) },
     create: { id: "default", matrixJson: JSON.stringify(matrix) },
   });
-  await prisma.auditEvent.create({
-    data: {
-      userId: actorUserId,
-      action: "RBAC_MATRIX_UPDATED",
-      previousValue: previous?.matrixJson ?? "",
-      newValue: JSON.stringify(matrix),
-    },
+  await appendAuditEvent({
+    userId: actorUserId,
+    action: "RBAC_MATRIX_UPDATED",
+    previousValue: previous?.matrixJson ?? "",
+    newValue: JSON.stringify(matrix),
   });
   cache = matrix;
   return matrix;
