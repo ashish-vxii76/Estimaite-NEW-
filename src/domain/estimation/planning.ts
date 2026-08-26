@@ -104,15 +104,16 @@ export function planDelivery(input: {
   }
 
   if (input.mode === "SPRINT_CONSTRAINED") {
-    // DEC-005: required headcount is sized on BASE capacity, so an unproven AI
-    // multiplier never reduces the committed team (and the AI benefit isn't double
-    // counted against the AI cost MIN rule). AI still shortens the ELAPSED duration below.
+    // PRD §6.5: required resources are sized on AI-ADJUSTED capacity.
+    //   req_dev = max(1, roundup(dev_sp / (target_sprints × ai_dev_capacity)))
+    // AI Productivity % is "applied once, at capacity" and that AI-adjusted capacity
+    // drives both required-resources and sprint count.
     const required = calculateRequiredResources({
       devSP: input.devSP,
       qaSP: input.qaSP,
       targetSprints: input.targetSprints,
-      devCapacity: input.baseDevCapacity,
-      qaCapacity: input.baseQaCapacity,
+      devCapacity: input.aiDevCapacity,
+      qaCapacity: input.aiQaCapacity,
     });
     const duration = calculateRequiredSprints({
       devSP: input.devSP,

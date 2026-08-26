@@ -260,10 +260,11 @@ describe("variance", () => {
   });
 });
 
-describe("sprint-constrained capacity (DEC-005)", () => {
-  it("sizes required headcount on BASE capacity, not AI-adjusted", () => {
-    // AI doubles capacity (base 5 -> AI 10). Base sizing needs 2 Dev / 1 QA;
-    // AI-adjusted sizing would understate to 1 Dev. We must get the BASE result.
+describe("sprint-constrained capacity (PRD §6.5 — AI-adjusted)", () => {
+  it("sizes required resources on AI-ADJUSTED capacity, per §6.5", () => {
+    // §6.5: req_dev = max(1, roundup(dev_sp / (target_sprints × ai_dev_capacity))).
+    // AI doubles capacity (base 5 -> AI 10): AI sizing needs 1 Dev / 1 QA.
+    // (Base sizing would have given 2 Dev — that is NOT what the PRD specifies.)
     const plan = planDelivery({
       mode: "SPRINT_CONSTRAINED",
       devSP: 20,
@@ -276,13 +277,13 @@ describe("sprint-constrained capacity (DEC-005)", () => {
       aiDevCapacity: 10,
       aiQaCapacity: 10,
     });
-    expect(plan.requiredDev).toBe(2); // ROUNDUP(20 / (2 × 5 base))
-    expect(plan.requiredQa).toBe(1); // ROUNDUP(10 / (2 × 5 base))
-    expect(plan.plannedDev).toBe(2);
+    expect(plan.requiredDev).toBe(1); // max(1, ROUNDUP(20 / (2 × 10 AI)))
+    expect(plan.requiredQa).toBe(1); // max(1, ROUNDUP(10 / (2 × 10 AI)))
+    expect(plan.plannedDev).toBe(1);
     expect(plan.plannedQa).toBe(1);
   });
 
-  it("still lets AI shorten the elapsed duration once headcount is fixed", () => {
+  it("derives elapsed sprints from AI-adjusted capacity too (§6.5)", () => {
     const plan = planDelivery({
       mode: "SPRINT_CONSTRAINED",
       devSP: 20,
@@ -295,7 +296,7 @@ describe("sprint-constrained capacity (DEC-005)", () => {
       aiDevCapacity: 10,
       aiQaCapacity: 10,
     });
-    // duration uses AI-adjusted capacity: 20 / (2 dev × 10) = 1 sprint elapsed
-    expect(plan.finalSprints).toBe(1);
+    // calculated_sprints = roundup(max(20/(1×10), 10/(1×10))) = roundup(2) = 2
+    expect(plan.finalSprints).toBe(2);
   });
 });
