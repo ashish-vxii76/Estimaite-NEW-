@@ -995,7 +995,18 @@ export function EstimateWizard({
               <Field label="Planning mode">
                 <select
                   value={form.planningMode}
-                  onChange={(e) => setForm({ ...form, planningMode: e.target.value })}
+                  onChange={(e) => {
+                    const planningMode = e.target.value;
+                    // PRD UX: greyed inputs must be cleared, not left stale — reset the
+                    // fields this mode disables so a later re-enable starts fresh.
+                    setForm({
+                      ...form,
+                      planningMode,
+                      ...(planningMode === "SPRINT_CONSTRAINED"
+                        ? { availableDev: 1, availableQa: 1 }
+                        : { targetSprints: 1 }),
+                    });
+                  }}
                 >
                   <option value="RESOURCE_CONSTRAINED">Resource-constrained</option>
                   <option value="SPRINT_CONSTRAINED">Sprint-constrained</option>
@@ -1025,7 +1036,7 @@ export function EstimateWizard({
                 <input
                   type="number"
                   min={0}
-                  value={form.availableDev}
+                  value={resourceConstrained ? form.availableDev : ""}
                   disabled={!resourceConstrained}
                   className={!resourceConstrained ? "cursor-not-allowed opacity-60" : undefined}
                   onChange={(e) => setForm({ ...form, availableDev: Number(e.target.value) })}
@@ -1035,7 +1046,7 @@ export function EstimateWizard({
                 <input
                   type="number"
                   min={0}
-                  value={form.availableQa}
+                  value={resourceConstrained ? form.availableQa : ""}
                   disabled={!resourceConstrained}
                   className={!resourceConstrained ? "cursor-not-allowed opacity-60" : undefined}
                   onChange={(e) => setForm({ ...form, availableQa: Number(e.target.value) })}
@@ -1045,7 +1056,7 @@ export function EstimateWizard({
                 <input
                   type="number"
                   min={1}
-                  value={form.targetSprints}
+                  value={resourceConstrained ? "" : form.targetSprints}
                   disabled={resourceConstrained}
                   className={resourceConstrained ? "cursor-not-allowed opacity-60" : undefined}
                   onChange={(e) => setForm({ ...form, targetSprints: Number(e.target.value) })}

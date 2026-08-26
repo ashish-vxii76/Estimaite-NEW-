@@ -6,6 +6,7 @@ import {
   calculateRequiredSprints,
   calculateVariance,
   mapIndexToTshirt,
+  planDelivery,
   type EstimateCalculationInput,
 } from "@/domain/estimation";
 
@@ -256,5 +257,45 @@ describe("variance", () => {
     });
     expect(under.actualEstimatedEffortRatio).toBeCloseTo(20 / 15);
     expect(under.interpretation).toContain("Underestimated");
+  });
+});
+
+describe("sprint-constrained capacity (DEC-005)", () => {
+  it("sizes required headcount on BASE capacity, not AI-adjusted", () => {
+    // AI doubles capacity (base 5 -> AI 10). Base sizing needs 2 Dev / 1 QA;
+    // AI-adjusted sizing would understate to 1 Dev. We must get the BASE result.
+    const plan = planDelivery({
+      mode: "SPRINT_CONSTRAINED",
+      devSP: 20,
+      qaSP: 10,
+      availableDev: 99, // ignored in sprint-constrained
+      availableQa: 99,
+      targetSprints: 2,
+      baseDevCapacity: 5,
+      baseQaCapacity: 5,
+      aiDevCapacity: 10,
+      aiQaCapacity: 10,
+    });
+    expect(plan.requiredDev).toBe(2); // ROUNDUP(20 / (2 × 5 base))
+    expect(plan.requiredQa).toBe(1); // ROUNDUP(10 / (2 × 5 base))
+    expect(plan.plannedDev).toBe(2);
+    expect(plan.plannedQa).toBe(1);
+  });
+
+  it("still lets AI shorten the elapsed duration once headcount is fixed", () => {
+    const plan = planDelivery({
+      mode: "SPRINT_CONSTRAINED",
+      devSP: 20,
+      qaSP: 10,
+      availableDev: 99,
+      availableQa: 99,
+      targetSprints: 2,
+      baseDevCapacity: 5,
+      baseQaCapacity: 5,
+      aiDevCapacity: 10,
+      aiQaCapacity: 10,
+    });
+    // duration uses AI-adjusted capacity: 20 / (2 dev × 10) = 1 sprint elapsed
+    expect(plan.finalSprints).toBe(1);
   });
 });

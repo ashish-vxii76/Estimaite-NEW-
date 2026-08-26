@@ -48,7 +48,7 @@ Blended daily rate: Dev+QA roster × location daily-rate card (India 250, UK 600
 
 Team rates: Vikings/Spartans India 25,000 / 2,500; Centurions Blended 50,000 / 5,000; Praetorians US 70,000 / 7,000.
 
-AI% 0–100% in UI (engine 0–1). Sprint-constrained required resources use **AI-adjusted** capacity.
+AI% 0–100% in UI (engine 0–1). Sprint-constrained required **headcount is sized on base capacity** (per DEC-005) — AI never shrinks the committed team; it only shortens the elapsed duration and feeds the AI cost MIN rule. AI% therefore stays active in both planning modes.
 
 ## Portfolio / What-If / Dashboard
 
