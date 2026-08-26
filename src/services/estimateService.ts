@@ -200,7 +200,7 @@ export async function calculateAndPersist(id: string, userId: string) {
   );
 
   const teamCost = config.teamCostMappings?.find((t) => t.teamName === estimate.team.name);
-  const storedMix = JSON.parse(estimate.locationMixJson || "[]") as Array<
+  const storedMix = safeJsonParse(estimate.locationMixJson, []) as Array<
     EstimateCalculationInput["locationAllocations"][number] & {
       costingBasis?: "TEAM" | "LOCATION";
       locationName?: string;
@@ -209,7 +209,7 @@ export async function calculateAndPersist(id: string, userId: string) {
     }
   >;
   const commercial = Array.isArray(storedMix) ? storedMix[0] : undefined;
-  const teamMix = JSON.parse(estimate.team.locationMixJson || "[]") as {
+  const teamMix = safeJsonParse(estimate.team.locationMixJson, []) as {
     location: string;
     allocationPct: number;
   }[];
@@ -245,8 +245,8 @@ export async function calculateAndPersist(id: string, userId: string) {
   const locationName = commercial?.locationName || estimate.team.mappedLocation;
   const input: EstimateCalculationInput = {
     workItemType: estimate.workItemType as EstimateCalculationInput["workItemType"],
-    complexityScores: JSON.parse(estimate.complexityScoresJson),
-    readiness: JSON.parse(estimate.readinessJson),
+    complexityScores: safeJsonParse(estimate.complexityScoresJson, []),
+    readiness: safeJsonParse(estimate.readinessJson, []),
     stance: estimate.stance as EstimateCalculationInput["stance"],
     overrideEnabled: estimate.overrideEnabled,
     overrideSp: estimate.overrideSp,
@@ -532,7 +532,7 @@ export async function acceptEstimateScenario(
     availableDev: estimate.availableDev,
     availableQa: estimate.availableQa,
     planningMode: estimate.planningMode,
-    result: estimate.resultJson ? JSON.parse(estimate.resultJson) : null,
+    result: safeJsonParse<Record<string, number> | null>(estimate.resultJson, null),
   };
 
   await prisma.estimate.update({

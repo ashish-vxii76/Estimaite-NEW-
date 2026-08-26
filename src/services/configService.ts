@@ -1,4 +1,5 @@
 import { createHash } from "crypto";
+import { safeJsonParse } from "@/lib/safeJson";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_CONFIG, hydrateConfig } from "@/domain/estimation/defaultConfig";
 import { assertValidConfig } from "@/domain/estimation/validateConfig";
@@ -20,7 +21,7 @@ export async function getActiveConfig(): Promise<EstimationConfig> {
     orderBy: { createdAt: "desc" },
   });
   if (!row) return DEFAULT_CONFIG;
-  return hydrateConfig(JSON.parse(row.payload));
+  return hydrateConfig(safeJsonParse(row.payload, DEFAULT_CONFIG));
 }
 
 export async function saveConfigVersion(config: EstimationConfig, actorUserId?: string) {
