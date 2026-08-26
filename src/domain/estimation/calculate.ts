@@ -10,7 +10,7 @@ import { round2 } from "./math";
 import { planDelivery } from "./planning";
 import { calculateReadiness } from "./readiness";
 import { lookupMapping, mapStoryPoints } from "./storyPoints";
-import { applyStance } from "./tshirt";
+import { applyStance, shiftTshirt } from "./tshirt";
 import type {
   EstimateCalculationInput,
   EstimateCalculationResult,
@@ -21,6 +21,7 @@ import type {
 export function calculateEstimate(
   input: EstimateCalculationInput,
   config: EstimationConfig,
+  opts?: { effectiveTshirtShift?: number },
 ): EstimateCalculationResult {
   const explanations: Record<string, Explanation> = {};
   const isEpic = input.workItemType === "EPIC";
@@ -28,7 +29,12 @@ export function calculateEstimate(
   const complexity = calculateComplexityIndex(input.complexityScores, config);
   explanations.complexity = complexity.explanation;
   const assessedTshirt = mapIndexToTshirt(complexity.index, config);
-  const effectiveTshirt = applyStance(assessedTshirt, input.stance);
+  // Base effective size (from stance). A Monte-Carlo simulation may nudge it ±1 band via
+  // opts.effectiveTshirtShift to explore the confidence range; default 0 = normal behaviour.
+  let effectiveTshirt = applyStance(assessedTshirt, input.stance);
+  if (opts?.effectiveTshirtShift) {
+    effectiveTshirt = shiftTshirt(effectiveTshirt, opts.effectiveTshirtShift);
+  }
   explanations.tshirt = {
     title: "T-Shirt",
     summary: `Assessed ${assessedTshirt}; effective ${effectiveTshirt} (${input.stance})`,

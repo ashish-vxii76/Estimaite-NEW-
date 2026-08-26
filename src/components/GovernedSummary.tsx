@@ -78,7 +78,18 @@ export function GovernedSummary({
                 COST DEFERRED — ROM Epic; cost at Story level
               </span>
             ) : (
-              formatMoney(result?.aiAdjustedDeliveryCost ?? null, result?.currency ?? "CHF")
+              <>
+                {formatMoney(result?.aiAdjustedDeliveryCost ?? null, result?.currency ?? "CHF")}
+                {result?.costP50 != null && result?.costP80 != null ? (
+                  <span
+                    className="mt-0.5 block text-xs font-normal text-[var(--muted)]"
+                    title="Confidence range: P50 is the coin-flip cost; P80 is the 80%-confident safe budget."
+                  >
+                    P50 {formatMoney(result.costP50, result.currency ?? "CHF")} · P80{" "}
+                    {formatMoney(result.costP80, result.currency ?? "CHF")}
+                  </span>
+                ) : null}
+              </>
             )}
           </dd>
         </div>

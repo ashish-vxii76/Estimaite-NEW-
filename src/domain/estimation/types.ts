@@ -312,6 +312,9 @@ export type EstimateCalculationResult = {
   aiAdjustedTotalCost: number | null;
   aiCostSavingPct: number | null;
   costApplicability: string;
+  /** Optional Monte-Carlo confidence range on the AI-adjusted total cost (attached by the service). */
+  costP50?: number | null;
+  costP80?: number | null;
   confidence: ConfidenceLevel;
   readinessScore: number;
   dorStatus: DorStatus;

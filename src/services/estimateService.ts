@@ -4,6 +4,7 @@ import {
   calculateEstimate,
   calculateVariance,
   hydrateConfig,
+  simulateCostRange,
   type EstimateCalculationInput,
 } from "@/domain/estimation";
 import { getActiveConfig } from "@/services/configService";
@@ -277,6 +278,11 @@ export async function calculateAndPersist(id: string, userId: string) {
   };
 
   const result = calculateEstimate(input, config);
+  // #17: attach the deterministic P50/P80 cost confidence range.
+  const range = simulateCostRange(input, config);
+  result.costP50 = range.costP50;
+  result.costP80 = range.costP80;
+  result.explanations.costRange = range.explanation;
   // Atomic: persist result + version snapshot + audit as one unit.
   const updated = await prisma.$transaction(async (tx) => {
     const row = await tx.estimate.update({
