@@ -151,7 +151,7 @@ export default function LandingPage() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img className="lp-logo lp-logo-light" src="/brand/EstimAIte%20-%20Transparent.PNG" alt="estimAIte" />
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img className="lp-logo lp-logo-dark" src="/brand/EstimAIte%20-Black.png" alt="estimAIte" />
+              <img className="lp-logo lp-logo-dark" src="/brand/estimaite-logo-dark.png" alt="estimAIte" />
             </a>
             <nav className="lp-nav" aria-label="Main">
               <a href="#moments">Moments</a>
