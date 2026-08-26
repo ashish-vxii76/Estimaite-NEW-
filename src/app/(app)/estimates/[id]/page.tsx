@@ -42,6 +42,8 @@ export default async function EstimateDetailPage({
     }),
   ]);
   const result = estimate.resultJson ? JSON.parse(estimate.resultJson) : null;
+  // #15: flag when this estimate was computed under an older configuration version.
+  const configStale = estimate.configurationVersionId !== config.versionId;
   let savedScenario = null;
   if (estimate.scenarioJson) {
     try {
@@ -61,6 +63,14 @@ export default async function EstimateDetailPage({
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge status={estimate.status} />
           {result?.deliveryFlag ? <StatusBadge status={result.deliveryFlag} /> : null}
+          {configStale ? (
+            <span
+              className="rounded-full border border-[var(--warn)] px-2.5 py-1 text-xs font-semibold text-[var(--warn)]"
+              title="Computed under an earlier configuration version. Recalculate to use the current catalogues."
+            >
+              Config: stale
+            </span>
+          ) : null}
         </div>
       </div>
       <EstimateWizard
