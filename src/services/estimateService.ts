@@ -131,11 +131,16 @@ export async function updateEstimate(
   id: string,
   data: Partial<z.infer<typeof estimateInputSchema>>,
   userId: string,
+  expectedUpdatedAt?: string,
 ) {
   const existing = await prisma.estimate.findUnique({ where: { id } });
   if (!existing) return null;
   if (!["DRAFT", "RETURNED"].includes(existing.status)) {
     throw new Error("Only draft or returned estimates can be edited");
+  }
+  // #5 optimistic locking: reject a save based on a stale copy.
+  if (expectedUpdatedAt && existing.updatedAt.toISOString() !== expectedUpdatedAt) {
+    throw new Error("This estimate was changed elsewhere since you opened it — reload and try again");
   }
   const teamId = data.teamId ?? existing.teamId;
   const orgPath =

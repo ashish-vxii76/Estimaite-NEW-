@@ -10,7 +10,7 @@ export function apiError(e: unknown): NextResponse {
   const message = e instanceof Error ? e.message : "Unexpected error";
 
   const conflict =
-    /two-person|cannot \w+ from|only draft or returned|reviewer cannot|record you created|before capturing/i;
+    /two-person|cannot \w+ from|only draft or returned|reviewer cannot|record you created|before capturing|changed elsewhere/i;
   const badRequest =
     /invalid estimation config|is required|must (be|sum|equal|keep)|between 0 and|negative|overlap/i;
 

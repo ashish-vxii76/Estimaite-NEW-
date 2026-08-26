@@ -141,6 +141,10 @@ export function EstimateWizard({
   const initialResult = (initial?.result as EstimateCalculationResult) ?? null;
   const [moment, setMoment] = useState<MomentId>(initialResult ? "govern" : "ready");
   const [id, setId] = useState(estimateId);
+  // #5 optimistic locking: remember the estimate version we loaded, refreshed after each save.
+  const [lockUpdatedAt, setLockUpdatedAt] = useState<string | undefined>(
+    initial?.updatedAt ? new Date(initial.updatedAt as string).toISOString() : undefined,
+  );
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<EstimateCalculationResult | null>(initialResult);
@@ -381,10 +385,13 @@ export function EstimateWizard({
       const res = await fetch(`/api/estimates/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, expectedUpdatedAt: lockUpdatedAt }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Save failed");
+      if (data.estimate?.updatedAt) {
+        setLockUpdatedAt(new Date(data.estimate.updatedAt).toISOString());
+      }
       return id;
     } catch (e) {
       setError((e as Error).message);

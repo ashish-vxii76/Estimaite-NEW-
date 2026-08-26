@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireFeature, requireUser } from "@/lib/api-auth";
+import { apiError } from "@/lib/api-error";
 import { estimateInputSchema, updateEstimate } from "@/services/estimateService";
 import { canSeeEstimateAsync, fromSession } from "@/lib/scope";
 import { writesOwnRecordsOnly } from "@/lib/access";
@@ -57,10 +58,10 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
   try {
-    const estimate = await updateEstimate(id, parsed.data, session!.user.id);
+    const estimate = await updateEstimate(id, parsed.data, session!.user.id, body.expectedUpdatedAt);
     if (!estimate) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ estimate });
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return apiError(e);
   }
 }
