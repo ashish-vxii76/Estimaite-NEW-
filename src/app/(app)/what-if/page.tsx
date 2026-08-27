@@ -1,29 +1,38 @@
 import { WhatIfForm } from "@/components/WhatIfForm";
-import { OrgLockedPathFilters } from "@/components/OrgLockedPathFilters";
+import { OrgScopeFilters } from "@/components/OrgScopeFilters";
 import { toScenarioTeams } from "@/lib/scenarioTeams";
 import { auth } from "@/auth";
 import { fromSession, teamsForUser } from "@/lib/scope";
-import { lockedOrgPathForUser } from "@/lib/lockedOrgPath";
+import { getOrgFilterData } from "@/lib/orgFilter";
+import { descendantIds } from "@/services/orgService";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 
 export default async function WhatIfPage({
   searchParams,
 }: {
-  searchParams: Promise<{ team?: string }>;
+  searchParams: Promise<{ team?: string; org?: string }>;
 }) {
   const session = await auth();
-  const { team: teamFilter = "" } = await searchParams;
-  const [teams, locations, lockedPath] = await Promise.all([
-    teamsForUser(fromSession(session!.user)),
+  const { team: teamFilter = "", org = "" } = await searchParams;
+  const scopeUser = fromSession(session!.user);
+  const [teams, locations, orgFilter] = await Promise.all([
+    teamsForUser(scopeUser),
     prisma.location.findMany({ where: { active: true } }),
-    lockedOrgPathForUser(session!.user.id),
+    getOrgFilterData(scopeUser),
   ]);
 
-  const pods = lockedPath.crewId
-    ? teams.filter((t) => t.crewId === lockedPath.crewId)
-    : teams;
-  const filtered = teamFilter ? pods.filter((t) => t.id === teamFilter) : pods;
+  // Narrow the roster pods to the org-cascade selection (within the user's scope).
+  let selectedTeams = teams;
+  if (teamFilter) {
+    selectedTeams = teams.filter((t) => t.id === teamFilter);
+  } else if (org) {
+    const sub = new Set(await descendantIds(org));
+    const crewIds = new Set(
+      orgFilter.units.filter((u) => u.type === "CREW" && sub.has(u.id)).map((u) => u.id),
+    );
+    selectedTeams = teams.filter((t) => t.crewId && crewIds.has(t.crewId));
+  }
 
   return (
     <div className="space-y-4">
@@ -32,7 +41,7 @@ export default async function WhatIfPage({
       <p className="text-sm text-[var(--muted)]">
         Generic sandbox against your roster. Prefer the{" "}
         <strong className="font-semibold text-[var(--navy)]">Scenarios</strong> tab on a submitted
-        estimate for CR-specific analysis. Organisation path is locked; only Pod is open.
+        estimate for CR-specific analysis. Filter the roster by org below.
       </p>
       <p className="text-sm text-[var(--muted)]">
         <Link href="/estimates?status=READY_FOR_REVIEW" className="underline">
@@ -41,20 +50,23 @@ export default async function WhatIfPage({
         and use Scenarios there when you have a governed pack.
       </p>
 
-      <OrgLockedPathFilters
+      <OrgScopeFilters
         basePath="/what-if"
-        path={lockedPath}
-        teams={pods.map((t) => ({ id: t.id, name: t.name }))}
+        units={orgFilter.units}
+        teams={orgFilter.teams}
+        lockedUnitIds={orgFilter.lockedUnitIds}
+        org={org}
         team={teamFilter}
+        showWorkRelease={false}
       />
 
-      {filtered.length === 0 ? (
+      {selectedTeams.length === 0 ? (
         <p className="card p-5 text-sm text-[var(--muted)]">
-          No pods in this locked path. Attach pods under your Crew in Organisation setup, or clear
-          the Pod filter.
+          No pods in this selection. Attach pods under a Crew in Organisation setup, or widen the
+          filter.
         </p>
       ) : (
-        <WhatIfForm teams={toScenarioTeams(filtered, locations)} mode="standalone" />
+        <WhatIfForm teams={toScenarioTeams(selectedTeams, locations)} mode="standalone" />
       )}
     </div>
   );
