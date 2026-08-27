@@ -192,7 +192,7 @@ function Brand() {
       />
       <img
         className="app-logo-dark h-auto w-[5.28rem] max-w-[5.28rem] object-contain"
-        src="/brand/estimaite-logo-dark.png"
+        src="/brand/estimaite-logo-dark-cut.png"
         alt="estimAIte"
       />
     </Link>
