@@ -204,11 +204,20 @@ export default async function PortfolioPage({
       <section className="card overflow-x-auto">
         <div className="flex items-center justify-between px-5 py-4">
           <h2 className="font-medium">CR Register ({year})</h2>
-          {canCreate ? (
-            <Link href="/estimates/new" className="text-sm font-medium text-[var(--navy)] underline">
-              New estimate
-            </Link>
-          ) : null}
+          <div className="flex items-center gap-3">
+            <a
+              href={`/api/portfolio/export?year=${year}${org ? `&org=${org}` : ""}${team ? `&team=${team}` : ""}`}
+              download
+              className="text-sm font-medium text-[var(--navy)] underline"
+            >
+              Export CSV
+            </a>
+            {canCreate ? (
+              <Link href="/estimates/new" className="text-sm font-medium text-[var(--navy)] underline">
+                New estimate
+              </Link>
+            ) : null}
+          </div>
         </div>
         <table className="w-full min-w-[1100px] text-left text-sm">
           <thead className="bg-[var(--panel-2)] text-[var(--muted)]">
