@@ -58,8 +58,8 @@ export function PortfolioCharts({
                 contentStyle={{ background: "var(--panel)", border: "1px solid var(--line)", color: "var(--text)" }}
                 formatter={(value, _name, item) => [value, String(item?.payload?.full ?? "Count")]}
               />
-              <Bar dataKey="count" fill="var(--gold)" radius={[6, 6, 0, 0]}>
-                <LabelList dataKey="count" position="top" fill="var(--navy)" fontSize={12} fontWeight={600} />
+              <Bar dataKey="count" fill="#c99a4d" radius={[6, 6, 0, 0]}>
+                <LabelList dataKey="count" position="top" fill="#8a93a6" fontSize={12} fontWeight={600} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -77,11 +77,11 @@ export function PortfolioCharts({
                 contentStyle={{ background: "var(--panel)", border: "1px solid var(--line)", color: "var(--text)" }}
                 formatter={(value) => [`${currency} ${Number(value).toLocaleString()}`, "AI-adj cost"]}
               />
-              <Bar dataKey="cost" fill="var(--teal)" radius={[6, 6, 0, 0]}>
+              <Bar dataKey="cost" fill="#1aa79c" radius={[6, 6, 0, 0]}>
                 <LabelList
                   dataKey="cost"
                   position="top"
-                  fill="var(--navy)"
+                  fill="#8a93a6"
                   fontSize={11}
                   fontWeight={600}
                   formatter={(value) => (Number(value) > 0 ? Number(value).toLocaleString() : "")}

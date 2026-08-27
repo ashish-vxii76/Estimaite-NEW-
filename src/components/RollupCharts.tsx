@@ -63,9 +63,9 @@ export function RollupCharts({
             <>
               <div
                 className="relative mt-5 h-7 rounded-lg border border-[var(--line)]"
-                style={{ background: `linear-gradient(90deg, color-mix(in srgb, var(--ok) 15%, transparent) 0 ${(b / scaleMax) * 100}%, color-mix(in srgb, var(--warn) 22%, transparent) ${(b / scaleMax) * 100}% ${(b * 1.1 / scaleMax) * 100}%, color-mix(in srgb, var(--danger) 22%, transparent) ${(b * 1.1 / scaleMax) * 100}% 100%)` }}
+                style={{ background: `linear-gradient(90deg, color-mix(in srgb, var(--ok) 26%, transparent) 0 ${(b / scaleMax) * 100}%, color-mix(in srgb, var(--warn) 34%, transparent) ${(b / scaleMax) * 100}% ${(b * 1.1 / scaleMax) * 100}%, color-mix(in srgb, var(--danger) 34%, transparent) ${(b * 1.1 / scaleMax) * 100}% 100%)` }}
               >
-                <div className="absolute inset-y-1.5 left-0 rounded bg-[var(--teal)]" style={{ width: pct(utilised) }} />
+                <div className="absolute inset-y-1.5 left-0 rounded" style={{ width: pct(utilised), background: "#1aa79c" }} />
                 <div className="absolute inset-y-0.5 w-[3px] bg-[var(--navy)] opacity-60" style={{ left: pct(projected) }} title="Projected" />
                 <div className="absolute -inset-y-1 w-[2px] bg-[var(--danger)]" style={{ left: `${(b / scaleMax) * 100}%` }} title="Budget" />
               </div>
@@ -90,13 +90,13 @@ export function RollupCharts({
           <div className="mt-2 h-52">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={burnUp} margin={{ top: 18, right: 10, left: -12, bottom: 0 }}>
-                <defs><linearGradient id="burn" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--teal)" stopOpacity={0.35} /><stop offset="100%" stopColor="var(--teal)" stopOpacity={0.02} /></linearGradient></defs>
+                <defs><linearGradient id="burn" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#1aa79c" stopOpacity={0.55} /><stop offset="100%" stopColor="#1aa79c" stopOpacity={0.06} /></linearGradient></defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" vertical={false} />
                 <XAxis dataKey="quarter" tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={{ stroke: "var(--line)" }} tickLine={false} />
                 <YAxis tick={{ fill: "var(--muted)", fontSize: 10 }} axisLine={false} tickLine={false} width={48} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
                 <Tooltip contentStyle={TT} formatter={(v) => [formatMoney(Number(v), currency), "Cumulative"] as [string, string]} />
                 {budget != null ? <ReferenceLine y={budget} stroke="var(--danger)" strokeDasharray="4 3" label={{ value: `Budget ${Math.round(budget / 1000)}k`, position: "insideTopRight", fill: "var(--danger)", fontSize: 10 }} /> : null}
-                <Area type="monotone" dataKey="cumulative" stroke="var(--teal)" strokeWidth={2.5} fill="url(#burn)" isAnimationActive={false} />
+                <Area type="monotone" dataKey="cumulative" stroke="#1aa79c" strokeWidth={3} fill="url(#burn)" isAnimationActive={false} />
               </AreaChart>
             </ResponsiveContainer>
           </div>

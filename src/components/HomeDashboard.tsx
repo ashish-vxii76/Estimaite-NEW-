@@ -121,11 +121,11 @@ export function HomeDashboard({
 
       {/* KPI cards + sparklines */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <Kpi label="Estimates" value={counts.total} series={spark.total} color="var(--teal)" />
-        <Kpi label="Drafts" value={counts.drafts} series={spark.drafts} color="var(--gold)" />
-        <Kpi label="In review" value={counts.inReview} series={spark.review} color="var(--warn)" />
-        <Kpi label="Approved" value={counts.approved} series={spark.approved} color="var(--ok)" />
-        <Kpi label="Completed" value={counts.completed} series={spark.completed} color="var(--ok)" />
+        <Kpi label="Estimates" value={counts.total} series={spark.total} color="#1aa79c" />
+        <Kpi label="Drafts" value={counts.drafts} series={spark.drafts} color="#c99a4d" />
+        <Kpi label="In review" value={counts.inReview} series={spark.review} color="#d68b1a" />
+        <Kpi label="Approved" value={counts.approved} series={spark.approved} color="#12a06a" />
+        <Kpi label="Completed" value={counts.completed} series={spark.completed} color="#12a06a" />
       </div>
 
       {/* Pipeline funnel + donut */}
@@ -236,7 +236,7 @@ export function HomeDashboard({
           <div className="mt-2 h-48">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={byTeam} margin={{ top: 16, right: 6, left: -18, bottom: 0 }}>
-                <defs><linearGradient id="hvbar" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--gold-2)" /><stop offset="100%" stopColor="var(--gold)" /></linearGradient></defs>
+                <defs><linearGradient id="hvbar" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#a07d38" /><stop offset="100%" stopColor="#c99a4d" /></linearGradient></defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" vertical={false} />
                 <XAxis dataKey="name" tick={{ fill: "var(--muted)", fontSize: 10 }} axisLine={{ stroke: "var(--line)" }} tickLine={false} />
                 <YAxis allowDecimals={false} tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -256,7 +256,7 @@ export function HomeDashboard({
                 <XAxis dataKey="period" tick={{ fill: "var(--muted)", fontSize: 10 }} axisLine={{ stroke: "var(--line)" }} tickLine={false} />
                 <YAxis allowDecimals={false} tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
                 <Tooltip contentStyle={TT} />
-                <Line type="monotone" dataKey="created" stroke="var(--gold)" strokeWidth={2.5} dot={false} isAnimationActive={false} />
+                <Line type="monotone" dataKey="created" stroke="#c99a4d" strokeWidth={2.5} dot={false} isAnimationActive={false} />
                 <Line type="monotone" dataKey="approved" stroke="#10b981" strokeWidth={2.5} dot={false} isAnimationActive={false} />
                 <Legend verticalAlign="top" height={20} iconType="plainline" wrapperStyle={{ fontSize: 11 }} formatter={(v) => <span className="text-[var(--muted)]">{v}</span>} />
               </LineChart>
