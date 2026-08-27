@@ -3,7 +3,6 @@ import { getPortfolio } from "@/services/portfolioService";
 import { PortfolioCharts } from "@/components/PortfolioCharts";
 import { StatusBadge, Release } from "@/components/ui";
 import { formatMoney } from "@/lib/utils";
-import { DELIVERY_FLAGS, T_SHIRTS } from "@/domain/estimation";
 import { auth } from "@/auth";
 import { can } from "@/lib/access";
 import { fromSession } from "@/lib/scope";
@@ -12,6 +11,7 @@ import { getActiveConfig } from "@/services/configService";
 import { yearsFromCatalogue } from "@/lib/releasePeriod";
 import { descendantIds, resolveOrgCurrency } from "@/services/orgService";
 import { OrgScopeFilters } from "@/components/OrgScopeFilters";
+import { RollupCharts } from "@/components/RollupCharts";
 
 const RAG_CLASS: Record<string, string> = {
   UNSET: "bg-slate-100 text-slate-700",
@@ -176,6 +176,22 @@ export default async function PortfolioPage({
         })()
       ) : null}
 
+      <RollupCharts
+        currency={currency}
+        budget={data.budgetUtilisation.budget}
+        utilised={data.budgetUtilisation.utilizedAiCost}
+        projected={data.budgetUtilisation.projectedAiCost}
+        forecast={data.budgetUtilisation.forecastAiCost}
+        burnUp={data.burnUp}
+        baseline={data.totalBaselineCost}
+        aiAdjusted={data.totalAiAdjustedCost}
+        variance={{
+          sampleCount: data.deliveryVariance.sampleCount,
+          variancePct: data.deliveryVariance.variancePct,
+          byCrew: data.deliveryVariance.byCrew,
+        }}
+      />
+
       <section id="budget" className="card scroll-mt-6 space-y-3 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -247,39 +263,6 @@ export default async function PortfolioPage({
           </div>
         )}
       </section>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <section className="card overflow-hidden">
-          <h2 className="px-5 pt-4 font-medium">Count by Delivery Flag</h2>
-          <table className="mt-2 w-full text-sm">
-            <tbody>
-              {DELIVERY_FLAGS.map((flag) => (
-                <tr key={flag} className="border-t border-[var(--line)]">
-                  <td className="px-5 py-2">
-                    <StatusBadge status={flag} />
-                  </td>
-                  <td className="px-5 py-2 text-right">{data.countByFlag[flag] ?? 0}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-        <section className="card overflow-hidden">
-          <h2 className="px-5 pt-4 font-medium">Cost by T-Shirt (AI-adj)</h2>
-          <table className="mt-2 w-full text-sm">
-            <tbody>
-              {T_SHIRTS.map((tshirt) => (
-                <tr key={tshirt} className="border-t border-[var(--line)]">
-                  <td className="px-5 py-2">{tshirt}</td>
-                  <td className="px-5 py-2 text-right">
-                    {formatMoney(data.costByTshirt[tshirt] ?? 0, currency)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      </div>
 
       <PortfolioCharts
         countByFlag={data.countByFlag}
