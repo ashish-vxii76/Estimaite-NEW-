@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronRight, Menu, Plus, X } from "lucide-react";
+import { BarChart3, ChevronRight, Home, ListChecks, Menu, Plus, Settings, X } from "lucide-react";
 import {
   NAV_TREE,
   canCreate,
@@ -13,7 +13,13 @@ import {
   type NavNode,
 } from "@/components/nav/navConfig";
 import type { RbacMatrix } from "@/lib/rbac";
-import { EstimAIteLogo } from "@/components/brand/EstimAIteLogo";
+
+const TOP_ICONS: Record<string, typeof Home> = {
+  home: Home,
+  estimates: ListChecks,
+  analytics: BarChart3,
+  administration: Settings,
+};
 
 export function SideNav({
   role,
@@ -70,8 +76,35 @@ export function SideNav({
     setOpen((current) => ({ ...current, [id]: !current[id] }));
   }
 
+  function branchIds(nodes: NavNode[], acc: string[] = []): string[] {
+    for (const node of nodes) {
+      if (node.children?.length) {
+        acc.push(node.id);
+        branchIds(node.children, acc);
+      }
+    }
+    return acc;
+  }
+
+  function expandAll() {
+    setOpen(Object.fromEntries(branchIds(tree).map((id) => [id, true])));
+  }
+
+  function collapseAll() {
+    setOpen({});
+  }
+
   const nav = (
-    <nav className="mt-6 space-y-0.5 text-sm">
+    <nav className="mt-4 space-y-0.5 text-sm">
+      <div className="mb-1 flex items-center justify-end gap-2 px-2 text-[0.68rem] font-medium text-[var(--muted)]">
+        <button type="button" onClick={expandAll} className="hover:text-[var(--navy)]">
+          Expand all
+        </button>
+        <span aria-hidden="true">·</span>
+        <button type="button" onClick={collapseAll} className="hover:text-[var(--navy)]">
+          Collapse all
+        </button>
+      </div>
       {tree.map((node) => (
         <NavBranch
           key={node.id}
@@ -150,10 +183,17 @@ export function SideNav({
 
 function Brand() {
   return (
-    <Link href="/home" className="mx-auto flex w-full items-center justify-center px-1">
-      <EstimAIteLogo
-        tone="light"
-        className="h-auto w-[5.28rem] max-w-[5.28rem] object-contain"
+    <Link href="/home" className="mx-auto flex w-full items-center justify-center px-1 py-1">
+      {/* Per-theme lockup, matching the landing: light asset on cream, dark asset on navy. */}
+      <img
+        className="app-logo-light h-auto w-[5.28rem] max-w-[5.28rem] object-contain"
+        src="/brand/EstimAIte%20-%20Transparent.PNG"
+        alt="estimAIte"
+      />
+      <img
+        className="app-logo-dark h-auto w-[5.28rem] max-w-[5.28rem] object-contain"
+        src="/brand/estimaite-logo-dark-cut.png"
+        alt="estimAIte"
       />
     </Link>
   );
@@ -206,15 +246,16 @@ function NavBranch({
   const isOpen = hasChildren && Boolean(open[node.id]);
   const active = isNodeActive(node, pathname, search, hash) && !hasChildren;
   const showCreate = canCreate(node, role, matrix);
+  const Icon = depth === 0 ? TOP_ICONS[node.id] : undefined;
   const padding = { paddingLeft: `${8 + depth * 12}px` };
 
   return (
     <div>
       <div
-        className={`group flex items-center gap-0.5 rounded-lg ${
+        className={`group flex items-center gap-0.5 rounded-lg ring-1 ring-inset transition-colors ${
           active
-            ? "bg-[var(--navy)] text-white [&_a]:text-white [&_span]:text-white"
-            : "text-[var(--text)] hover:bg-[var(--panel-2)]"
+            ? "bg-[var(--gold-soft)] font-semibold text-[var(--navy)] ring-[color-mix(in_srgb,var(--gold)_45%,transparent)]"
+            : "text-[var(--text)] ring-transparent hover:bg-[var(--panel-2)]"
         }`}
         style={padding}
       >
@@ -228,9 +269,10 @@ function NavBranch({
             <ChevronRight
               size={14}
               className={`shrink-0 transition-transform ${
-                active ? "text-white" : "text-[var(--muted)]"
+                active ? "text-[var(--gold-2)]" : "text-[var(--muted)]"
               } ${isOpen ? "rotate-90" : ""}`}
             />
+            {Icon ? <Icon size={16} className="shrink-0 text-[var(--muted)]" /> : null}
             {node.href && depth > 0 ? (
               <Link
                 href={node.href}
@@ -244,7 +286,8 @@ function NavBranch({
             )}
           </button>
         ) : node.href ? (
-          <Link href={node.href} className="min-w-0 flex-1 truncate py-1.5 pr-1">
+          <Link href={node.href} className="flex min-w-0 flex-1 items-center gap-2 truncate py-1.5 pr-1">
+            {Icon ? <Icon size={16} className="shrink-0 text-[var(--muted)]" /> : null}
             {node.label}
           </Link>
         ) : (
@@ -255,8 +298,8 @@ function NavBranch({
             href={node.createHref!}
             aria-label={node.createLabel ?? `Create ${node.label}`}
             title={node.createLabel ?? `Create ${node.label}`}
-            className={`mr-1 rounded-md p-1 hover:bg-white/15 ${
-              active ? "text-white" : "text-[var(--navy)] hover:bg-[var(--panel-2)]"
+            className={`mr-1 rounded-md p-1 ${
+              active ? "text-[var(--gold-2)] hover:bg-[var(--gold-soft)]" : "text-[var(--navy)] hover:bg-[var(--panel-2)]"
             }`}
             onClick={(e) => e.stopPropagation()}
           >

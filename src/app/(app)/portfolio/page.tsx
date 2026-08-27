@@ -6,8 +6,10 @@ import { formatMoney } from "@/lib/utils";
 import { DELIVERY_FLAGS, T_SHIRTS } from "@/domain/estimation";
 import { auth } from "@/auth";
 import { can } from "@/lib/access";
-import { fromSession, resolveEstimateScope } from "@/lib/scope";
-import { prisma } from "@/lib/prisma";
+import { fromSession } from "@/lib/scope";
+import { getOrgFilterData } from "@/lib/orgFilter";
+import { descendantIds } from "@/services/orgService";
+import { OrgScopeFilters } from "@/components/OrgScopeFilters";
 
 const RAG_CLASS: Record<string, string> = {
   UNSET: "bg-slate-100 text-slate-700",
@@ -19,28 +21,35 @@ const RAG_CLASS: Record<string, string> = {
 export default async function PortfolioPage({
   searchParams,
 }: {
-  searchParams: Promise<{ year?: string; crew?: string }>;
+  searchParams: Promise<{ year?: string; org?: string; team?: string }>;
 }) {
   const session = await auth();
-  const { year: yearParam = "", crew: crewFilter = "" } = await searchParams;
+  const { year: yearParam = "", org = "", team = "" } = await searchParams;
   const year = Number(yearParam) || new Date().getFullYear();
-  const scope = await resolveEstimateScope(fromSession(session!.user));
+  const scopeUser = fromSession(session!.user);
+  const orgFilter = await getOrgFilterData(scopeUser);
+
+  // Resolve the org-cascade selection to the crews it implies (budgets live at crew level).
+  let selectionCrewIds: string[] | null = null;
+  if (team) {
+    const t = orgFilter.teams.find((x) => x.id === team);
+    selectionCrewIds = t?.crewId ? [t.crewId] : [];
+  } else if (org) {
+    const sub = new Set(await descendantIds(org));
+    selectionCrewIds = orgFilter.units.filter((u) => u.type === "CREW" && sub.has(u.id)).map((u) => u.id);
+  }
+
   const data = await getPortfolio({
-    scope,
+    user: scopeUser,
     year,
-    crewId: crewFilter || null,
-    user: fromSession(session!.user),
+    crewIds: selectionCrewIds,
+    teamId: team || null,
   });
   const currency = data.currency;
   const canCreate = can(session?.user.role, "estimates.create", "RW");
   const canBudget =
     can(session?.user.role, "org.budget") || can(session?.user.role, "portfolio.budget");
 
-  const crews = await prisma.orgUnit.findMany({
-    where: { type: "CREW", active: true },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true },
-  });
   const yearOptions = Array.from(new Set([year - 1, year, year + 1, year + 2])).sort();
 
   return (
@@ -61,7 +70,7 @@ export default async function PortfolioPage({
             {yearOptions.map((y) => (
               <Link
                 key={y}
-                href={`/portfolio?year=${y}${crewFilter ? `&crew=${crewFilter}` : ""}`}
+                href={`/portfolio?year=${y}${org ? `&org=${org}` : ""}${team ? `&team=${team}` : ""}`}
                 className={`rounded-lg border px-3 py-2 text-sm ${
                   y === year
                     ? "border-[var(--navy)] bg-[var(--navy)] text-white"
@@ -73,35 +82,18 @@ export default async function PortfolioPage({
             ))}
           </div>
         </div>
-        <div>
-          <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Crew</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <Link
-              href={`/portfolio?year=${year}`}
-              className={`rounded-lg border px-3 py-2 text-sm ${
-                !crewFilter
-                  ? "border-[var(--navy)] bg-[var(--navy)] text-white"
-                  : "border-[var(--line)] bg-[var(--panel-2)]"
-              }`}
-            >
-              All crews
-            </Link>
-            {crews.map((c) => (
-              <Link
-                key={c.id}
-                href={`/portfolio?year=${year}&crew=${c.id}`}
-                className={`rounded-lg border px-3 py-2 text-sm ${
-                  crewFilter === c.id
-                    ? "border-[var(--navy)] bg-[var(--navy)] text-white"
-                    : "border-[var(--line)] bg-[var(--panel-2)]"
-                }`}
-              >
-                {c.name}
-              </Link>
-            ))}
-          </div>
-        </div>
       </section>
+
+      <OrgScopeFilters
+        basePath="/portfolio"
+        units={orgFilter.units}
+        teams={orgFilter.teams}
+        lockedUnitIds={orgFilter.lockedUnitIds}
+        org={org}
+        team={team}
+        showWorkRelease={false}
+        extraParams={{ year: String(year) }}
+      />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <Tile label={`Estimates (${year})`} value={String(data.totalEstimates)} />

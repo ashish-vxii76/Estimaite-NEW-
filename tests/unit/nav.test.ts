@@ -28,11 +28,14 @@ describe("left navigation tree", () => {
     expect(isNodeActive(home!, "/estimates", "", "")).toBe(false);
   });
 
-  it("puts Teams under Administration, not a top-level Organisation group", () => {
+  it("folds Teams + Composition into Organisation setup under Administration", () => {
     expect(NAV_TREE.some((node) => node.id === "organisation")).toBe(false);
-    const teams = find("teams");
-    expect(teams?.href).toBe("/teams");
-    expect(containsActive(find("administration")!, "/teams", "", "")).toBe(true);
+    // Teams and Team composition are no longer separate nav entries — they live in Org Setup.
+    expect(find("teams")).toBeUndefined();
+    expect(find("team-composition")).toBeUndefined();
+    const orgSetup = find("organisation-setup");
+    expect(orgSetup?.href).toBe("/admin/organisation");
+    expect(containsActive(find("administration")!, "/admin/organisation", "", "")).toBe(true);
   });
 
   it("puts create-new-estimate on the Estimates category", () => {

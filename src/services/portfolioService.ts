@@ -34,12 +34,16 @@ export type PortfolioOptions = {
   year?: number;
   /** Optional crew filter (org roll-up drill-down). */
   crewId?: string | null;
+  /** Crews implied by an org-cascade selection (any level). Intersected with visibility. */
+  crewIds?: string[] | null;
+  /** Narrow the register to a single pod (budget stays at the pod's crew). */
+  teamId?: string | null;
   user?: { id: string; role: string };
 };
 
 export async function getPortfolio(options: PortfolioOptions | Prisma.EstimateWhereInput = {}) {
   const opts: PortfolioOptions =
-    options && ("scope" in options || "year" in options || "crewId" in options || "user" in options)
+    options && ("scope" in options || "year" in options || "crewId" in options || "crewIds" in options || "teamId" in options || "user" in options)
       ? (options as PortfolioOptions)
       : { scope: options as Prisma.EstimateWhereInput };
 
@@ -53,6 +57,9 @@ export async function getPortfolio(options: PortfolioOptions | Prisma.EstimateWh
   if (opts.crewId) {
     crewIds = crewIds == null ? [opts.crewId] : crewIds.filter((id) => id === opts.crewId);
   }
+  if (opts.crewIds) {
+    crewIds = crewIds == null ? opts.crewIds : crewIds.filter((id) => opts.crewIds!.includes(id));
+  }
 
   const teamFilter: Prisma.EstimateWhereInput =
     crewIds == null
@@ -64,6 +71,7 @@ export async function getPortfolio(options: PortfolioOptions | Prisma.EstimateWh
   const where: Prisma.EstimateWhereInput = {
     ...opts.scope,
     ...teamFilter,
+    ...(opts.teamId ? { teamId: opts.teamId } : {}),
     release: { startsWith: yearPrefix },
   };
 

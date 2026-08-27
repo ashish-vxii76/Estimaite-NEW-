@@ -107,21 +107,6 @@ export const NAV_TREE: NavNode[] = [
             href: "/admin/crew-budgets",
             feature: "org.budget",
           },
-          {
-            id: "teams",
-            label: "Teams (Pods)",
-            href: "/teams",
-            feature: "config.teams",
-            createHref: "/teams/new",
-            createLabel: "Create new team",
-            createRoles: ["ADMINISTRATOR"],
-          },
-          {
-            id: "team-composition",
-            label: "Team composition",
-            href: "/admin/team-composition",
-            feature: "config.teams",
-          },
         ],
       },
       {

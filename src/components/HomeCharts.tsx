@@ -5,6 +5,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  Label,
   LabelList,
   Legend,
   Pie,
@@ -15,8 +16,16 @@ import {
   YAxis,
 } from "recharts";
 
-const COLORS = ["#1e3a5f", "#0f766e", "#b45309", "#5c6b80", "#b42318", "#047857"];
-const TOOLTIP = { background: "#fffcf7", border: "1px solid #ddd6c8", color: "#1b2a4a" };
+// Mid-tone palette chosen to stay legible on both the cream and dark grounds
+// (pure navy is dropped because it vanishes on the dark theme).
+const COLORS = ["#0f766e", "#b08d57", "#3b82f6", "#e0a458", "#e05c5c", "#10b981", "#8b7bb8"];
+const TOOLTIP = {
+  background: "var(--panel)",
+  border: "1px solid var(--line)",
+  borderRadius: 10,
+  color: "var(--text)",
+  boxShadow: "var(--shadow)",
+};
 
 function PercentInside({
   cx = 0,
@@ -34,21 +43,13 @@ function PercentInside({
   percent?: number;
 }) {
   const value = Math.round(percent * 100);
-  if (value <= 0) return null;
+  if (value < 8) return null; // hide labels on slivers to avoid clutter
   const radian = Math.PI / 180;
   const radius = innerRadius + (outerRadius - innerRadius) / 2;
   const x = cx + radius * Math.cos(-midAngle * radian);
   const y = cy + radius * Math.sin(-midAngle * radian);
   return (
-    <text
-      x={x}
-      y={y}
-      fill="#fff"
-      textAnchor="middle"
-      dominantBaseline="central"
-      fontSize={12}
-      fontWeight={700}
-    >
+    <text x={x} y={y} fill="#fff" textAnchor="middle" dominantBaseline="central" fontSize={12} fontWeight={700}>
       {value}%
     </text>
   );
@@ -73,49 +74,64 @@ export function HomeCharts({
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <section className="card p-5">
-        <h2 className="font-medium">Estimates by status</h2>
-        <div className="mt-4 h-80">
+        <hr className="gold-rule mb-4 w-10" />
+        <h2 className="font-display text-lg font-semibold text-[var(--navy)]">Estimates by status</h2>
+        <div className="mt-3 h-80">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
                 data={byStatus}
                 dataKey="count"
                 nameKey="name"
-                innerRadius={52}
+                innerRadius={56}
                 outerRadius={96}
                 paddingAngle={2}
+                stroke="var(--panel)"
+                strokeWidth={2}
                 label={PercentInside}
                 labelLine={false}
+                isAnimationActive={false}
               >
                 {byStatus.map((row, index) => (
                   <Cell key={row.name} fill={COLORS[index % COLORS.length]} />
                 ))}
+                <Label
+                  value={statusTotal}
+                  position="center"
+                  fill="var(--navy)"
+                  style={{ fontSize: 30, fontWeight: 700 }}
+                />
+                <Label value="total" position="center" dy={22} fill="var(--muted)" style={{ fontSize: 11, letterSpacing: 1 }} />
               </Pie>
-              <Tooltip
-                contentStyle={TOOLTIP}
-                formatter={(value) => [`${value} estimates`, "Count"]}
-              />
+              <Tooltip contentStyle={TOOLTIP} formatter={(value) => [`${value} estimates`, "Count"]} />
               <Legend
                 verticalAlign="bottom"
                 iconType="circle"
                 formatter={(value) => <span className="text-[var(--text)]">{value}</span>}
-                wrapperStyle={{ fontSize: 12, color: "#1b2a4a" }}
+                wrapperStyle={{ fontSize: 12 }}
               />
             </PieChart>
           </ResponsiveContainer>
         </div>
       </section>
       <section className="card p-5">
-        <h2 className="font-medium">Volume by team</h2>
-        <div className="mt-4 h-80">
+        <hr className="gold-rule mb-4 w-10" />
+        <h2 className="font-display text-lg font-semibold text-[var(--navy)]">Volume by team</h2>
+        <div className="mt-3 h-80">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={byTeam} margin={{ top: 18, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#ddd6c8" />
-              <XAxis dataKey="name" tick={{ fill: "#5c6b80", fontSize: 11 }} />
-              <YAxis allowDecimals={false} tick={{ fill: "#5c6b80", fontSize: 12 }} />
-              <Tooltip contentStyle={TOOLTIP} />
-              <Bar dataKey="count" fill="#1e3a5f" radius={[6, 6, 0, 0]}>
-                <LabelList dataKey="count" position="top" fill="#1b2a4a" fontSize={12} fontWeight={600} />
+              <defs>
+                <linearGradient id="barGold" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--gold-2)" />
+                  <stop offset="100%" stopColor="var(--gold)" />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" vertical={false} />
+              <XAxis dataKey="name" tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={{ stroke: "var(--line)" }} tickLine={false} />
+              <YAxis allowDecimals={false} tick={{ fill: "var(--muted)", fontSize: 12 }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={TOOLTIP} cursor={{ fill: "var(--gold-soft)" }} />
+              <Bar dataKey="count" fill="url(#barGold)" radius={[6, 6, 0, 0]} maxBarSize={64} isAnimationActive={false}>
+                <LabelList dataKey="count" position="top" fill="var(--navy)" fontSize={12} fontWeight={700} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
