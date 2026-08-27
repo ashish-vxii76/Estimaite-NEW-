@@ -23,7 +23,7 @@ function H({ children, sub }: { children: React.ReactNode; sub?: string }) {
 }
 
 export function RollupCharts({
-  currency, budget, utilised, projected, forecast, burnUp, baseline, aiAdjusted, variance,
+  currency, budget, utilised, projected, forecast, burnUp, baseline, aiAdjusted, variance, costByCrew,
 }: {
   currency: string;
   budget: number | null;
@@ -38,7 +38,10 @@ export function RollupCharts({
     variancePct: number | null;
     byCrew: { crewName: string; variancePct: number | null }[];
   };
+  costByCrew: { crewName: string; cost: number }[];
 }) {
+  const TREE = ["#0f766e", "#b08d57", "#3b82f6", "#e0a458", "#8b7bb8", "#10b981", "#e05c5c"];
+  const costTotal = Math.max(1, costByCrew.reduce((s, c) => s + c.cost, 0));
   const money = (n: number | null) => (n == null ? "—" : formatMoney(n, currency));
 
   // Budget bullet scale
@@ -156,6 +159,29 @@ export function RollupCharts({
           )}
         </Card>
       </div>
+
+      {costByCrew.length > 0 ? (
+        <Card>
+          <Rule />
+          <H sub="Committed AI-adjusted spend, proportional by crew">Cost concentration</H>
+          <div className="mt-4 flex h-32 gap-1.5 overflow-hidden">
+            {costByCrew.map((c, i) => {
+              const share = c.cost / costTotal;
+              return (
+                <div
+                  key={c.crewName}
+                  className="flex min-w-[70px] flex-col justify-end rounded-lg p-2.5 text-white"
+                  style={{ flex: `${Math.max(0.4, share)} 1 0`, background: TREE[i % TREE.length] }}
+                  title={`${c.crewName} · ${formatMoney(c.cost, currency)}`}
+                >
+                  <span className="truncate text-xs font-bold">{c.crewName}</span>
+                  <span className="text-[0.7rem] opacity-90">{Math.round(share * 100)}%</span>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      ) : null}
     </div>
   );
 }

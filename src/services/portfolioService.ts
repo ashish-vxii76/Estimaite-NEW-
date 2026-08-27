@@ -162,9 +162,15 @@ export async function getPortfolio(options: PortfolioOptions | Prisma.EstimateWh
   const utilizedBaselineCost = sumBase(committedRows);
   // Committed AI spend grouped by crew, for per-crew budget RAG.
   const committedByCrew = new Map<string, number>();
+  const costByCrewMap = new Map<string, number>();
   for (const r of committedRows) {
     if (r.crewId) committedByCrew.set(r.crewId, (committedByCrew.get(r.crewId) ?? 0) + (r.aiAdjustedDeliveryCost ?? 0));
+    const name = r.crew || "—";
+    costByCrewMap.set(name, (costByCrewMap.get(name) ?? 0) + (r.aiAdjustedDeliveryCost ?? 0));
   }
+  const costByCrew = [...costByCrewMap.entries()]
+    .map(([crewName, cost]) => ({ crewName, cost: r2(cost) }))
+    .sort((a, b) => b.cost - a.cost);
 
   // Quarterly burn-up: cumulative committed AI spend across the year's quarters.
   const QUARTERS = ["Q1", "Q2", "Q3", "Q4"];
@@ -251,6 +257,7 @@ export async function getPortfolio(options: PortfolioOptions | Prisma.EstimateWh
     budgetUtilisation,
     deliveryVariance,
     burnUp,
+    costByCrew,
     register,
   };
 }

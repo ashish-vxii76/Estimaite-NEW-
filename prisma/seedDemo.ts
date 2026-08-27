@@ -481,7 +481,8 @@ export async function seedDemoRegister(prisma: PrismaClient) {
     const team = teamByName[spec.team];
     if (!team) throw new Error(`Missing team ${spec.team}`);
     const loc = locByName[team.mappedLocation] ?? locations[0];
-    const createdAt = new Date(Date.UTC(2026, 2, 4 + index * 2, 9, 0, 0));
+    // Spread creation across ~5 months so Home sparklines / activity trend show real movement.
+    const createdAt = new Date(Date.UTC(2026, 2, 4 + index * 8, 9, 0, 0));
     const input = engineInput(spec, team, locations);
     let result: EstimateCalculationResult | null = null;
     if (spec.calculate) {

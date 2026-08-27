@@ -190,6 +190,7 @@ export default async function PortfolioPage({
           variancePct: data.deliveryVariance.variancePct,
           byCrew: data.deliveryVariance.byCrew,
         }}
+        costByCrew={data.costByCrew}
       />
 
       <section id="budget" className="card scroll-mt-6 space-y-3 p-5">
