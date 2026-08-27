@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getPortfolio } from "@/services/portfolioService";
 import { PortfolioCharts } from "@/components/PortfolioCharts";
-import { StatusBadge } from "@/components/ui";
+import { StatusBadge, Release } from "@/components/ui";
 import { formatMoney } from "@/lib/utils";
 import { DELIVERY_FLAGS, T_SHIRTS } from "@/domain/estimation";
 import { auth } from "@/auth";
@@ -9,7 +9,7 @@ import { can } from "@/lib/access";
 import { fromSession } from "@/lib/scope";
 import { getOrgFilterData } from "@/lib/orgFilter";
 import { getActiveConfig } from "@/services/configService";
-import { displayRelease, yearsFromCatalogue } from "@/lib/releasePeriod";
+import { yearsFromCatalogue } from "@/lib/releasePeriod";
 import { descendantIds, resolveOrgCurrency } from "@/services/orgService";
 import { OrgScopeFilters } from "@/components/OrgScopeFilters";
 
@@ -246,7 +246,7 @@ export default async function PortfolioPage({
                   <td>{row.team}</td>
                   <td>{row.programme || "—"}</td>
                   <td>{row.project || "—"}</td>
-                  <td>{displayRelease(row.release) || "—"}</td>
+                  <td><Release value={row.release} /></td>
                   <td>{row.effectiveTshirt}</td>
                   <td>
                     <StatusBadge status={row.deliveryFlag ?? row.governanceDecision} />

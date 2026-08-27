@@ -49,3 +49,16 @@ export function ExplanationPanel({
     </details>
   );
 }
+
+/** Canonical release rendering: year-only "2026-" shows as "2026" (with a hint); "2026-Q3" as-is. */
+export function Release({ value }: { value?: string | null }) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return <span className="text-[var(--muted)]">—</span>;
+  const yearOnly = /^\d{4}-?$/.test(raw);
+  const label = raw.endsWith("-") ? raw.slice(0, -1) : raw;
+  return yearOnly ? (
+    <span title="Release year set; quarter not yet decided">{label}</span>
+  ) : (
+    <span>{label}</span>
+  );
+}
