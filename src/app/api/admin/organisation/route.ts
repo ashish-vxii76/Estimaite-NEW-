@@ -65,6 +65,7 @@ export async function POST(request: Request) {
         name: body.name != null ? String(body.name) : undefined,
         active: body.active != null ? Boolean(body.active) : undefined,
         parentId: body.parentId === undefined ? undefined : body.parentId ? String(body.parentId) : null,
+        currency: body.currency != null ? String(body.currency) : undefined,
       });
       return NextResponse.json({ unit });
     }

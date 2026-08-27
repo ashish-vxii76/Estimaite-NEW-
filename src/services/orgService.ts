@@ -53,7 +53,7 @@ export async function createOrgUnit(input: {
 
 export async function updateOrgUnit(
   id: string,
-  data: { name?: string; active?: boolean; parentId?: string | null },
+  data: { name?: string; active?: boolean; parentId?: string | null; currency?: string },
 ) {
   const existing = await prisma.orgUnit.findUnique({ where: { id } });
   if (!existing) throw new Error("Org unit not found");
@@ -63,8 +63,41 @@ export async function updateOrgUnit(
       ...(data.name != null ? { name: data.name.trim() } : {}),
       ...(data.active != null ? { active: data.active } : {}),
       ...(data.parentId !== undefined ? { parentId: data.parentId } : {}),
+      ...(data.currency ? { currency: data.currency.trim().toUpperCase() } : {}),
     },
   });
+}
+
+/**
+ * The reporting currency for a scope: the Company ancestor's currency of the selected node or
+ * crews. Falls back to the sole Company's currency, else CHF. Enforces single-currency reporting.
+ */
+export async function resolveOrgCurrency(opts: {
+  orgUnitId?: string | null;
+  crewIds?: string[] | null;
+}): Promise<string> {
+  const units = await prisma.orgUnit.findMany({
+    select: { id: true, type: true, parentId: true, currency: true },
+  });
+  const byId = new Map(units.map((u) => [u.id, u]));
+  const companyCurrencyOf = (startId: string): string | null => {
+    let cur = byId.get(startId);
+    while (cur) {
+      if (cur.type === "COMPANY") return cur.currency;
+      cur = cur.parentId ? byId.get(cur.parentId) : undefined;
+    }
+    return null;
+  };
+  if (opts.orgUnitId) {
+    const c = companyCurrencyOf(opts.orgUnitId);
+    if (c) return c;
+  }
+  if (opts.crewIds && opts.crewIds.length) {
+    const c = companyCurrencyOf(opts.crewIds[0]);
+    if (c) return c;
+  }
+  const companies = units.filter((u) => u.type === "COMPANY");
+  return companies[0]?.currency ?? "CHF";
 }
 
 export async function setTeamCrew(teamId: string, crewId: string | null) {

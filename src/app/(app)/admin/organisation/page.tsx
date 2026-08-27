@@ -12,7 +12,7 @@ export default async function OrganisationAdminPage() {
   const [units, teams, seats, members, users, config] = await Promise.all([
     prisma.orgUnit.findMany({
       orderBy: [{ type: "asc" }, { name: "asc" }],
-      select: { id: true, type: true, name: true, parentId: true, active: true },
+      select: { id: true, type: true, name: true, parentId: true, active: true, currency: true },
     }),
     prisma.team.findMany({
       orderBy: { name: "asc" },

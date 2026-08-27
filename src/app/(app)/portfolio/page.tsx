@@ -10,7 +10,7 @@ import { fromSession } from "@/lib/scope";
 import { getOrgFilterData } from "@/lib/orgFilter";
 import { getActiveConfig } from "@/services/configService";
 import { displayRelease, yearsFromCatalogue } from "@/lib/releasePeriod";
-import { descendantIds } from "@/services/orgService";
+import { descendantIds, resolveOrgCurrency } from "@/services/orgService";
 import { OrgScopeFilters } from "@/components/OrgScopeFilters";
 
 const RAG_CLASS: Record<string, string> = {
@@ -51,11 +51,16 @@ export default async function PortfolioPage({
     selectionCrewIds = orgFilter.units.filter((u) => u.type === "CREW" && sub.has(u.id)).map((u) => u.id);
   }
 
+  const displayCurrency = await resolveOrgCurrency({
+    orgUnitId: org || null,
+    crewIds: selectionCrewIds,
+  });
   const data = await getPortfolio({
     user: scopeUser,
     year,
     crewIds: selectionCrewIds,
     teamId: team || null,
+    currency: displayCurrency,
   });
   const currency = data.currency;
   const canCreate = can(session?.user.role, "estimates.create", "RW");

@@ -22,6 +22,8 @@ const PARENTS: Record<Level, OrgType[]> = {
 };
 
 // Seat types offered at each org level (Pod uses team composition instead of seats).
+const CURRENCIES = ["CHF", "USD", "EUR", "GBP", "INR", "SGD", "AUD", "CAD", "JPY"];
+
 const SEATS_FOR: Partial<Record<Level, OrgSeatType[]>> = {
   COMPANY: ["CEO", "CIO", "CTO", "CXO"],
   DIVISION: ["DIVISION_TECH_LEAD", "DIVISION_PRODUCT_LEAD"],
@@ -30,7 +32,7 @@ const SEATS_FOR: Partial<Record<Level, OrgSeatType[]>> = {
   CREW: ["CREW_TECH_LEAD", "CREW_PRODUCT_LEAD"],
 };
 
-export type Unit = { id: string; type: string; name: string; parentId: string | null; active: boolean };
+export type Unit = { id: string; type: string; name: string; parentId: string | null; active: boolean; currency: string };
 export type TeamRow = { id: string; name: string; crewId: string | null; active: boolean };
 export type SeatRow = {
   id: string;
@@ -339,6 +341,31 @@ function OrgCard({
           </button>
         )}
       </div>
+
+      {level === "COMPANY" && (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Currency</span>
+          {canEdit ? (
+            <select
+              className="rounded-md border border-[var(--line)] bg-[var(--panel-2)] px-2 py-1 text-sm text-[var(--navy)]"
+              defaultValue={node.currency}
+              onChange={async (e) => {
+                await post({ action: "updateUnit", id: node.id, currency: e.target.value }).catch(() => {});
+                await onChanged();
+              }}
+            >
+              {Array.from(new Set([node.currency, ...CURRENCIES])).map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="text-sm font-medium text-[var(--navy)]">{node.currency}</span>
+          )}
+          <span className="text-xs text-[var(--muted)]">— reporting currency for this organisation</span>
+        </div>
+      )}
 
       <p className="mt-4 mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Leadership</p>
       <div className="flex flex-wrap gap-2">

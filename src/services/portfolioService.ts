@@ -39,12 +39,14 @@ export type PortfolioOptions = {
   crewIds?: string[] | null;
   /** Narrow the register to a single pod (budget stays at the pod's crew). */
   teamId?: string | null;
+  /** Reporting currency for the rollup totals (org/Company currency). Defaults CHF. */
+  currency?: string;
   user?: { id: string; role: string };
 };
 
 export async function getPortfolio(options: PortfolioOptions | Prisma.EstimateWhereInput = {}) {
   const opts: PortfolioOptions =
-    options && ("scope" in options || "year" in options || "crewId" in options || "crewIds" in options || "teamId" in options || "user" in options)
+    options && ("scope" in options || "year" in options || "crewId" in options || "crewIds" in options || "teamId" in options || "currency" in options || "user" in options)
       ? (options as PortfolioOptions)
       : { scope: options as Prisma.EstimateWhereInput };
 
@@ -177,7 +179,7 @@ export async function getPortfolio(options: PortfolioOptions | Prisma.EstimateWh
 
   return {
     ...rollup,
-    currency: "CHF",
+    currency: opts.currency ?? "CHF",
     year,
     crewBudgets: budgetRows.map((row) => ({
       crewId: row.crewId,
