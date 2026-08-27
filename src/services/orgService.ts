@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { appendAuditEvent } from "@/services/auditService";
 import type { OrgPath, OrgSeatType, OrgType } from "@/lib/orgTypes";
 import { ORG_TYPES } from "@/lib/orgTypes";
 import { seesAllTeams } from "@/lib/access";
@@ -293,8 +294,7 @@ export async function saveCrewBudget(input: {
         include: { crew: true },
       });
 
-  await prisma.auditEvent.create({
-    data: {
+  await appendAuditEvent({
       userId: input.actorUserId,
       action: existing ? "CREW_BUDGET_UPDATED" : "CREW_BUDGET_CREATED",
       previousValue: existing ? JSON.stringify(existing) : "",
@@ -304,7 +304,6 @@ export async function saveCrewBudget(input: {
         amount: saved.amount,
         currency: saved.currency,
       }),
-    },
   });
   return saved;
 }

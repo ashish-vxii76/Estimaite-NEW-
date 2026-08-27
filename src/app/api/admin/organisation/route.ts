@@ -9,6 +9,7 @@ import {
 } from "@/services/orgService";
 import { ORG_SEAT_TYPES, ORG_TYPES, type OrgSeatType, type OrgType } from "@/lib/orgTypes";
 import { prisma } from "@/lib/prisma";
+import { appendAuditEvent } from "@/services/auditService";
 
 export async function GET() {
   const { session, error } = await requireUser();
@@ -51,12 +52,10 @@ export async function POST(request: Request) {
         name: String(body.name ?? ""),
         parentId: body.parentId ? String(body.parentId) : null,
       });
-      await prisma.auditEvent.create({
-        data: {
-          userId: session!.user.id,
-          action: "ORG_UNIT_CREATED",
-          newValue: JSON.stringify(unit),
-        },
+      await appendAuditEvent({
+        userId: session!.user.id,
+        action: "ORG_UNIT_CREATED",
+        newValue: JSON.stringify(unit),
       });
       return NextResponse.json({ unit });
     }
@@ -90,9 +89,7 @@ export async function POST(request: Request) {
     }
     if (action === "removeSeat") {
       await prisma.orgSeat.delete({ where: { id: String(body.seatId) } });
-      await prisma.auditEvent.create({
-        data: { userId: session!.user.id, action: "ORG_SEAT_REMOVED", newValue: String(body.seatId) },
-      });
+      await appendAuditEvent({ userId: session!.user.id, action: "ORG_SEAT_REMOVED", newValue: String(body.seatId) });
       return NextResponse.json({ ok: true });
     }
     if (action === "addMember") {
@@ -107,16 +104,12 @@ export async function POST(request: Request) {
           location: String(body.location ?? "India"),
         },
       });
-      await prisma.auditEvent.create({
-        data: { userId: session!.user.id, action: "TEAM_MEMBER_ADDED", newValue: `${member.teamId}:${name}` },
-      });
+      await appendAuditEvent({ userId: session!.user.id, action: "TEAM_MEMBER_ADDED", newValue: `${member.teamId}:${name}` });
       return NextResponse.json({ member });
     }
     if (action === "removeMember") {
       await prisma.teamMember.delete({ where: { id: String(body.memberId) } });
-      await prisma.auditEvent.create({
-        data: { userId: session!.user.id, action: "TEAM_MEMBER_REMOVED", newValue: String(body.memberId) },
-      });
+      await appendAuditEvent({ userId: session!.user.id, action: "TEAM_MEMBER_REMOVED", newValue: String(body.memberId) });
       return NextResponse.json({ ok: true });
     }
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
