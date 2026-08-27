@@ -73,7 +73,7 @@ export default async function PortfolioPage({
                 href={`/portfolio?year=${y}${org ? `&org=${org}` : ""}${team ? `&team=${team}` : ""}`}
                 className={`rounded-lg border px-3 py-2 text-sm ${
                   y === year
-                    ? "border-[var(--navy)] bg-[var(--navy)] text-white"
+                    ? "border-[var(--gold)] bg-[var(--gold-soft)] font-semibold text-[var(--navy)]"
                     : "border-[var(--line)] bg-[var(--panel-2)]"
                 }`}
               >

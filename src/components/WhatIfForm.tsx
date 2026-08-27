@@ -539,7 +539,7 @@ export function WhatIfForm({
             <label className="text-sm">
               Pod / Team
               <select
-                className="mt-1 w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2"
+                className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2"
                 value={podFilter}
                 onChange={(e) => {
                   setPodFilter(e.target.value);
@@ -565,7 +565,7 @@ export function WhatIfForm({
         <label className="text-sm">
           Optimise for
           <select
-            className="mt-1 w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2"
+            className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2"
             value={objective}
             onChange={(e) => {
               setObjective(e.target.value);
@@ -598,7 +598,7 @@ export function WhatIfForm({
               setMaxSprints(Number(e.target.value));
               setDirty(true);
             }}
-            className="mt-1 w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 disabled:cursor-not-allowed disabled:bg-[var(--bg)]"
+            className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2 disabled:cursor-not-allowed disabled:bg-[var(--bg)]"
           />
         </label>
         {teamLocked ? (
@@ -613,7 +613,7 @@ export function WhatIfForm({
           <label className="text-sm">
             Selected team
             <select
-              className="mt-1 w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2"
+              className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2"
               value={effectiveTeamId}
               onChange={(e) => setTeamId(e.target.value)}
             >
@@ -678,7 +678,7 @@ export function WhatIfForm({
             onPickSandboxMix={pickSandboxMix}
           />
           {acceptAllowed ? (
-            <section className="space-y-3 rounded-xl border border-[var(--line)] bg-white p-4">
+            <section className="space-y-3 rounded-xl border border-[var(--line)] bg-[var(--panel)] p-4">
               <div>
                 <p className="kicker">Accept into estimate</p>
                 <h3 className="font-display text-lg font-semibold text-[var(--navy)]">
@@ -693,7 +693,7 @@ export function WhatIfForm({
                 <label className="text-sm">
                   Apply mix from
                   <select
-                    className="mt-1 w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2"
+                    className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2"
                     value={acceptSource}
                     onChange={(e) =>
                       setAcceptSource(e.target.value as "selected" | "recommended")
@@ -878,7 +878,7 @@ function ScenarioOutcome({
           <label className="text-sm">
             Show all mixes for
             <select
-              className="mt-1 block min-w-[200px] rounded-lg border border-[var(--line)] bg-white px-3 py-2"
+              className="mt-1 block min-w-[200px] rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2"
               value={expandTeamId}
               onChange={(e) => onExpandTeam(e.target.value)}
             >
@@ -1001,7 +1001,7 @@ function ScenarioOutcome({
       </section>
 
       {selected.rationale ? (
-        <section className="rounded-lg border border-[var(--line)] bg-white p-4">
+        <section className="rounded-lg border border-[var(--line)] bg-[var(--panel)] p-4">
           <p className="text-sm font-semibold text-[var(--navy)]">{selected.rationale.title}</p>
           <p className="mt-1 text-sm">{selected.rationale.summary}</p>
           <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-[var(--muted)]">

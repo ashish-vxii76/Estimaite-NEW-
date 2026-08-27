@@ -598,11 +598,11 @@ export function EstimateWizard({
                   }
                   className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${
                     moment === m.id
-                      ? "border-[var(--navy)] bg-[var(--navy)] text-white"
+                      ? "border-[var(--gold)] bg-[var(--gold-soft)] font-semibold text-[var(--navy)]"
                       : !enabled
                         ? "cursor-not-allowed border-[var(--line)] bg-[var(--bg)] text-[var(--muted)] opacity-50"
                         : i < momentIndex
-                          ? "border-[var(--line)] bg-white text-[var(--navy)]"
+                          ? "border-[var(--line)] bg-[var(--panel)] text-[var(--navy)]"
                           : "border-[var(--line)] bg-[var(--bg)] text-[var(--muted)]"
                   }`}
                 >

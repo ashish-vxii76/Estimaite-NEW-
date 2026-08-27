@@ -16,7 +16,7 @@ export function AdminNav({ role, matrix }: { role?: string; matrix?: RbacMatrix 
           href={href}
           className={`rounded-full px-3 py-1 text-xs ${
             pathname === href || (href !== "/admin" && pathname.startsWith(href))
-              ? "bg-[var(--navy)] !text-white"
+              ? "border border-[var(--gold)] bg-[var(--gold-soft)] font-semibold !text-[var(--navy)]"
               : "bg-[var(--panel-2)] text-[var(--text)]"
           }`}
         >

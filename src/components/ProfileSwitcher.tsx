@@ -48,7 +48,7 @@ export function ProfileSwitcher({
         Switch profile
       </label>
       <select
-        className="w-full rounded-lg border border-[var(--line)] bg-white px-2 py-1.5 text-xs text-[var(--text)]"
+        className="w-full rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-2 py-1.5 text-xs text-[var(--text)]"
         value={currentEmail ?? ""}
         disabled={pending}
         onChange={(e) => onChange(e.target.value)}

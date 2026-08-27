@@ -74,7 +74,7 @@ export function ActualsForm({
               min={0}
               step="0.01"
               defaultValue={defaults[name] ?? ""}
-              className="mt-1 w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2"
+              className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2"
               required
               disabled={readOnly}
             />
@@ -90,7 +90,7 @@ export function ActualsForm({
                 ? new Date(actuals.completionDate).toISOString().slice(0, 10)
                 : ""
             }
-            className="mt-1 w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2"
+            className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2"
             disabled={readOnly}
           />
         </label>
