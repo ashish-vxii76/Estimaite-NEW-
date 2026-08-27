@@ -520,6 +520,8 @@ export async function seedDemoRegister(prisma: PrismaClient) {
         readinessJson: JSON.stringify(input.readiness),
         locationMixJson: mixJson(loc, spec.type === "EPIC"),
         resultJson: result ? JSON.stringify(result) : null,
+        effectiveTshirt: result?.effectiveTshirt ?? "",
+        deliveryFlag: result?.deliveryFlag ?? result?.governanceDecision ?? "",
         configurationVersionId: DEFAULT_CONFIG.versionId,
         rateVersionId: DEFAULT_CONFIG.rateVersionId,
         createdById: estimator.id,

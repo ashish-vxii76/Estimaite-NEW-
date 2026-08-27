@@ -234,7 +234,7 @@ export default async function PortfolioPage({
                 </td>
               </tr>
             ) : (
-              data.register.map((row) => (
+              data.register.slice(0, 200).map((row) => (
                 <tr key={row.id} className="border-t border-[var(--line)]">
                   <td className="px-4 py-3">
                     <Link className="font-medium text-[var(--navy)] underline" href={`/estimates/${row.id}`}>
@@ -258,6 +258,12 @@ export default async function PortfolioPage({
             )}
           </tbody>
         </table>
+        {data.register.length > 200 ? (
+          <p className="px-4 py-3 text-xs text-[var(--muted)]">
+            Showing the first 200 of {data.register.length} CRs. Totals above cover all {year} CRs
+            in scope.
+          </p>
+        ) : null}
       </section>
     </div>
   );

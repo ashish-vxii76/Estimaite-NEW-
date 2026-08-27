@@ -338,7 +338,12 @@ export async function calculateAndPersist(id: string, userId: string) {
   const updated = await prisma.$transaction(async (tx) => {
     const row = await tx.estimate.update({
       where: { id },
-      data: { resultJson: JSON.stringify(result) },
+      data: {
+        resultJson: JSON.stringify(result),
+        // Denormalised for server-side filtering + pagination of the register.
+        effectiveTshirt: result.effectiveTshirt ?? "",
+        deliveryFlag: result.deliveryFlag ?? result.governanceDecision ?? "",
+      },
       include: { team: true, createdBy: true, approvals: true, actuals: true },
     });
     await tx.estimateVersion.create({

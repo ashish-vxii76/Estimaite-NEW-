@@ -33,6 +33,7 @@ export default async function EstimatesPage({
     tshirt?: string;
     flag?: string;
     org?: string;
+    page?: string;
   }>;
 }) {
   const session = await auth();
@@ -44,6 +45,7 @@ export default async function EstimatesPage({
     tshirt = "",
     flag = "",
     org = "",
+    page: pageParam = "",
   } = await searchParams;
   const scopeUser = fromSession(session!.user);
   const [orgWhere, orgFilter, config] = await Promise.all([
@@ -60,25 +62,36 @@ export default async function EstimatesPage({
         : {}),
     ...releaseWhere(release),
     ...(workItemType ? { workItemType } : {}),
+    ...(tshirt ? { effectiveTshirt: tshirt } : {}),
+    ...(flag ? { deliveryFlag: flag } : {}),
   };
-  const estimates = await prisma.estimate.findMany({
-    where,
-    include: { team: { include: { crew: true } } },
-    orderBy: { updatedAt: "desc" },
-  });
+  const PAGE_SIZE = 50;
+  const page = Math.max(1, Number(pageParam) || 1);
+  const [total, estimates] = await Promise.all([
+    prisma.estimate.count({ where }),
+    prisma.estimate.findMany({
+      where,
+      include: { team: { include: { crew: true } } },
+      orderBy: { updatedAt: "desc" },
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+    }),
+  ]);
   const canCreate = can(session?.user.role, "estimates.create", "RW");
   const quarters = config.releaseQuarters ?? [];
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const rows = estimates.map((row) => ({ row, result: parseResult(row.resultJson) }));
 
-  const rows = estimates
-    .map((row) => ({ row, result: parseResult(row.resultJson) }))
-    .filter(({ result }) => {
-      if (tshirt && (result?.effectiveTshirt ?? "") !== tshirt) return false;
-      if (flag) {
-        const delivery = result?.deliveryFlag ?? result?.governanceDecision ?? "";
-        if (delivery !== flag) return false;
-      }
-      return true;
-    });
+  // Preserve the active filters across pagination links.
+  const pageQuery = (p: number) => {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries({ status, release, team, workItemType, tshirt, flag, org })) {
+      if (v) params.set(k, v);
+    }
+    if (p > 1) params.set("page", String(p));
+    const qs = params.toString();
+    return qs ? `/estimates?${qs}` : "/estimates";
+  };
 
   return (
     <div className="space-y-5">
@@ -182,6 +195,29 @@ export default async function EstimatesPage({
           </tbody>
         </table>
       </div>
+
+      {total > PAGE_SIZE ? (
+        <div className="flex items-center justify-between text-sm text-[var(--muted)]">
+          <span>
+            Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
+          </span>
+          <div className="flex items-center gap-2">
+            {page > 1 ? (
+              <Link href={pageQuery(page - 1)} className="btn-secondary text-sm">
+                Previous
+              </Link>
+            ) : null}
+            <span className="px-1">
+              Page {page} / {totalPages}
+            </span>
+            {page < totalPages ? (
+              <Link href={pageQuery(page + 1)} className="btn-secondary text-sm">
+                Next
+              </Link>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

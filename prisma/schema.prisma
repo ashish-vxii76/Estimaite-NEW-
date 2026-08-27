@@ -149,6 +149,8 @@ model Estimate {
   readinessJson          String    @default("[]")
   locationMixJson        String    @default("[]")
   resultJson             String?
+  effectiveTshirt        String    @default("")
+  deliveryFlag           String    @default("")
   scenarioJson           String?
   orgPathJson            String    @default("")
   configurationVersionId String
