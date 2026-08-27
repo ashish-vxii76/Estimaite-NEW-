@@ -106,28 +106,14 @@ export default async function PortfolioPage({
         extraParams={{ year: String(year) }}
       />
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Tile label={`Estimates (${year})`} value={String(data.totalEstimates)} />
-        <Tile label="Total AI-adjusted (CHF)" value={formatMoney(data.totalAiAdjustedCost, currency)} />
-        <Tile label="Total baseline (CHF)" value={formatMoney(data.totalBaselineCost, currency)} />
+        <Tile label="Pipeline AI-adjusted (CHF)" value={formatMoney(data.totalAiAdjustedCost, currency)} />
+        <Tile label="Pipeline baseline (CHF)" value={formatMoney(data.totalBaselineCost, currency)} />
         <Tile label="Total effort (PD)" value={data.totalEffortPd.toLocaleString()} />
-        <div className="card p-4">
-          <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Budget RAG (AI vs Crew sum)</p>
-          <p className={`mt-2 inline-flex rounded-full px-3 py-1 text-sm font-medium ${RAG_CLASS[data.budgetRag]}`}>
-            {data.budgetLabel}
-          </p>
-          <p className="mt-2 text-xs text-[var(--muted)]">
-            Crew budget {year}:{" "}
-            {data.budget != null ? formatMoney(data.budget, currency) : "No Crew budgets for this year"}
-          </p>
-          <p className="mt-1 text-xs text-[var(--muted)]">
-            Baseline RAG:{" "}
-            <span className={`rounded px-1.5 py-0.5 font-medium ${RAG_CLASS[data.baselineBudgetRag] ?? ""}`}>
-              {data.baselineBudgetRag}
-            </span>
-          </p>
-        </div>
       </div>
+
+      <BudgetUtilisation u={data.budgetUtilisation} year={year} currency={currency} />
 
       <section id="budget" className="card scroll-mt-6 space-y-3 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -278,5 +264,76 @@ function Tile({ label, value }: { label: string; value: string }) {
       <p className="text-xs uppercase tracking-wide text-[var(--muted)]">{label}</p>
       <p className="mt-1 text-2xl font-semibold">{value}</p>
     </div>
+  );
+}
+
+type BudgetUtil = {
+  budget: number | null;
+  utilizedAiCost: number;
+  utilizedBaselineCost: number;
+  forecastAiCost: number;
+  projectedAiCost: number;
+  remaining: number | null;
+  utilizationPct: number | null;
+  variance: number | null;
+  utilizedRag: string;
+  utilizedLabel: string;
+  projectedRag: string;
+  committedCount: number;
+  pipelineCount: number;
+};
+
+function BudgetUtilisation({ u, year, currency }: { u: BudgetUtil; year: number; currency: string }) {
+  const money = (n: number | null) => (n == null ? "—" : formatMoney(n, currency));
+  const overspent = u.remaining != null && u.remaining < 0;
+  return (
+    <section className="card space-y-4 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-display text-lg font-semibold text-[var(--navy)]">
+            Budget vs utilisation · {year}
+          </h2>
+          <p className="text-sm text-[var(--muted)]">
+            Utilised = committed CRs (Approved + Completed), AI-adjusted. Rolls up quarter → year and
+            sums Crews up the org tree.
+          </p>
+        </div>
+        <span className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${RAG_CLASS[u.utilizedRag] ?? ""}`}>
+          {u.utilizedLabel}
+        </span>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-xl border border-[var(--line)] bg-[var(--panel-2)] p-4">
+          <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Crew budget</p>
+          <p className="mt-1 text-xl font-semibold tabular-nums text-[var(--navy)]">
+            {u.budget != null ? money(u.budget) : "Not set"}
+          </p>
+        </div>
+        <div className="rounded-xl border border-[var(--line)] bg-[var(--panel-2)] p-4">
+          <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Utilised (committed)</p>
+          <p className="mt-1 text-xl font-semibold tabular-nums text-[var(--navy)]">{money(u.utilizedAiCost)}</p>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            {u.committedCount} CR{u.committedCount === 1 ? "" : "s"} · baseline {money(u.utilizedBaselineCost)}
+          </p>
+        </div>
+        <div className="rounded-xl border border-[var(--line)] bg-[var(--panel-2)] p-4">
+          <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Remaining</p>
+          <p className={`mt-1 text-xl font-semibold tabular-nums ${overspent ? "text-[var(--danger)]" : "text-[var(--navy)]"}`}>
+            {money(u.remaining)}
+          </p>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            {u.utilizationPct != null ? `${Math.round(u.utilizationPct * 100)}% used` : "set a budget"}
+          </p>
+        </div>
+        <div className="rounded-xl border border-[var(--line)] bg-[var(--panel-2)] p-4">
+          <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Projected (incl. pipeline)</p>
+          <p className="mt-1 text-xl font-semibold tabular-nums text-[var(--navy)]">{money(u.projectedAiCost)}</p>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            +{u.pipelineCount} in-pipeline ({money(u.forecastAiCost)}) ·{" "}
+            <span className={`rounded px-1.5 py-0.5 font-medium ${RAG_CLASS[u.projectedRag] ?? ""}`}>{u.projectedRag}</span>
+          </p>
+        </div>
+      </div>
+    </section>
   );
 }

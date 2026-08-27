@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getActiveConfig } from "@/services/configService";
 import {
+  budgetStatus,
   calibrateDaysPerPoint,
   rollupPortfolio,
   type EstimateCalculationResult,
@@ -135,6 +136,45 @@ export async function getPortfolio(options: PortfolioOptions | Prisma.EstimateWh
           : "RED"
       : "UNSET";
 
+  // Budget utilisation: committed = Approved + Completed (spend); forecast = in-pipeline.
+  // Cost-deferred CRs (ROM Epics, aiAdjustedDeliveryCost null) are costed at Story level → excluded.
+  const COMMITTED_STATUS = new Set(["APPROVED", "COMPLETED"]);
+  const PIPELINE_STATUS = new Set(["READY_FOR_REVIEW", "REVIEWED"]);
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const sumAi = (rows: typeof calculated) =>
+    r2(rows.reduce((s, x) => s + (x.aiAdjustedDeliveryCost ?? 0), 0));
+  const sumBase = (rows: typeof calculated) =>
+    r2(rows.reduce((s, x) => s + (x.baselineDeliveryCost ?? 0), 0));
+
+  const committedRows = calculated.filter(
+    (r) => COMMITTED_STATUS.has(r.status) && r.aiAdjustedDeliveryCost != null,
+  );
+  const pipelineRows = calculated.filter(
+    (r) => PIPELINE_STATUS.has(r.status) && r.aiAdjustedDeliveryCost != null,
+  );
+  const utilizedAiCost = sumAi(committedRows);
+  const utilizedBaselineCost = sumBase(committedRows);
+  const forecastAiCost = sumAi(pipelineRows);
+  const projectedAiCost = r2(utilizedAiCost + forecastAiCost);
+  const utilizedStatus = budgetStatus(utilizedAiCost, budget);
+  const projectedStatus = budgetStatus(projectedAiCost, budget);
+
+  const budgetUtilisation = {
+    budget,
+    utilizedAiCost,
+    utilizedBaselineCost,
+    forecastAiCost,
+    projectedAiCost,
+    remaining: budget != null ? r2(budget - utilizedAiCost) : null,
+    utilizationPct: budget != null && budget > 0 ? utilizedAiCost / budget : null,
+    variance: budget != null ? r2(utilizedAiCost - budget) : null,
+    utilizedRag: utilizedStatus.rag,
+    utilizedLabel: utilizedStatus.label,
+    projectedRag: projectedStatus.rag,
+    committedCount: committedRows.length,
+    pipelineCount: pipelineRows.length,
+  };
+
   return {
     ...rollup,
     currency: "CHF",
@@ -147,6 +187,7 @@ export async function getPortfolio(options: PortfolioOptions | Prisma.EstimateWh
     })),
     budgetSource: "crew_yearly" as const,
     baselineBudgetRag: baselineRag,
+    budgetUtilisation,
     register,
   };
 }
