@@ -596,6 +596,7 @@ export function EstimateWizard({
                           : "Available after the estimate is approved"
                       : undefined
                   }
+                  aria-current={moment === m.id ? "step" : undefined}
                   className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${
                     moment === m.id
                       ? "border-[var(--gold)] bg-[var(--gold-soft)] font-semibold text-[var(--navy)]"

@@ -163,6 +163,7 @@ export function OrgNodeSetup({
                 setName("");
                 setError(null);
               }}
+              aria-current={on ? "true" : undefined}
               className={`rounded-full border px-3 py-1.5 text-sm transition ${
                 on
                   ? "border-[var(--gold)] bg-[var(--gold-soft)] font-semibold text-[var(--navy)]"

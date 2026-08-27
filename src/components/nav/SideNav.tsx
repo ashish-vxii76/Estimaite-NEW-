@@ -286,7 +286,7 @@ function NavBranch({
             )}
           </button>
         ) : node.href ? (
-          <Link href={node.href} className="flex min-w-0 flex-1 items-center gap-2 truncate py-1.5 pr-1">
+          <Link href={node.href} aria-current={active ? "page" : undefined} className="flex min-w-0 flex-1 items-center gap-2 truncate py-1.5 pr-1">
             {Icon ? <Icon size={16} className="shrink-0 text-[var(--muted)]" /> : null}
             {node.label}
           </Link>
