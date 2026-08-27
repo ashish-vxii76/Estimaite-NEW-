@@ -8,6 +8,8 @@ import { auth } from "@/auth";
 import { can } from "@/lib/access";
 import { fromSession } from "@/lib/scope";
 import { getOrgFilterData } from "@/lib/orgFilter";
+import { getActiveConfig } from "@/services/configService";
+import { yearsFromCatalogue } from "@/lib/releasePeriod";
 import { descendantIds } from "@/services/orgService";
 import { OrgScopeFilters } from "@/components/OrgScopeFilters";
 
@@ -25,9 +27,19 @@ export default async function PortfolioPage({
 }) {
   const session = await auth();
   const { year: yearParam = "", org = "", team = "" } = await searchParams;
-  const year = Number(yearParam) || new Date().getFullYear();
   const scopeUser = fromSession(session!.user);
-  const orgFilter = await getOrgFilterData(scopeUser);
+  const [orgFilter, config] = await Promise.all([
+    getOrgFilterData(scopeUser),
+    getActiveConfig(),
+  ]);
+  // Single source of truth: budget/release years come from the configured Release-quarters
+  // catalogue — the same source the estimate views use. Default to the current calendar year
+  // if it's configured, else the latest configured year.
+  const catalogueYears = yearsFromCatalogue(config.releaseQuarters ?? []).map(Number);
+  const calYear = new Date().getFullYear();
+  const year =
+    Number(yearParam) || (catalogueYears.includes(calYear) ? calYear : catalogueYears[0] ?? calYear);
+  const yearOptions = Array.from(new Set([...catalogueYears, year])).sort((a, b) => a - b);
 
   // Resolve the org-cascade selection to the crews it implies (budgets live at crew level).
   let selectionCrewIds: string[] | null = null;
@@ -50,12 +62,6 @@ export default async function PortfolioPage({
   const canBudget =
     can(session?.user.role, "org.budget") || can(session?.user.role, "portfolio.budget");
 
-  // Stable window anchored on the current calendar year (not the selected year), so clicking a
-  // year never slides the whole row. The selected year is always included even if out of window.
-  const currentYear = new Date().getFullYear();
-  const yearOptions = Array.from(
-    new Set([currentYear - 1, currentYear, currentYear + 1, currentYear + 2, year]),
-  ).sort((a, b) => a - b);
 
   return (
     <div className="space-y-6">

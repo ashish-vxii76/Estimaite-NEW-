@@ -19,11 +19,13 @@ export function CrewBudgetManager({
   units,
   canWrite,
   defaultYear,
+  releaseYears,
 }: {
   initialBudgets: BudgetRow[];
   units: Unit[];
   canWrite: boolean;
   defaultYear: number;
+  releaseYears: number[];
 }) {
   const router = useRouter();
   const [budgets, setBudgets] = useState(initialBudgets);
@@ -100,16 +102,21 @@ export function CrewBudgetManager({
         <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-6">
           <label className="text-sm">
             Year
-            <input
-              type="number"
-              className="mt-1 w-full rounded-lg border border-[var(--line)] px-3 py-2"
+            <select
+              className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2 text-[var(--navy)]"
               value={year}
               onChange={(e) => {
                 const y = Number(e.target.value);
                 setYear(y);
                 void reload(y);
               }}
-            />
+            >
+              {(releaseYears.length ? releaseYears : [defaultYear]).map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="text-sm">
             Company
