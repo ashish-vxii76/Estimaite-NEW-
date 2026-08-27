@@ -50,7 +50,12 @@ export default async function PortfolioPage({
   const canBudget =
     can(session?.user.role, "org.budget") || can(session?.user.role, "portfolio.budget");
 
-  const yearOptions = Array.from(new Set([year - 1, year, year + 1, year + 2])).sort();
+  // Stable window anchored on the current calendar year (not the selected year), so clicking a
+  // year never slides the whole row. The selected year is always included even if out of window.
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from(
+    new Set([currentYear - 1, currentYear, currentYear + 1, currentYear + 2, year]),
+  ).sort((a, b) => a - b);
 
   return (
     <div className="space-y-6">
@@ -71,10 +76,10 @@ export default async function PortfolioPage({
               <Link
                 key={y}
                 href={`/portfolio?year=${y}${org ? `&org=${org}` : ""}${team ? `&team=${team}` : ""}`}
-                className={`rounded-lg border px-3 py-2 text-sm ${
+                className={`rounded-lg border px-3 py-2 text-sm text-[var(--navy)] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)] ${
                   y === year
-                    ? "border-[var(--gold)] bg-[var(--gold-soft)] font-semibold text-[var(--navy)]"
-                    : "border-[var(--line)] bg-[var(--panel-2)]"
+                    ? "border-[var(--gold)] bg-[var(--gold-soft)] font-semibold"
+                    : "border-[var(--line)] bg-[var(--panel-2)] font-normal"
                 }`}
               >
                 {y}
