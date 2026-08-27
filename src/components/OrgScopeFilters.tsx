@@ -11,6 +11,13 @@ import {
 } from "@/lib/releasePeriod";
 import type { OrgFilterUnit, OrgFilterTeam } from "@/lib/orgFilter";
 
+export type ExtraFilter = {
+  label: string;
+  param: string;
+  value: string;
+  options: { value: string; label: string }[];
+};
+
 const OPEN =
   "mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2 text-sm text-[var(--navy)]";
 const LOCKED =
@@ -43,6 +50,7 @@ export function OrgScopeFilters({
   release = "",
   quarters = [],
   showWorkRelease = true,
+  extraFilters = [],
   extraParams = {},
 }: {
   basePath: string;
@@ -55,6 +63,7 @@ export function OrgScopeFilters({
   release?: string;
   quarters?: string[];
   showWorkRelease?: boolean;
+  extraFilters?: ExtraFilter[];
   extraParams?: Record<string, string>;
 }) {
   const router = useRouter();
@@ -74,8 +83,9 @@ export function OrgScopeFilters({
     cur = cur.parentId ? byId.get(cur.parentId) : undefined;
   }
 
-  function navigate(next: Partial<Record<"org" | "team" | "workItemType" | "release", string>>) {
-    const merged = { org, team, workItemType, release, ...next };
+  function navigate(next: Record<string, string>) {
+    const extraVals = Object.fromEntries(extraFilters.map((f) => [f.param, f.value]));
+    const merged: Record<string, string> = { org, team, workItemType, release, ...extraVals, ...next };
     const params = new URLSearchParams();
     for (const [k, v] of Object.entries(extraParams)) if (v) params.set(k, v);
     for (const [k, v] of Object.entries(merged)) if (v) params.set(k, v as string);
@@ -219,6 +229,23 @@ export function OrgScopeFilters({
         </label>
         </>
         )}
+
+        {extraFilters.map((f) => (
+          <label key={f.param} className="text-sm">
+            {f.label}
+            <select
+              className={OPEN}
+              value={f.value}
+              onChange={(e) => navigate({ [f.param]: e.target.value })}
+            >
+              {f.options.map((o) => (
+                <option key={o.value || "all"} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        ))}
       </div>
     </section>
   );

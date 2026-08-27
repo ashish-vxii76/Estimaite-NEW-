@@ -2,13 +2,25 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { StatusBadge } from "@/components/ui";
-import { EstimateFilters } from "@/components/EstimateFilters";
+import { OrgScopeFilters } from "@/components/OrgScopeFilters";
 import { formatMoney } from "@/lib/utils";
 import type { EstimateCalculationResult } from "@/domain/estimation/types";
+import { DELIVERY_FLAGS } from "@/domain/estimation/portfolio";
+import { T_SHIRTS } from "@/domain/estimation/types";
 import { can } from "@/lib/access";
-import { fromSession, resolveEstimateScope, teamsForUser } from "@/lib/scope";
+import { fromSession } from "@/lib/scope";
+import { getOrgFilterData, resolveOrgSelectionWhere } from "@/lib/orgFilter";
 import { getActiveConfig } from "@/services/configService";
 import { releaseWhere } from "@/lib/releasePeriod";
+
+const STATUS_OPTIONS = [
+  { value: "", label: "All statuses" },
+  { value: "DRAFT", label: "Drafts" },
+  { value: "READY_FOR_REVIEW", label: "Ready for review" },
+  { value: "REVIEWED", label: "Reviewed" },
+  { value: "APPROVED", label: "Approved" },
+  { value: "COMPLETED", label: "Completed" },
+];
 
 export default async function EstimatesPage({
   searchParams,
@@ -20,7 +32,7 @@ export default async function EstimatesPage({
     workItemType?: string;
     tshirt?: string;
     flag?: string;
-    crew?: string;
+    org?: string;
   }>;
 }) {
   const session = await auth();
@@ -31,43 +43,34 @@ export default async function EstimatesPage({
     workItemType = "",
     tshirt = "",
     flag = "",
-    crew = "",
+    org = "",
   } = await searchParams;
-  const scope = await resolveEstimateScope(fromSession(session!.user));
+  const scopeUser = fromSession(session!.user);
+  const [orgWhere, orgFilter, config] = await Promise.all([
+    resolveOrgSelectionWhere(scopeUser, org, team),
+    getOrgFilterData(scopeUser),
+    getActiveConfig(),
+  ]);
   const where = {
-    ...scope,
+    ...orgWhere,
     ...(status === "DRAFT"
       ? { status: { in: ["DRAFT", "RETURNED"] as string[] } }
       : status
         ? { status }
         : {}),
     ...releaseWhere(release),
-    ...(team ? { teamId: team } : {}),
-    ...(crew && !team ? { team: { crewId: crew } } : {}),
     ...(workItemType ? { workItemType } : {}),
   };
-  const [estimates, config, teams, orgUnits] = await Promise.all([
-    prisma.estimate.findMany({
-      where,
-      include: { team: { include: { crew: true } } },
-      orderBy: { updatedAt: "desc" },
-    }),
-    getActiveConfig(),
-    teamsForUser(fromSession(session!.user)),
-    prisma.orgUnit.findMany({
-      where: { active: true, type: "CREW" },
-      select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    }),
-  ]);
+  const estimates = await prisma.estimate.findMany({
+    where,
+    include: { team: { include: { crew: true } } },
+    orderBy: { updatedAt: "desc" },
+  });
   const canCreate = can(session?.user.role, "estimates.create", "RW");
   const quarters = config.releaseQuarters ?? [];
 
   const rows = estimates
-    .map((row) => {
-      const result = parseResult(row.resultJson);
-      return { row, result };
-    })
+    .map((row) => ({ row, result: parseResult(row.resultJson) }))
     .filter(({ result }) => {
       if (tshirt && (result?.effectiveTshirt ?? "") !== tshirt) return false;
       if (flag) {
@@ -76,8 +79,6 @@ export default async function EstimatesPage({
       }
       return true;
     });
-
-  const filteredTeams = crew ? teams.filter((t) => t.crewId === crew) : teams;
 
   return (
     <div className="space-y-5">
@@ -93,24 +94,28 @@ export default async function EstimatesPage({
         ) : null}
       </div>
 
-      <EstimateFilters
-        quarters={quarters}
-        status={status}
+      <OrgScopeFilters
+        basePath="/estimates"
+        units={orgFilter.units}
+        teams={orgFilter.teams}
+        lockedUnitIds={orgFilter.lockedUnitIds}
+        org={org}
+        team={team}
         workItemType={workItemType}
         release={release}
-        tshirt={tshirt}
-        flag={flag}
-        crew={crew}
-        team={team}
-        crews={orgUnits}
-        teams={filteredTeams.map((t) => ({ id: t.id, name: t.name }))}
+        quarters={quarters}
+        extraFilters={[
+          { label: "T-shirt size", param: "tshirt", value: tshirt, options: [{ value: "", label: "All sizes" }, ...T_SHIRTS.map((s) => ({ value: s, label: s }))] },
+          { label: "Delivery flag", param: "flag", value: flag, options: [{ value: "", label: "All flags" }, ...DELIVERY_FLAGS.map((f) => ({ value: f, label: f }))] },
+          { label: "Status", param: "status", value: status, options: STATUS_OPTIONS },
+        ]}
       />
 
       <div className="card overflow-x-auto">
-        <table className="w-full min-w-[960px] text-left text-sm">
+        <table className="w-full min-w-[960px] text-left text-sm [&_th]:px-3 [&_th]:py-3 [&_td]:px-3 [&_td]:py-3">
           <thead className="bg-[var(--panel-2)] text-[var(--muted)]">
             <tr>
-              <th className="px-4 py-3">Reference</th>
+              <th>Reference</th>
               <th>Type</th>
               <th>Title</th>
               <th>Crew</th>
@@ -126,7 +131,7 @@ export default async function EstimatesPage({
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td className="px-4 py-8 text-[var(--muted)]" colSpan={11}>
+                <td className="text-[var(--muted)]" colSpan={11}>
                   No estimates in this filter for this profile.
                 </td>
               </tr>
@@ -135,7 +140,7 @@ export default async function EstimatesPage({
                 const deferred = result?.costApplicability && result.costApplicability !== "OK";
                 return (
                   <tr key={row.id} className="border-t border-[var(--line)]">
-                    <td className="px-4 py-3">
+                    <td>
                       <Link
                         className="font-medium text-[var(--navy)] underline"
                         href={`/estimates/${row.id}`}
