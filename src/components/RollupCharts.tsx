@@ -63,7 +63,7 @@ export function RollupCharts({
             <>
               <div
                 className="relative mt-5 h-7 rounded-lg border border-[var(--line)]"
-                style={{ background: `linear-gradient(90deg, var(--ok-soft, rgba(16,160,106,.16)) 0 ${(b / scaleMax) * 100}%, rgba(224,164,88,.2) ${(b / scaleMax) * 100}% ${(b * 1.1 / scaleMax) * 100}%, rgba(209,84,79,.2) ${(b * 1.1 / scaleMax) * 100}% 100%)` }}
+                style={{ background: `linear-gradient(90deg, color-mix(in srgb, var(--ok) 15%, transparent) 0 ${(b / scaleMax) * 100}%, color-mix(in srgb, var(--warn) 22%, transparent) ${(b / scaleMax) * 100}% ${(b * 1.1 / scaleMax) * 100}%, color-mix(in srgb, var(--danger) 22%, transparent) ${(b * 1.1 / scaleMax) * 100}% 100%)` }}
               >
                 <div className="absolute inset-y-1.5 left-0 rounded bg-[var(--teal)]" style={{ width: pct(utilised) }} />
                 <div className="absolute inset-y-0.5 w-[3px] bg-[var(--navy)] opacity-60" style={{ left: pct(projected) }} title="Projected" />
@@ -111,7 +111,7 @@ export function RollupCharts({
           <div className="mt-4 flex flex-col gap-3">
             <div className="grid grid-cols-[96px_1fr_auto] items-center gap-3 text-sm">
               <span className="text-[var(--muted)]">Baseline</span>
-              <span className="h-4 rounded bg-[var(--panel-2)]"><span className="block h-full rounded bg-[var(--faint,#918a78)]" style={{ width: `${(baseline / baseMax) * 100}%`, background: "var(--muted)" }} /></span>
+              <span className="h-4 rounded bg-[var(--panel-2)]"><span className="block h-full rounded" style={{ width: `${(baseline / baseMax) * 100}%`, background: "var(--muted)" }} /></span>
               <span className="text-right font-bold tabular-nums">{money(baseline)}</span>
             </div>
             <div className="grid grid-cols-[96px_1fr_auto] items-center gap-3 text-sm">

@@ -197,6 +197,12 @@ textarea:focus-visible,
   color: #7c4a12;
 }
 
+/* Theme-aware status/RAG chips — adapt to light & dark via semantic tokens. */
+.chip-ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 15%, transparent); }
+.chip-warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 16%, transparent); }
+.chip-bad { color: var(--danger); background: color-mix(in srgb, var(--danger) 15%, transparent); }
+.chip-neutral { color: var(--muted); background: color-mix(in srgb, var(--muted) 16%, transparent); }
+
 .kicker {
   font-size: 0.7rem;
   font-weight: 600;

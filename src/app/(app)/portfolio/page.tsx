@@ -14,10 +14,10 @@ import { OrgScopeFilters } from "@/components/OrgScopeFilters";
 import { RollupCharts } from "@/components/RollupCharts";
 
 const RAG_CLASS: Record<string, string> = {
-  UNSET: "bg-slate-100 text-slate-700",
-  GREEN: "bg-emerald-50 text-emerald-800",
-  AMBER: "bg-amber-50 text-amber-900",
-  RED: "bg-rose-50 text-rose-800",
+  UNSET: "chip-neutral",
+  GREEN: "chip-ok",
+  AMBER: "chip-warn",
+  RED: "chip-bad",
 };
 
 const BAR_CLASS: Record<string, string> = {

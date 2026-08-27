@@ -51,15 +51,15 @@ export function PortfolioCharts({
         <div className="mt-4 h-72">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={flags} margin={{ top: 18, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#ddd6c8" />
-              <XAxis dataKey="name" tick={{ fill: "#5c6b80", fontSize: 11 }} interval={0} angle={-20} textAnchor="end" height={70} />
-              <YAxis allowDecimals={false} tick={{ fill: "#5c6b80", fontSize: 12 }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
+              <XAxis dataKey="name" tick={{ fill: "var(--muted)", fontSize: 11 }} interval={0} angle={-20} textAnchor="end" height={70} />
+              <YAxis allowDecimals={false} tick={{ fill: "var(--muted)", fontSize: 12 }} />
               <Tooltip
-                contentStyle={{ background: "#fffcf7", border: "1px solid #ddd6c8", color: "#1b2a4a" }}
+                contentStyle={{ background: "var(--panel)", border: "1px solid var(--line)", color: "var(--text)" }}
                 formatter={(value, _name, item) => [value, String(item?.payload?.full ?? "Count")]}
               />
-              <Bar dataKey="count" fill="#1e3a5f" radius={[6, 6, 0, 0]}>
-                <LabelList dataKey="count" position="top" fill="#1b2a4a" fontSize={12} fontWeight={600} />
+              <Bar dataKey="count" fill="var(--gold)" radius={[6, 6, 0, 0]}>
+                <LabelList dataKey="count" position="top" fill="var(--navy)" fontSize={12} fontWeight={600} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -70,18 +70,18 @@ export function PortfolioCharts({
         <div className="mt-4 h-72">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={shirts} margin={{ top: 18, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#ddd6c8" />
-              <XAxis dataKey="name" tick={{ fill: "#5c6b80", fontSize: 12 }} />
-              <YAxis tick={{ fill: "#5c6b80", fontSize: 12 }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
+              <XAxis dataKey="name" tick={{ fill: "var(--muted)", fontSize: 12 }} />
+              <YAxis tick={{ fill: "var(--muted)", fontSize: 12 }} />
               <Tooltip
-                contentStyle={{ background: "#fffcf7", border: "1px solid #ddd6c8", color: "#1b2a4a" }}
+                contentStyle={{ background: "var(--panel)", border: "1px solid var(--line)", color: "var(--text)" }}
                 formatter={(value) => [`${currency} ${Number(value).toLocaleString()}`, "AI-adj cost"]}
               />
-              <Bar dataKey="cost" fill="#0f766e" radius={[6, 6, 0, 0]}>
+              <Bar dataKey="cost" fill="var(--teal)" radius={[6, 6, 0, 0]}>
                 <LabelList
                   dataKey="cost"
                   position="top"
-                  fill="#1b2a4a"
+                  fill="var(--navy)"
                   fontSize={11}
                   fontWeight={600}
                   formatter={(value) => (Number(value) > 0 ? Number(value).toLocaleString() : "")}
