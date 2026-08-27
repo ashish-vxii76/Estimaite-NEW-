@@ -35,7 +35,7 @@ export function NewTeamForm({
       setError(data.error ?? "Could not create team");
       return;
     }
-    router.push("/teams");
+    router.push("/admin/organisation");
     router.refresh();
   }
 

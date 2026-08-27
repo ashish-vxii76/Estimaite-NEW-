@@ -20,8 +20,6 @@ const CLUSTERS = [
     links: [
       ["/admin/organisation", "Organisation setup"],
       ["/admin/crew-budgets", "Crew yearly budgets"],
-      ["/teams", "Pods / Teams"],
-      ["/admin/team-composition", "Team composition"],
     ],
   },
   {
