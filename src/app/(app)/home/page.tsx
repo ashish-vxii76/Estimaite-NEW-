@@ -2,10 +2,11 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { HomeCharts } from "@/components/HomeCharts";
-import { HomeFilters } from "@/components/HomeFilters";
+import { OrgScopeFilters } from "@/components/OrgScopeFilters";
 import { HomeActionsPanel } from "@/components/HomeActionsPanel";
 import { can } from "@/lib/access";
-import { fromSession, resolveEstimateScope, teamsForUser } from "@/lib/scope";
+import { fromSession, teamsForUser } from "@/lib/scope";
+import { getOrgFilterData, resolveOrgSelectionWhere } from "@/lib/orgFilter";
 import { welcomeLine } from "@/lib/roles";
 import { getActiveConfig } from "@/services/configService";
 import { buildHomeActions } from "@/lib/homeInbox";
@@ -18,7 +19,7 @@ export default async function HomePage({
     team?: string;
     workItemType?: string;
     release?: string;
-    crew?: string;
+    org?: string;
   }>;
 }) {
   const session = await auth();
@@ -29,13 +30,12 @@ export default async function HomePage({
     team: teamFilter = "",
     workItemType = "",
     release = "",
-    crew: crewFilter = "",
+    org = "",
   } = await searchParams;
-  const scope = await resolveEstimateScope(fromSession(session.user));
+  const scopeUser = fromSession(session.user);
+  const orgWhere = await resolveOrgSelectionWhere(scopeUser, org, teamFilter);
   const filter = {
-    ...scope,
-    ...(teamFilter ? { teamId: teamFilter } : {}),
-    ...(crewFilter && !teamFilter ? { team: { crewId: crewFilter } } : {}),
+    ...orgWhere,
     ...(workItemType ? { workItemType } : {}),
     ...releaseWhere(release),
   };
@@ -52,7 +52,7 @@ export default async function HomePage({
     team,
     config,
     teams,
-    orgUnits,
+    orgFilter,
   ] = await Promise.all([
     prisma.estimate.count({ where: filter }),
     prisma.estimate.count({ where: { ...filter, status: { in: ["DRAFT", "RETURNED"] } } }),
@@ -74,12 +74,8 @@ export default async function HomePage({
       ? prisma.team.findUnique({ where: { id: session.user.teamId }, select: { name: true } })
       : Promise.resolve(null),
     getActiveConfig(),
-    teamsForUser(fromSession(session.user)),
-    prisma.orgUnit.findMany({
-      where: { active: true },
-      select: { id: true, name: true, type: true, parentId: true },
-      orderBy: { name: "asc" },
-    }),
+    teamsForUser(scopeUser),
+    getOrgFilterData(scopeUser),
   ]);
 
   const teamNames = Object.fromEntries(teams.map((t) => [t.id, t.name]));
@@ -106,10 +102,6 @@ export default async function HomePage({
   const showActions = can(session.user.role, "home.actions");
   const actions = showActions ? buildHomeActions(session.user.role) : [];
 
-  const filteredTeams = crewFilter
-    ? teams.filter((t) => t.crewId === crewFilter)
-    : teams;
-
   return (
     <div className="space-y-6">
       <div>
@@ -124,14 +116,16 @@ export default async function HomePage({
         </p>
       </div>
 
-      <HomeFilters
-        teams={filteredTeams.map((t) => ({ value: t.id, label: t.name }))}
-        quarters={quarters}
-        orgUnits={orgUnits}
+      <OrgScopeFilters
+        basePath="/home"
+        units={orgFilter.units}
+        teams={orgFilter.teams}
+        lockedUnitIds={orgFilter.lockedUnitIds}
+        org={org}
         team={teamFilter}
         workItemType={workItemType}
         release={release}
-        crew={crewFilter}
+        quarters={quarters}
       />
 
       <div className="grid gap-4 md:grid-cols-5">

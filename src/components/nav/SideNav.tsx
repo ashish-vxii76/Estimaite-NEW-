@@ -76,8 +76,35 @@ export function SideNav({
     setOpen((current) => ({ ...current, [id]: !current[id] }));
   }
 
+  function branchIds(nodes: NavNode[], acc: string[] = []): string[] {
+    for (const node of nodes) {
+      if (node.children?.length) {
+        acc.push(node.id);
+        branchIds(node.children, acc);
+      }
+    }
+    return acc;
+  }
+
+  function expandAll() {
+    setOpen(Object.fromEntries(branchIds(tree).map((id) => [id, true])));
+  }
+
+  function collapseAll() {
+    setOpen({});
+  }
+
   const nav = (
-    <nav className="mt-6 space-y-0.5 text-sm">
+    <nav className="mt-4 space-y-0.5 text-sm">
+      <div className="mb-1 flex items-center justify-end gap-2 px-2 text-[0.68rem] font-medium text-[var(--muted)]">
+        <button type="button" onClick={expandAll} className="hover:text-[var(--navy)]">
+          Expand all
+        </button>
+        <span aria-hidden="true">·</span>
+        <button type="button" onClick={collapseAll} className="hover:text-[var(--navy)]">
+          Collapse all
+        </button>
+      </div>
       {tree.map((node) => (
         <NavBranch
           key={node.id}
