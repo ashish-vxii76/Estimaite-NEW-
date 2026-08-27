@@ -54,6 +54,13 @@ export function quartersForYear(catalogue: string[], year: string): string[] {
   return ["Q1", "Q2", "Q3", "Q4"].filter((q) => found.has(q));
 }
 
+/** Display label: year-only "2026-" shows as "2026"; complete "2026-Q3" is unchanged. */
+export function displayRelease(release: string | null | undefined): string {
+  const raw = String(release ?? "").trim();
+  if (!raw) return "";
+  return raw.endsWith("-") ? raw.slice(0, -1) : raw;
+}
+
 /**
  * Prisma `release` filter: exact `YYYY-QN`, or all quarters in a year when value is `YYYY` / `YYYY-`.
  */

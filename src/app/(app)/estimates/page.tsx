@@ -11,7 +11,7 @@ import { can } from "@/lib/access";
 import { fromSession } from "@/lib/scope";
 import { getOrgFilterData, resolveOrgSelectionWhere } from "@/lib/orgFilter";
 import { getActiveConfig } from "@/services/configService";
-import { releaseWhere } from "@/lib/releasePeriod";
+import { displayRelease, releaseWhere } from "@/lib/releasePeriod";
 
 const STATUS_OPTIONS = [
   { value: "", label: "All statuses" },
@@ -152,7 +152,7 @@ export default async function EstimatesPage({
                     <td>{row.title}</td>
                     <td>{row.team.crew?.name ?? "—"}</td>
                     <td>{row.team.name}</td>
-                    <td>{row.release || "—"}</td>
+                    <td>{displayRelease(row.release) || "—"}</td>
                     <td className="font-semibold text-[var(--navy)]">
                       {result?.effectiveTshirt ?? "—"}
                     </td>
