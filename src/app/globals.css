@@ -186,6 +186,11 @@ input, select, textarea, button {
   color: var(--muted);
 }
 
+/* App logo — swap the lockup by theme, mirroring the landing (no JS). */
+.app-logo-dark { display: none; }
+:root[data-theme="dark"] .app-logo-light { display: none; }
+:root[data-theme="dark"] .app-logo-dark { display: block; }
+
 /* Display face — the landing's Cormorant Garamond, used for headings only. */
 .font-display {
   font-family: var(--font-landing-serif), ui-serif, Georgia, "Times New Roman", serif;

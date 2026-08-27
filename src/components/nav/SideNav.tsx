@@ -13,7 +13,6 @@ import {
   type NavNode,
 } from "@/components/nav/navConfig";
 import type { RbacMatrix } from "@/lib/rbac";
-import { EstimAIteLogo } from "@/components/brand/EstimAIteLogo";
 
 const TOP_ICONS: Record<string, typeof Home> = {
   home: Home,
@@ -157,10 +156,17 @@ export function SideNav({
 
 function Brand() {
   return (
-    <Link href="/home" className="mx-auto flex w-full items-center justify-center px-1">
-      <EstimAIteLogo
-        tone="light"
-        className="h-auto w-[5.28rem] max-w-[5.28rem] object-contain"
+    <Link href="/home" className="mx-auto flex w-full items-center justify-center px-1 py-1">
+      {/* Per-theme lockup, matching the landing: light asset on cream, dark asset on navy. */}
+      <img
+        className="app-logo-light h-auto w-[5.28rem] max-w-[5.28rem] object-contain"
+        src="/brand/EstimAIte%20-%20Transparent.PNG"
+        alt="estimAIte"
+      />
+      <img
+        className="app-logo-dark h-auto w-[5.28rem] max-w-[5.28rem] object-contain"
+        src="/brand/estimaite-logo-dark.png"
+        alt="estimAIte"
       />
     </Link>
   );
