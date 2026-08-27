@@ -109,6 +109,26 @@ export default async function AdminHomePage() {
             </ul>
           </section>
         ))}
+        {role === "ADMINISTRATOR" ? (
+          <section className="card p-5">
+            <p className="kicker">Governance</p>
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              Tamper-evident audit trail (hash-chained). The export&apos;s first line reports the
+              chain-integrity verdict, so a reviewer can see at a glance whether it is untampered.
+            </p>
+            <ul className="mt-4 space-y-2">
+              <li>
+                <a
+                  href="/api/admin/audit/export"
+                  download
+                  className="text-sm font-medium text-[var(--navy)] underline"
+                >
+                  Export audit trail (CSV)
+                </a>
+              </li>
+            </ul>
+          </section>
+        ) : null}
       </div>
       <section className="card space-y-2 p-5 text-sm text-[var(--muted)]">
         <p className="font-medium text-[var(--navy)]">What stays code-only</p>
