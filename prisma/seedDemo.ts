@@ -522,6 +522,8 @@ export async function seedDemoRegister(prisma: PrismaClient) {
         resultJson: result ? JSON.stringify(result) : null,
         effectiveTshirt: result?.effectiveTshirt ?? "",
         deliveryFlag: result?.deliveryFlag ?? result?.governanceDecision ?? "",
+        confidence: result?.confidence ?? "",
+        readinessScore: result?.readinessScore ?? 0,
         configurationVersionId: DEFAULT_CONFIG.versionId,
         rateVersionId: DEFAULT_CONFIG.rateVersionId,
         createdById: estimator.id,

@@ -165,6 +165,21 @@ export async function getPortfolio(options: PortfolioOptions | Prisma.EstimateWh
   for (const r of committedRows) {
     if (r.crewId) committedByCrew.set(r.crewId, (committedByCrew.get(r.crewId) ?? 0) + (r.aiAdjustedDeliveryCost ?? 0));
   }
+
+  // Quarterly burn-up: cumulative committed AI spend across the year's quarters.
+  const QUARTERS = ["Q1", "Q2", "Q3", "Q4"];
+  const perQuarter = new Map(QUARTERS.map((q) => [q, 0]));
+  for (const r of committedRows) {
+    const { quarter } = parseRelease(r.release);
+    if (quarter && perQuarter.has(quarter)) {
+      perQuarter.set(quarter, perQuarter.get(quarter)! + (r.aiAdjustedDeliveryCost ?? 0));
+    }
+  }
+  let cumulative = 0;
+  const burnUp = QUARTERS.map((q) => {
+    cumulative = r2(cumulative + (perQuarter.get(q) ?? 0));
+    return { quarter: q, committed: r2(perQuarter.get(q) ?? 0), cumulative };
+  });
   const forecastAiCost = sumAi(pipelineRows);
   const projectedAiCost = r2(utilizedAiCost + forecastAiCost);
   const utilizedStatus = budgetStatus(utilizedAiCost, budget);
@@ -174,12 +189,27 @@ export async function getPortfolio(options: PortfolioOptions | Prisma.EstimateWh
   const delivered = register.filter((r) => r.status === "COMPLETED" && r.actualEffortPd != null);
   const estimatedEffortPd = r2(delivered.reduce((s, r) => s + (r.adjustedTotalEffortPd ?? 0), 0));
   const actualEffortPd = r2(delivered.reduce((s, r) => s + (r.actualEffortPd ?? 0), 0));
+  const varByCrew = new Map<string, { est: number; act: number; name: string }>();
+  for (const r of delivered) {
+    if (!r.crewId) continue;
+    const e = varByCrew.get(r.crewId) ?? { est: 0, act: 0, name: r.crew };
+    e.est += r.adjustedTotalEffortPd ?? 0;
+    e.act += r.actualEffortPd ?? 0;
+    varByCrew.set(r.crewId, e);
+  }
   const deliveryVariance = {
     sampleCount: delivered.length,
     estimatedEffortPd,
     actualEffortPd,
     variancePd: r2(actualEffortPd - estimatedEffortPd),
     variancePct: estimatedEffortPd > 0 ? actualEffortPd / estimatedEffortPd - 1 : null,
+    byCrew: [...varByCrew.entries()].map(([crewId, v]) => ({
+      crewId,
+      crewName: v.name,
+      estimatedEffortPd: r2(v.est),
+      actualEffortPd: r2(v.act),
+      variancePct: v.est > 0 ? v.act / v.est - 1 : null,
+    })),
   };
 
   const budgetUtilisation = {
@@ -220,6 +250,7 @@ export async function getPortfolio(options: PortfolioOptions | Prisma.EstimateWh
     baselineBudgetRag: baselineRag,
     budgetUtilisation,
     deliveryVariance,
+    burnUp,
     register,
   };
 }

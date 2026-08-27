@@ -340,9 +340,11 @@ export async function calculateAndPersist(id: string, userId: string) {
       where: { id },
       data: {
         resultJson: JSON.stringify(result),
-        // Denormalised for server-side filtering + pagination of the register.
+        // Denormalised for server-side filtering + pagination + dashboard aggregation.
         effectiveTshirt: result.effectiveTshirt ?? "",
         deliveryFlag: result.deliveryFlag ?? result.governanceDecision ?? "",
+        confidence: result.confidence ?? "",
+        readinessScore: result.readinessScore ?? 0,
       },
       include: { team: true, createdBy: true, approvals: true, actuals: true },
     });
