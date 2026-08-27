@@ -350,6 +350,19 @@ function OrgCard({
           >
             <span className="font-medium">{s.user.name}</span>
             <span className="text-[var(--muted)]">· {ORG_SEAT_LABEL[s.seatType as OrgSeatType] ?? s.seatType}</span>
+            {canEdit && (
+              <button
+                onClick={async () => {
+                  await post({ action: "removeSeat", seatId: s.id }).catch(() => {});
+                  await onChanged();
+                }}
+                className="text-[var(--muted)] hover:text-[var(--danger)]"
+                aria-label="Remove seat"
+                title="Remove seat"
+              >
+                ✕
+              </button>
+            )}
           </span>
         ))}
       </div>

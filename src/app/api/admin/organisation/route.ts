@@ -87,6 +87,13 @@ export async function POST(request: Request) {
       });
       return NextResponse.json({ seat });
     }
+    if (action === "removeSeat") {
+      await prisma.orgSeat.delete({ where: { id: String(body.seatId) } });
+      await prisma.auditEvent.create({
+        data: { userId: session!.user.id, action: "ORG_SEAT_REMOVED", newValue: String(body.seatId) },
+      });
+      return NextResponse.json({ ok: true });
+    }
     if (action === "addMember") {
       const name = String(body.name ?? "").trim();
       if (!name) return NextResponse.json({ error: "Member name is required" }, { status: 400 });
