@@ -96,6 +96,7 @@ export async function getPortfolio(options: PortfolioOptions | Prisma.EstimateWh
       reference: estimate.reference,
       title: estimate.title,
       team: estimate.team.name,
+      crewId: estimate.team.crewId ?? null,
       crew: estimate.team.crew?.name ?? orgPath?.crewName ?? "—",
       programme: estimate.programme ?? "",
       project: estimate.project ?? "",
@@ -156,6 +157,11 @@ export async function getPortfolio(options: PortfolioOptions | Prisma.EstimateWh
   );
   const utilizedAiCost = sumAi(committedRows);
   const utilizedBaselineCost = sumBase(committedRows);
+  // Committed AI spend grouped by crew, for per-crew budget RAG.
+  const committedByCrew = new Map<string, number>();
+  for (const r of committedRows) {
+    if (r.crewId) committedByCrew.set(r.crewId, (committedByCrew.get(r.crewId) ?? 0) + (r.aiAdjustedDeliveryCost ?? 0));
+  }
   const forecastAiCost = sumAi(pipelineRows);
   const projectedAiCost = r2(utilizedAiCost + forecastAiCost);
   const utilizedStatus = budgetStatus(utilizedAiCost, budget);
@@ -181,12 +187,20 @@ export async function getPortfolio(options: PortfolioOptions | Prisma.EstimateWh
     ...rollup,
     currency: opts.currency ?? "CHF",
     year,
-    crewBudgets: budgetRows.map((row) => ({
-      crewId: row.crewId,
-      crewName: row.crew.name,
-      amount: row.amount,
-      currency: row.currency,
-    })),
+    crewBudgets: budgetRows.map((row) => {
+      const utilised = r2(committedByCrew.get(row.crewId) ?? 0);
+      const status = budgetStatus(utilised, row.amount);
+      return {
+        crewId: row.crewId,
+        crewName: row.crew.name,
+        amount: row.amount,
+        currency: row.currency,
+        utilised,
+        remaining: r2(row.amount - utilised),
+        utilisationPct: row.amount > 0 ? utilised / row.amount : null,
+        rag: status.rag,
+      };
+    }),
     budgetSource: "crew_yearly" as const,
     baselineBudgetRag: baselineRag,
     budgetUtilisation,

@@ -20,6 +20,13 @@ const RAG_CLASS: Record<string, string> = {
   RED: "bg-rose-50 text-rose-800",
 };
 
+const BAR_CLASS: Record<string, string> = {
+  UNSET: "bg-slate-400",
+  GREEN: "bg-emerald-500",
+  AMBER: "bg-amber-500",
+  RED: "bg-rose-500",
+};
+
 export default async function PortfolioPage({
   searchParams,
 }: {
@@ -137,26 +144,58 @@ export default async function PortfolioPage({
         {data.crewBudgets.length === 0 ? (
           <p className="text-sm text-[var(--muted)]">No Crew budgets for {year} yet.</p>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="text-[var(--muted)]">
-              <tr>
-                <th className="py-2 text-left">Crew</th>
-                <th className="py-2 text-right">Budget (CHF)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.crewBudgets.map((row) => (
-                <tr key={row.crewId} className="border-t border-[var(--line)]">
-                  <td className="py-2">{row.crewName}</td>
-                  <td className="py-2 text-right">{formatMoney(row.amount, row.currency)}</td>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-sm">
+              <thead className="text-[var(--muted)]">
+                <tr>
+                  <th className="py-2 text-left">Crew</th>
+                  <th className="py-2 text-right">Budget</th>
+                  <th className="py-2 text-right">Utilised (committed)</th>
+                  <th className="py-2 text-right">Remaining</th>
+                  <th className="py-2 pl-4 text-left">Utilisation</th>
                 </tr>
-              ))}
-              <tr className="border-t border-[var(--line)] font-medium">
-                <td className="py-2">Total</td>
-                <td className="py-2 text-right">{formatMoney(data.budget ?? 0, currency)}</td>
-              </tr>
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {data.crewBudgets.map((row) => {
+                  const pct = Math.round((row.utilisationPct ?? 0) * 100);
+                  return (
+                    <tr key={row.crewId} className="border-t border-[var(--line)]">
+                      <td className="py-2">{row.crewName}</td>
+                      <td className="py-2 text-right tabular-nums">{formatMoney(row.amount, row.currency)}</td>
+                      <td className="py-2 text-right tabular-nums">{formatMoney(row.utilised, row.currency)}</td>
+                      <td className={`py-2 text-right tabular-nums ${row.remaining < 0 ? "text-[var(--danger)]" : ""}`}>
+                        {formatMoney(row.remaining, row.currency)}
+                      </td>
+                      <td className="py-2 pl-4">
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-24 overflow-hidden rounded-full bg-[var(--panel-2)]">
+                            <div
+                              className={`h-full ${BAR_CLASS[row.rag] ?? BAR_CLASS.UNSET}`}
+                              style={{ width: `${Math.min(100, pct)}%` }}
+                            />
+                          </div>
+                          <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${RAG_CLASS[row.rag] ?? ""}`}>
+                            {row.utilisationPct != null ? `${pct}%` : row.rag}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                <tr className="border-t border-[var(--line)] font-medium">
+                  <td className="py-2">Total</td>
+                  <td className="py-2 text-right tabular-nums">{formatMoney(data.budget ?? 0, currency)}</td>
+                  <td className="py-2 text-right tabular-nums">
+                    {formatMoney(data.budgetUtilisation.utilizedAiCost, currency)}
+                  </td>
+                  <td className="py-2 text-right tabular-nums">
+                    {formatMoney(data.budgetUtilisation.remaining, currency)}
+                  </td>
+                  <td className="py-2 pl-4" />
+                </tr>
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 
