@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Trash2, Plus, Users } from "lucide-react";
 import { ORG_SEAT_LABEL, ORG_TYPE_LABEL, type OrgSeatType, type OrgType } from "@/lib/orgTypes";
 
@@ -65,6 +64,8 @@ export function OrgNodeSetup({
   seats,
   members,
   users,
+  locations,
+  levels,
   canEdit,
 }: {
   units: Unit[];
@@ -72,6 +73,8 @@ export function OrgNodeSetup({
   seats: SeatRow[];
   members: MemberRow[];
   users: UserOption[];
+  locations: string[];
+  levels: string[];
   canEdit: boolean;
 }) {
   const router = useRouter();
@@ -226,6 +229,10 @@ export function OrgNodeSetup({
                 team={t}
                 crewName={t.crewId ? crewNameById[t.crewId] ?? null : null}
                 members={members.filter((m) => m.teamId === t.id)}
+                locations={locations}
+                levels={levels}
+                canEdit={canEdit}
+                onChanged={refresh}
               />
             ))}
           </div>
@@ -388,11 +395,53 @@ function PodCard({
   team,
   crewName,
   members,
+  locations,
+  levels,
+  canEdit,
+  onChanged,
 }: {
   team: TeamRow;
   crewName: string | null;
   members: MemberRow[];
+  locations: string[];
+  levels: string[];
+  canEdit: boolean;
+  onChanged: () => Promise<void>;
 }) {
+  const [name, setName] = useState("");
+  const [roleStream, setRoleStream] = useState("DEV");
+  const [level, setLevel] = useState(levels[0] ?? "");
+  const [location, setLocation] = useState(locations[0] ?? "India");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function addMember() {
+    if (name.trim().length < 2) return setErr("Enter a member name");
+    setErr(null);
+    setBusy(true);
+    try {
+      await post({
+        action: "addMember",
+        teamId: team.id,
+        name: name.trim(),
+        roleStream,
+        resourceLevel: level,
+        location,
+      });
+      setName("");
+      await onChanged();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not add member");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeMember(memberId: string) {
+    await post({ action: "removeMember", memberId }).catch(() => {});
+    await onChanged();
+  }
+
   return (
     <div className="card p-5">
       <div className="flex items-start justify-between">
@@ -403,15 +452,12 @@ function PodCard({
             {` · ${members.length} member${members.length === 1 ? "" : "s"}`}
           </p>
         </div>
-        <Link
-          href="/admin/team-composition"
-          className="inline-flex items-center gap-1 rounded-md border border-[var(--line)] px-2 py-1 text-xs text-[var(--navy)] hover:border-[var(--gold)]"
-        >
-          <Users size={13} /> Manage
-        </Link>
+        <span className="inline-flex items-center gap-1 text-xs text-[var(--muted)]">
+          <Users size={13} /> Composition
+        </span>
       </div>
 
-      <p className="mt-4 mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Composition</p>
+      <p className="mt-4 mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Members</p>
       {members.length === 0 ? (
         <span className="text-sm text-[var(--muted)]">No members yet.</span>
       ) : (
@@ -419,12 +465,71 @@ function PodCard({
           {members.map((m) => (
             <li key={m.id} className="flex items-center justify-between gap-3">
               <span className="text-[var(--navy)]">{m.name}</span>
-              <span className="text-xs text-[var(--muted)]">
-                {m.roleStream} · {m.resourceLevel} · {m.location}
+              <span className="flex items-center gap-2">
+                <span className="text-xs text-[var(--muted)]">
+                  {m.roleStream} · {m.resourceLevel} · {m.location}
+                </span>
+                {canEdit && (
+                  <button
+                    onClick={() => removeMember(m.id)}
+                    className="text-[var(--muted)] hover:text-[var(--danger)]"
+                    aria-label="Remove member"
+                    title="Remove member"
+                  >
+                    ✕
+                  </button>
+                )}
               </span>
             </li>
           ))}
         </ul>
+      )}
+
+      {canEdit && (
+        <div className="mt-4 rounded-lg border border-[var(--line)] bg-[var(--panel-2)] p-3">
+          {err && <p className="mb-2 text-xs text-[var(--danger)]">{err}</p>}
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              className="min-w-[8rem] flex-1 rounded-md border border-[var(--line)] bg-[var(--panel)] px-2 py-1.5 text-sm text-[var(--navy)]"
+              placeholder="Member name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+            <select
+              className="rounded-md border border-[var(--line)] bg-[var(--panel)] px-2 py-1.5 text-sm text-[var(--navy)]"
+              value={roleStream}
+              onChange={(e) => setRoleStream(e.target.value)}
+            >
+              <option value="DEV">DEV</option>
+              <option value="QA">QA</option>
+            </select>
+            <select
+              className="rounded-md border border-[var(--line)] bg-[var(--panel)] px-2 py-1.5 text-sm text-[var(--navy)]"
+              value={level}
+              onChange={(e) => setLevel(e.target.value)}
+            >
+              {levels.map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
+            </select>
+            <select
+              className="rounded-md border border-[var(--line)] bg-[var(--panel)] px-2 py-1.5 text-sm text-[var(--navy)]"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+            >
+              {locations.map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
+            </select>
+            <button onClick={addMember} disabled={busy} className="btn-secondary px-3 py-1.5 text-sm">
+              {busy ? "Adding…" : "Add"}
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

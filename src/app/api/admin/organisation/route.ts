@@ -87,6 +87,30 @@ export async function POST(request: Request) {
       });
       return NextResponse.json({ seat });
     }
+    if (action === "addMember") {
+      const name = String(body.name ?? "").trim();
+      if (!name) return NextResponse.json({ error: "Member name is required" }, { status: 400 });
+      const member = await prisma.teamMember.create({
+        data: {
+          teamId: String(body.teamId),
+          name,
+          roleStream: String(body.roleStream ?? "DEV"),
+          resourceLevel: String(body.resourceLevel ?? ""),
+          location: String(body.location ?? "India"),
+        },
+      });
+      await prisma.auditEvent.create({
+        data: { userId: session!.user.id, action: "TEAM_MEMBER_ADDED", newValue: `${member.teamId}:${name}` },
+      });
+      return NextResponse.json({ member });
+    }
+    if (action === "removeMember") {
+      await prisma.teamMember.delete({ where: { id: String(body.memberId) } });
+      await prisma.auditEvent.create({
+        data: { userId: session!.user.id, action: "TEAM_MEMBER_REMOVED", newValue: String(body.memberId) },
+      });
+      return NextResponse.json({ ok: true });
+    }
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 400 });
