@@ -39,9 +39,10 @@ export function OrgScopeFilters({
   lockedUnitIds,
   org,
   team,
-  workItemType,
-  release,
-  quarters,
+  workItemType = "",
+  release = "",
+  quarters = [],
+  showWorkRelease = true,
   extraParams = {},
 }: {
   basePath: string;
@@ -50,9 +51,10 @@ export function OrgScopeFilters({
   lockedUnitIds: string[];
   org: string;
   team: string;
-  workItemType: string;
-  release: string;
-  quarters: string[];
+  workItemType?: string;
+  release?: string;
+  quarters?: string[];
+  showWorkRelease?: boolean;
   extraParams?: Record<string, string>;
 }) {
   const router = useRouter();
@@ -151,6 +153,7 @@ export function OrgScopeFilters({
           </select>
         </label>
 
+        {showWorkRelease && (
         <label className="text-sm">
           Work type
           <select
@@ -163,7 +166,10 @@ export function OrgScopeFilters({
             <option value="EPIC">Epic</option>
           </select>
         </label>
+        )}
 
+        {showWorkRelease && (
+        <>
         <label className="text-sm">
           Release year
           <select
@@ -211,6 +217,8 @@ export function OrgScopeFilters({
             ))}
           </select>
         </label>
+        </>
+        )}
       </div>
     </section>
   );

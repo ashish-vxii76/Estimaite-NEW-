@@ -1,62 +1,47 @@
 import { getCalibration } from "@/services/portfolioService";
 import { CalibrationActions } from "@/components/CalibrationActions";
-import { OrgLockedPathFilters } from "@/components/OrgLockedPathFilters";
+import { OrgScopeFilters } from "@/components/OrgScopeFilters";
 import { ExplanationPanel } from "@/components/ui";
 import { auth } from "@/auth";
 import { can } from "@/lib/access";
-import { fromSession, resolveEstimateScope, teamsForUser } from "@/lib/scope";
-import { lockedOrgPathForUser } from "@/lib/lockedOrgPath";
-import type { Prisma } from "@prisma/client";
+import { fromSession } from "@/lib/scope";
+import { getOrgFilterData, resolveOrgSelectionWhere } from "@/lib/orgFilter";
 
 export default async function CalibrationPage({
   searchParams,
 }: {
-  searchParams: Promise<{ team?: string }>;
+  searchParams: Promise<{ team?: string; org?: string }>;
 }) {
   const session = await auth();
-  const { team: teamFilter = "" } = await searchParams;
-  const scope = await resolveEstimateScope(fromSession(session!.user));
-  const lockedPath = await lockedOrgPathForUser(session!.user.id);
-  const orgWhere: Prisma.EstimateWhereInput = teamFilter
-    ? { teamId: teamFilter }
-    : lockedPath.crewId
-      ? { team: { crewId: lockedPath.crewId } }
-      : {};
-  const where: Prisma.EstimateWhereInput = { ...scope, ...orgWhere };
-
-  const [data, teams] = await Promise.all([
-    getCalibration(where),
-    teamsForUser(fromSession(session!.user)),
+  const { team: teamFilter = "", org = "" } = await searchParams;
+  const scopeUser = fromSession(session!.user);
+  const [where, orgFilter] = await Promise.all([
+    resolveOrgSelectionWhere(scopeUser, org, teamFilter),
+    getOrgFilterData(scopeUser),
   ]);
-  const canApply = can(session?.user.role, "calibration.apply", "RW");
-  const pods = lockedPath.crewId
-    ? teams.filter((t) => t.crewId === lockedPath.crewId)
-    : teams;
 
-  const scopeLabel = [
-    lockedPath.crewName !== "All" ? lockedPath.crewName : null,
-    teamFilter ? pods.find((t) => t.id === teamFilter)?.name ?? "Pod" : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const data = await getCalibration(where);
+  const canApply = can(session?.user.role, "calibration.apply", "RW");
 
   return (
     <div className="space-y-6">
       <div>
         <p className="kicker">Learn → Recalibrate</p>
-        <h1 className="text-2xl font-semibold">Calibration</h1>
+        <h1 className="font-display text-2xl font-semibold text-[var(--navy)]">Calibration</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
           Actual vs estimate → suggested Days/Point. Derived from Register Actual/Est ratios by Dev
-          resource level (CRs with actuals)
-          {scopeLabel ? ` for ${scopeLabel}` : " in your locked org path"}.
+          resource level (CRs with actuals) within the selected org scope.
         </p>
       </div>
 
-      <OrgLockedPathFilters
+      <OrgScopeFilters
         basePath="/calibration"
-        path={lockedPath}
-        teams={pods.map((t) => ({ id: t.id, name: t.name }))}
+        units={orgFilter.units}
+        teams={orgFilter.teams}
+        lockedUnitIds={orgFilter.lockedUnitIds}
+        org={org}
         team={teamFilter}
+        showWorkRelease={false}
       />
 
       <div className="grid gap-4 md:grid-cols-3">
