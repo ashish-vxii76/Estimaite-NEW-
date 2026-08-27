@@ -46,6 +46,7 @@ export function OrgScopeFilters({
   lockedUnitIds,
   org,
   team,
+  lockedTeamId = null,
   workItemType = "",
   release = "",
   quarters = [],
@@ -59,6 +60,7 @@ export function OrgScopeFilters({
   lockedUnitIds: string[];
   org: string;
   team: string;
+  lockedTeamId?: string | null;
   workItemType?: string;
   release?: string;
   quarters?: string[];
@@ -153,14 +155,20 @@ export function OrgScopeFilters({
 
         <label className="text-sm">
           Pod / Team
-          <select className={OPEN} value={team} onChange={(e) => navigate({ team: e.target.value })}>
-            <option value="">All pods</option>
-            {podOptions.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
+          {lockedTeamId ? (
+            <select className={LOCKED} value={lockedTeamId} disabled aria-readonly="true">
+              <option value={lockedTeamId}>{teams.find((t) => t.id === lockedTeamId)?.name ?? "—"}</option>
+            </select>
+          ) : (
+            <select className={OPEN} value={team} onChange={(e) => navigate({ team: e.target.value })}>
+              <option value="">All pods</option>
+              {podOptions.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          )}
         </label>
 
         {showWorkRelease && (

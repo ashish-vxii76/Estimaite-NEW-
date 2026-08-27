@@ -39,6 +39,7 @@ export default async function CalibrationPage({
         units={orgFilter.units}
         teams={orgFilter.teams}
         lockedUnitIds={orgFilter.lockedUnitIds}
+        lockedTeamId={orgFilter.lockedTeamId}
         org={org}
         team={teamFilter}
         showWorkRelease={false}

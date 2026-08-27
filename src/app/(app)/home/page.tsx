@@ -132,6 +132,7 @@ export default async function HomePage({
         units={orgFilter.units}
         teams={orgFilter.teams}
         lockedUnitIds={orgFilter.lockedUnitIds}
+        lockedTeamId={orgFilter.lockedTeamId}
         org={org}
         team={teamFilter}
         workItemType={workItemType}

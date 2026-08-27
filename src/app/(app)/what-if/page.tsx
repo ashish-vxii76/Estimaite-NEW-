@@ -55,6 +55,7 @@ export default async function WhatIfPage({
         units={orgFilter.units}
         teams={orgFilter.teams}
         lockedUnitIds={orgFilter.lockedUnitIds}
+        lockedTeamId={orgFilter.lockedTeamId}
         org={org}
         team={teamFilter}
         showWorkRelease={false}

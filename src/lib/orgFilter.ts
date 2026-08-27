@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { seesAllTeams } from "@/lib/access";
-import { descendantIds, getPrimarySeat, visibleOrgUnitIds } from "@/services/orgService";
+import { descendantIds, getPrimarySeat } from "@/services/orgService";
 import { resolveEstimateScope, type ScopeUser } from "@/lib/scope";
 import type { Prisma } from "@prisma/client";
 
@@ -10,13 +10,17 @@ export type OrgFilterTeam = { id: string; name: string; crewId: string | null };
 export type OrgFilterData = {
   units: OrgFilterUnit[];
   teams: OrgFilterTeam[];
-  /** Seat + its ancestors: locked (read-only) for this user. Empty for sees-all admins. */
+  /** Seat/team anchor + its ancestors: locked (read-only). Empty for sees-all admins. */
   lockedUnitIds: string[];
+  /** When set, the Pod/Team select is locked to this team (pod-level users). */
+  lockedTeamId: string | null;
 };
 
 /**
- * Filter data for the org cascade. Admins (sees-all) get the whole tree, nothing locked.
- * A scoped user gets their seat subtree plus the locked ancestor chain up to Company.
+ * Filter data + locking for the org cascade, by the user's actual level:
+ *  - sees-all admin  → whole tree, nothing locked.
+ *  - has an org seat → Company…seat-level locked, subtree below the seat selectable, Pod open.
+ *  - team only (no seat) → pod-level: Company…Crew AND the Pod all locked to the user's team.
  */
 export async function getOrgFilterData(user: ScopeUser): Promise<OrgFilterData> {
   const allUnits = await prisma.orgUnit.findMany({
@@ -31,31 +35,57 @@ export async function getOrgFilterData(user: ScopeUser): Promise<OrgFilterData> 
       select: { id: true, name: true, crewId: true },
       orderBy: { name: "asc" },
     });
-    return { units: allUnits, teams, lockedUnitIds: [] };
+    return { units: allUnits, teams, lockedUnitIds: [], lockedTeamId: null };
   }
 
   const byId = new Map(allUnits.map((u) => [u.id, u]));
-  const visibleIds = await visibleOrgUnitIds(user); // subtree of the seat (or [])
   const seat = await getPrimarySeat(user.id);
 
-  const lockedUnitIds: string[] = [];
+  // Anchor = the org unit whose ancestor chain is locked. Seat unit, else the user's team's crew.
+  let anchorUnitId: string | null = null;
+  let lockedTeamId: string | null = null;
+  let openBelowSeat = false;
   if (seat) {
-    let cur = byId.get(seat.orgUnitId);
+    anchorUnitId = seat.orgUnitId;
+    openBelowSeat = true; // levels below the seat are selectable
+  } else if (user.teamId) {
+    const team = await prisma.team.findUnique({ where: { id: user.teamId }, select: { crewId: true } });
+    anchorUnitId = team?.crewId ?? null;
+    lockedTeamId = user.teamId; // pod-level: lock the Pod too
+  }
+
+  if (!anchorUnitId && !lockedTeamId) {
+    return { units: [], teams: [], lockedUnitIds: [], lockedTeamId: null };
+  }
+
+  const lockedUnitIds: string[] = [];
+  if (anchorUnitId) {
+    let cur = byId.get(anchorUnitId);
     while (cur) {
       lockedUnitIds.push(cur.id);
       cur = cur.parentId ? byId.get(cur.parentId) : undefined;
     }
   }
 
-  const allowed = new Set<string>([...(visibleIds ?? []), ...lockedUnitIds]);
+  const visibleIds = openBelowSeat && anchorUnitId ? await descendantIds(anchorUnitId) : [];
+  const allowed = new Set<string>([...visibleIds, ...lockedUnitIds]);
   const units = allUnits.filter((u) => allowed.has(u.id));
-  const crewIdsInScope = units.filter((u) => u.type === "CREW").map((u) => u.id);
-  const teams = await prisma.team.findMany({
-    where: { active: true, crewId: { in: crewIdsInScope } },
-    select: { id: true, name: true, crewId: true },
-    orderBy: { name: "asc" },
-  });
-  return { units, teams, lockedUnitIds };
+
+  let teams: OrgFilterTeam[];
+  if (lockedTeamId) {
+    teams = await prisma.team.findMany({
+      where: { id: lockedTeamId },
+      select: { id: true, name: true, crewId: true },
+    });
+  } else {
+    const crewIdsInScope = units.filter((u) => u.type === "CREW").map((u) => u.id);
+    teams = await prisma.team.findMany({
+      where: { active: true, crewId: { in: crewIdsInScope } },
+      select: { id: true, name: true, crewId: true },
+      orderBy: { name: "asc" },
+    });
+  }
+  return { units, teams, lockedUnitIds, lockedTeamId };
 }
 
 async function teamIdsUnderOrgUnit(orgUnitId: string): Promise<string[]> {
