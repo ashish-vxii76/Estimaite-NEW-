@@ -112,6 +112,9 @@ export async function getPortfolio(options: PortfolioOptions | Prisma.EstimateWh
       adjustedTotalEffortPd: result?.adjustedTotalEffortPd ?? 0,
       currency: result?.currency ?? estimate.currency,
       hasActuals: Boolean(estimate.actuals),
+      actualEffortPd: estimate.actuals
+        ? estimate.actuals.actualDevPd + estimate.actuals.actualQaPd
+        : null,
       orgPath,
     };
   });
@@ -167,6 +170,18 @@ export async function getPortfolio(options: PortfolioOptions | Prisma.EstimateWh
   const utilizedStatus = budgetStatus(utilizedAiCost, budget);
   const projectedStatus = budgetStatus(projectedAiCost, budget);
 
+  // Delivery variance: actual vs estimated effort for completed CRs that have actuals.
+  const delivered = register.filter((r) => r.status === "COMPLETED" && r.actualEffortPd != null);
+  const estimatedEffortPd = r2(delivered.reduce((s, r) => s + (r.adjustedTotalEffortPd ?? 0), 0));
+  const actualEffortPd = r2(delivered.reduce((s, r) => s + (r.actualEffortPd ?? 0), 0));
+  const deliveryVariance = {
+    sampleCount: delivered.length,
+    estimatedEffortPd,
+    actualEffortPd,
+    variancePd: r2(actualEffortPd - estimatedEffortPd),
+    variancePct: estimatedEffortPd > 0 ? actualEffortPd / estimatedEffortPd - 1 : null,
+  };
+
   const budgetUtilisation = {
     budget,
     utilizedAiCost,
@@ -204,6 +219,7 @@ export async function getPortfolio(options: PortfolioOptions | Prisma.EstimateWh
     budgetSource: "crew_yearly" as const,
     baselineBudgetRag: baselineRag,
     budgetUtilisation,
+    deliveryVariance,
     register,
   };
 }

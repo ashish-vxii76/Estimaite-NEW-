@@ -127,6 +127,55 @@ export default async function PortfolioPage({
 
       <BudgetUtilisation u={data.budgetUtilisation} year={year} currency={currency} />
 
+      {data.deliveryVariance.sampleCount > 0 ? (
+        (() => {
+          const dv = data.deliveryVariance;
+          const over = dv.variancePd > 0;
+          const tone = dv.variancePd === 0 ? "text-[var(--navy)]" : over ? "text-[var(--warn)]" : "text-[var(--ok)]";
+          const box = "rounded-xl border border-[var(--line)] bg-[var(--panel-2)] p-4";
+          return (
+            <section className="card space-y-4 p-5">
+              <div>
+                <h2 className="font-display text-lg font-semibold text-[var(--navy)]">
+                  Delivery variance · {year}
+                </h2>
+                <p className="text-sm text-[var(--muted)]">
+                  Actual vs estimated effort for {dv.sampleCount} completed CR
+                  {dv.sampleCount === 1 ? "" : "s"} with actuals. Positive = delivered over estimate.
+                </p>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <div className={box}>
+                  <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Estimated effort</p>
+                  <p className="mt-1 text-xl font-semibold tabular-nums text-[var(--navy)]">
+                    {dv.estimatedEffortPd.toLocaleString()} PD
+                  </p>
+                </div>
+                <div className={box}>
+                  <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Actual effort</p>
+                  <p className="mt-1 text-xl font-semibold tabular-nums text-[var(--navy)]">
+                    {dv.actualEffortPd.toLocaleString()} PD
+                  </p>
+                </div>
+                <div className={box}>
+                  <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Variance</p>
+                  <p className={`mt-1 text-xl font-semibold tabular-nums ${tone}`}>
+                    {over ? "+" : ""}
+                    {dv.variancePd.toLocaleString()} PD
+                  </p>
+                </div>
+                <div className={box}>
+                  <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Variance %</p>
+                  <p className={`mt-1 text-xl font-semibold tabular-nums ${tone}`}>
+                    {dv.variancePct == null ? "—" : `${over ? "+" : ""}${(dv.variancePct * 100).toFixed(1)}%`}
+                  </p>
+                </div>
+              </div>
+            </section>
+          );
+        })()
+      ) : null}
+
       <section id="budget" className="card scroll-mt-6 space-y-3 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
