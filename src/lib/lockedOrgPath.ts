@@ -9,6 +9,10 @@ export type LockedOrgPathView = {
   subDivisionName: string;
   streamName: string;
   crewName: string;
+  companyId: string;
+  divisionId: string;
+  subDivisionId: string;
+  streamId: string;
   /** Set when path is pinned to one Crew (seat at Crew, or CR pod’s Crew). */
   crewId: string | null;
   seatOrgUnitId: string | null;
@@ -24,6 +28,10 @@ function emptyPath(): LockedOrgPathView {
     subDivisionName: ALL,
     streamName: ALL,
     crewName: ALL,
+    companyId: "",
+    divisionId: "",
+    subDivisionId: "",
+    streamId: "",
     crewId: null,
     seatOrgUnitId: null,
     seatType: null,
@@ -37,6 +45,10 @@ async function pathFromUnitId(unitId: string): Promise<{
   subDivisionName: string;
   streamName: string;
   crewName: string;
+  companyId: string;
+  divisionId: string;
+  subDivisionId: string;
+  streamId: string;
   crewId: string | null;
   unitType: string;
 }> {
@@ -46,10 +58,12 @@ async function pathFromUnitId(unitId: string): Promise<{
   const byId = new Map(units.map((u) => [u.id, u]));
   let cur = byId.get(unitId) ?? null;
   const names: Partial<Record<string, string>> = {};
+  const ids: Partial<Record<string, string>> = {};
   let crewId: string | null = null;
   let unitType = cur?.type ?? "";
   while (cur) {
     names[cur.type] = cur.name;
+    ids[cur.type] = cur.id;
     if (cur.type === "CREW") crewId = cur.id;
     cur = cur.parentId ? byId.get(cur.parentId) ?? null : null;
   }
@@ -59,6 +73,10 @@ async function pathFromUnitId(unitId: string): Promise<{
     subDivisionName: names.SUB_DIVISION ?? ALL,
     streamName: names.STREAM ?? ALL,
     crewName: names.CREW ?? ALL,
+    companyId: ids.COMPANY ?? "",
+    divisionId: ids.DIVISION ?? "",
+    subDivisionId: ids.SUB_DIVISION ?? "",
+    streamId: ids.STREAM ?? "",
     crewId,
     unitType,
   };
@@ -75,14 +93,18 @@ export async function lockedOrgPathForUser(userId: string): Promise<LockedOrgPat
   const order = ["COMPANY", "DIVISION", "SUB_DIVISION", "STREAM", "CREW"] as const;
   const seatIdx = order.indexOf(walked.unitType as (typeof order)[number]);
   const below = (type: (typeof order)[number]) =>
-    seatIdx >= 0 && order.indexOf(type) > seatIdx ? ALL : undefined;
+    seatIdx >= 0 && order.indexOf(type) > seatIdx;
 
   return {
-    companyName: below("COMPANY") ?? walked.companyName,
-    divisionName: below("DIVISION") ?? walked.divisionName,
-    subDivisionName: below("SUB_DIVISION") ?? walked.subDivisionName,
-    streamName: below("STREAM") ?? walked.streamName,
-    crewName: below("CREW") ?? walked.crewName,
+    companyName: below("COMPANY") ? ALL : walked.companyName,
+    divisionName: below("DIVISION") ? ALL : walked.divisionName,
+    subDivisionName: below("SUB_DIVISION") ? ALL : walked.subDivisionName,
+    streamName: below("STREAM") ? ALL : walked.streamName,
+    crewName: below("CREW") ? ALL : walked.crewName,
+    companyId: below("COMPANY") ? "" : walked.companyId,
+    divisionId: below("DIVISION") ? "" : walked.divisionId,
+    subDivisionId: below("SUB_DIVISION") ? "" : walked.subDivisionId,
+    streamId: below("STREAM") ? "" : walked.streamId,
     crewId: walked.unitType === "CREW" ? walked.crewId : null,
     seatOrgUnitId: seat.orgUnitId,
     seatType: seat.seatType,
@@ -103,6 +125,10 @@ export function fromOrgPath(path: OrgPath): LockedOrgPathView {
     subDivisionName: path.subDivisionName,
     streamName: path.streamName,
     crewName: path.crewName,
+    companyId: path.companyId,
+    divisionId: path.divisionId,
+    subDivisionId: path.subDivisionId,
+    streamId: path.streamId,
     crewId: path.crewId,
     seatOrgUnitId: path.crewId,
     seatType: null,
@@ -128,6 +154,10 @@ export function lockedOrgPathFromUnits(
     subDivisionName: sub?.name ?? ALL,
     streamName: stream?.name ?? ALL,
     crewName: crew.name,
+    companyId: company?.id ?? "",
+    divisionId: division?.id ?? "",
+    subDivisionId: sub?.id ?? "",
+    streamId: stream?.id ?? "",
     crewId: crew.id,
     seatOrgUnitId: crew.id,
     seatType: null,

@@ -4,12 +4,18 @@ import { redirect } from "next/navigation";
 import { HomeCharts } from "@/components/HomeCharts";
 import { HomeFilters } from "@/components/HomeFilters";
 import { HomeActionsPanel } from "@/components/HomeActionsPanel";
-import { can } from "@/lib/access";
+import { can, seesAllTeams } from "@/lib/access";
 import { fromSession, resolveEstimateScope, teamsForUser } from "@/lib/scope";
 import { welcomeLine } from "@/lib/roles";
 import { getActiveConfig } from "@/services/configService";
 import { buildHomeActions } from "@/lib/homeInbox";
 import { releaseWhere } from "@/lib/releasePeriod";
+import { lockedOrgPathForUser } from "@/lib/lockedOrgPath";
+import {
+  estimateWhereForOrgCascade,
+  lockIdsFromPath,
+  teamsMatchingCascade,
+} from "@/lib/orgCascade";
 
 export default async function HomePage({
   searchParams,
@@ -18,6 +24,10 @@ export default async function HomePage({
     team?: string;
     workItemType?: string;
     release?: string;
+    company?: string;
+    division?: string;
+    subDivision?: string;
+    stream?: string;
     crew?: string;
   }>;
 }) {
@@ -25,17 +35,53 @@ export default async function HomePage({
   if (!session?.user) redirect("/login");
   if (!can(session.user.role, "home")) redirect("/estimates");
 
+  const params = await searchParams;
   const {
-    team: teamFilter = "",
+    team: teamParam = "",
     workItemType = "",
     release = "",
-    crew: crewFilter = "",
-  } = await searchParams;
+    company: companyParam = "",
+    division: divisionParam = "",
+    subDivision: subParam = "",
+    stream: streamParam = "",
+    crew: crewParam = "",
+  } = params;
+
+  const orgEditable = seesAllTeams(session.user.role);
+  const lockedPath = await lockedOrgPathForUser(session.user.id);
   const scope = await resolveEstimateScope(fromSession(session.user));
+
+  const [
+    config,
+    teams,
+    orgUnits,
+    team,
+  ] = await Promise.all([
+    getActiveConfig(),
+    teamsForUser(fromSession(session.user)),
+    prisma.orgUnit.findMany({
+      where: { active: true },
+      select: { id: true, name: true, type: true, parentId: true },
+      orderBy: { name: "asc" },
+    }),
+    session.user.teamId
+      ? prisma.team.findUnique({ where: { id: session.user.teamId }, select: { name: true } })
+      : Promise.resolve(null),
+  ]);
+
+  const lockIds = lockIdsFromPath(orgUnits, lockedPath);
+  const company = orgEditable ? companyParam : lockIds.companyId;
+  const division = orgEditable ? divisionParam : lockIds.divisionId;
+  const subDivision = orgEditable ? subParam : lockIds.subDivisionId;
+  const stream = orgEditable ? streamParam : lockIds.streamId;
+  const crew = orgEditable ? crewParam : lockIds.crewId || crewParam;
+  const teamFilter = teamParam;
+
+  const cascade = { company, division, subDivision, stream, crew, team: teamFilter };
+  const orgWhere = estimateWhereForOrgCascade(orgUnits, cascade);
   const filter = {
     ...scope,
-    ...(teamFilter ? { teamId: teamFilter } : {}),
-    ...(crewFilter && !teamFilter ? { team: { crewId: crewFilter } } : {}),
+    ...orgWhere,
     ...(workItemType ? { workItemType } : {}),
     ...releaseWhere(release),
   };
@@ -49,10 +95,6 @@ export default async function HomePage({
     completed,
     byTeamRows,
     byStatusRows,
-    team,
-    config,
-    teams,
-    orgUnits,
   ] = await Promise.all([
     prisma.estimate.count({ where: filter }),
     prisma.estimate.count({ where: { ...filter, status: { in: ["DRAFT", "RETURNED"] } } }),
@@ -70,18 +112,15 @@ export default async function HomePage({
       where: filter,
       _count: { _all: true },
     }),
-    session.user.teamId
-      ? prisma.team.findUnique({ where: { id: session.user.teamId }, select: { name: true } })
-      : Promise.resolve(null),
-    getActiveConfig(),
-    teamsForUser(fromSession(session.user)),
-    prisma.orgUnit.findMany({
-      where: { active: true },
-      select: { id: true, name: true, type: true, parentId: true },
-      orderBy: { name: "asc" },
-    }),
   ]);
 
+  const podOptions = teamsMatchingCascade(orgUnits, teams, {
+    company,
+    division,
+    subDivision,
+    stream,
+    crew,
+  });
   const teamNames = Object.fromEntries(teams.map((t) => [t.id, t.name]));
   const byTeam = byTeamRows.map((row) => ({
     name: teamNames[row.teamId] ?? "Unknown",
@@ -102,13 +141,9 @@ export default async function HomePage({
   }));
 
   const quarters = config.releaseQuarters ?? [];
-  const teamName = session.user.role === "ADMINISTRATOR" ? "All teams" : team?.name;
+  const teamName = orgEditable ? "All teams" : team?.name;
   const showActions = can(session.user.role, "home.actions");
   const actions = showActions ? buildHomeActions(session.user.role) : [];
-
-  const filteredTeams = crewFilter
-    ? teams.filter((t) => t.crewId === crewFilter)
-    : teams;
 
   return (
     <div className="space-y-6">
@@ -118,20 +153,28 @@ export default async function HomePage({
           {welcomeLine(session.user.name, session.user.role, teamName)}
         </h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Signed in as {session.user.email}. Menus, numbers and actions follow this profile
-          {teamName ? ` for ${teamName}` : ""}. Alerts appear in the bell (top right) when granted
-          in Access → RBAC.
+          Signed in as {session.user.email}. Organisation filters
+          {orgEditable
+            ? " are fully editable for app admin"
+            : " follow your org seat (read-only path; Pod open)"}
+          .
         </p>
       </div>
 
       <HomeFilters
-        teams={filteredTeams.map((t) => ({ value: t.id, label: t.name }))}
         quarters={quarters}
         orgUnits={orgUnits}
+        teams={podOptions.map((t) => ({ id: t.id, name: t.name, crewId: t.crewId }))}
+        orgEditable={orgEditable}
+        lockedPath={lockedPath}
+        company={company}
+        division={division}
+        subDivision={subDivision}
+        stream={stream}
+        crew={crew}
         team={teamFilter}
         workItemType={workItemType}
         release={release}
-        crew={crewFilter}
       />
 
       <div className="grid gap-4 md:grid-cols-5">
