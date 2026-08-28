@@ -263,6 +263,76 @@ describe("days/point calibration (DEC-007 A1: effort-weighted ratio-of-sums)", (
   });
 });
 
+describe("calibration shrinkage (DEC-007 A2: k=8, n_min=8, walk all real levels)", () => {
+  it("below n_min: inherits the parent unchanged (no crew-specific calibration)", async () => {
+    const { calibrateWithShrinkage } = await import("@/domain/estimation/calibration");
+    // crew has 5 samples (< 8) → do not calibrate; inherit the parent's 1.05.
+    const r = calibrateWithShrinkage({ ratio: 1.8, n: 5 }, [{ ratio: 1.05, n: 50 }]);
+    expect(r.inherited).toBe(true);
+    expect(r.ratioUsed).toBe(1.05);
+    expect(r.parentRatio).toBe(1.05);
+  });
+
+  it("at n_min: 50/50 blend with the parent (n = k = 8)", async () => {
+    const { calibrateWithShrinkage } = await import("@/domain/estimation/calibration");
+    // (8·2.0 + 8·1.0) / (8+8) = 24/16 = 1.5 — exactly halfway.
+    const r = calibrateWithShrinkage({ ratio: 2.0, n: 8 }, [{ ratio: 1.0, n: 100 }]);
+    expect(r.inherited).toBe(false);
+    expect(r.ratioUsed).toBe(1.5);
+  });
+
+  it("above n_min: own data dominates (24 samples → 75% own weight)", async () => {
+    const { calibrateWithShrinkage } = await import("@/domain/estimation/calibration");
+    // (24·2.0 + 8·1.0) / (24+8) = 56/32 = 1.75.
+    const r = calibrateWithShrinkage({ ratio: 2.0, n: 24 }, [{ ratio: 1.0, n: 100 }]);
+    expect(r.inherited).toBe(false);
+    expect(r.ratioUsed).toBe(1.75);
+  });
+
+  it("walks the chain: skips a thin/empty ancestor to the nearest qualifying one", async () => {
+    const { calibrateWithShrinkage } = await import("@/domain/estimation/calibration");
+    // crew n=3 (inherit). Ancestors nearest→farthest:
+    //   stream (empty) → sub-division (n=20, qualifies) → division (n=100).
+    // Nearest qualifying = sub-division 1.3.
+    const r = calibrateWithShrinkage({ ratio: 1.9, n: 3 }, [
+      { ratio: null, n: 0 }, // stream
+      { ratio: 1.3, n: 20 }, // sub-division
+      { ratio: 1.1, n: 100 }, // division
+    ]);
+    expect(r.inherited).toBe(true);
+    expect(r.parentRatio).toBe(1.3);
+    expect(r.ratioUsed).toBe(1.3);
+  });
+
+  it("terminal fallback: no ancestor qualifies → global baseline 1.0 (no change)", async () => {
+    const { calibrateWithShrinkage, resolveParentRatio } = await import(
+      "@/domain/estimation/calibration"
+    );
+    const thin = [
+      { ratio: 1.5, n: 1 },
+      { ratio: null, n: 0 },
+      { ratio: 2.0, n: 4 },
+    ];
+    expect(resolveParentRatio(thin)).toBe(1); // none meets n_min=8
+    // crew also thin → inherit → 1.0 (keep current Days/Point).
+    const r = calibrateWithShrinkage({ ratio: 1.5, n: 2 }, thin);
+    expect(r.inherited).toBe(true);
+    expect(r.ratioUsed).toBe(1);
+  });
+
+  it("qualifying cell shrinks toward the nearest qualifying ancestor, not the global baseline", async () => {
+    const { calibrateWithShrinkage } = await import("@/domain/estimation/calibration");
+    // crew qualifies (n=8); nearest qualifying ancestor is the stream (n=12, ratio 1.2).
+    // (8·2.0 + 8·1.2)/16 = 25.6/16 = 1.6.
+    const r = calibrateWithShrinkage({ ratio: 2.0, n: 8 }, [
+      { ratio: 1.2, n: 12 }, // stream qualifies
+      { ratio: 1.0, n: 500 }, // company (ignored — stream is nearer & qualifies)
+    ]);
+    expect(r.parentRatio).toBe(1.2);
+    expect(r.ratioUsed).toBe(1.6);
+  });
+});
+
 describe("variance", () => {
   it("interprets actual/estimated ratio", () => {
     const under = calculateVariance({

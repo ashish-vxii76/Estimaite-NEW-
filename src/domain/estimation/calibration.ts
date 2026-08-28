@@ -130,3 +130,61 @@ export function calibrateDaysPerPoint(input: {
     },
   };
 }
+
+// ── DEC-007 A2: shrinkage toward the parent + minimum-sample floor ───────────────
+// Pure domain logic. The caller supplies a cell's own (ratio, n) and its ancestor
+// chain (nearest → farthest), each already aggregated with the A1 effort-weighted
+// ratio-of-sums. Building those aggregates and ordering the ancestors via the org
+// tree (crew → stream → sub-division → division → company) is the caller's job and
+// is wired in A5. This module only decides the ratio to use.
+
+/** Shrinkage pseudo-count: strength of the parent prior. */
+export const CALIBRATION_K = 8;
+/** Minimum eligible samples to calibrate a cell; below this it inherits the parent. */
+export const CALIBRATION_N_MIN = 8;
+/** Terminal fallback when no ancestor qualifies: ratio 1.0 = "no change to Days/Point". */
+export const GLOBAL_BASELINE_RATIO = 1;
+
+export type CalibrationCell = {
+  /** Effort-weighted ratio-of-sums for this (unit, level); null when it has no samples. */
+  ratio: number | null;
+  /** Eligible sample count for this cell. */
+  n: number;
+};
+
+/**
+ * The parent ratio to shrink toward: the nearest ancestor (ordered nearest → farthest)
+ * whose own sample count meets `nMin`. If none up to COMPANY qualifies, the global
+ * baseline (1.0).
+ */
+export function resolveParentRatio(
+  ancestors: CalibrationCell[],
+  nMin: number = CALIBRATION_N_MIN,
+): number {
+  for (const ancestor of ancestors) {
+    if (ancestor.n >= nMin && ancestor.ratio != null) return ancestor.ratio;
+  }
+  return GLOBAL_BASELINE_RATIO;
+}
+
+/**
+ * Resolve the ratio actually used for a cell (DEC-007 A2):
+ *  - `n < nMin` (or no own ratio) → inherit the parent unchanged;
+ *  - otherwise → shrink toward the parent: (n·ratio + k·parent) / (n + k).
+ * `parentRatio` comes from {@link resolveParentRatio}. Result is round2'd.
+ */
+export function calibrateWithShrinkage(
+  cell: CalibrationCell,
+  ancestors: CalibrationCell[],
+  opts: { k?: number; nMin?: number } = {},
+): { ratioUsed: number; parentRatio: number; inherited: boolean } {
+  const k = opts.k ?? CALIBRATION_K;
+  const nMin = opts.nMin ?? CALIBRATION_N_MIN;
+  const parentRatio = resolveParentRatio(ancestors, nMin);
+
+  if (cell.ratio == null || cell.n < nMin) {
+    return { ratioUsed: round2(parentRatio), parentRatio, inherited: true };
+  }
+  const shrunk = (cell.n * cell.ratio + k * parentRatio) / (cell.n + k);
+  return { ratioUsed: round2(shrunk), parentRatio, inherited: false };
+}

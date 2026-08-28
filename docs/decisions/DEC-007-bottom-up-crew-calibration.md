@@ -77,9 +77,20 @@ ratio_used(C,L) = (n · ratio(C,L) + k · ratio_parent(C,L)) / (n + k)
                  inherit the parent value unchanged.
 ```
 
-**Parent chain:** crew → division → company → global default. "Inherit the parent" means the
-**nearest ancestor that itself satisfies `n_min`** (aggregated at that level with the same A1/A3
-rules); if no ancestor qualifies, use the **global default** (always valid, no `n_min`).
+**Parent chain (verified against the data model).** The org tree is a self-referential `OrgUnit`
+hierarchy via `parentId`, with levels `COMPANY → DIVISION → SUB_DIVISION → STREAM → CREW`; pods
+(`Team.crewId`) hang under a crew and are not OrgUnits. The real ancestor chain from a crew is
+therefore **CREW → STREAM → SUB_DIVISION → DIVISION → COMPANY** — deeper than an earlier
+shorthand that skipped STREAM and SUB_DIVISION. Shrinkage walks **every real ancestor level** via
+`parentId`. There is no "global" OrgUnit; `COMPANY` is the top, and the **global baseline**
+(`GLOBAL_BASELINE_RATIO = 1.0`) is the terminal fallback above it. This 1.0 is a **ratio meaning
+"no calibration adjustment"** when neither the cell nor any ancestor has sufficient eligible
+evidence — it is **not** a Days/Point baseline. The currently resolved Days/Point is left
+unchanged because the applied ratio is 1.0.
+
+"Inherit the parent" means the **nearest ancestor that itself satisfies `n_min`** (aggregated at
+that level with the same A1/A3 rules); if no ancestor up to COMPANY qualifies, use the **global
+baseline** (ratio 1.0, always valid, no `n_min`).
 
 `n_min = 8` sits above the existing PRD "≥3 actuals/level" *display* gate; ≥3 still governs
 *display* of bars, 8 governs *application*. At n = 8 the shrinkage yields a deliberate 50/50 blend
@@ -102,7 +113,7 @@ ratio(C,L)       = Σ adjusted_actual_i / Σ estimated_i
 
 With no outliers this is identical to A1's ratio-of-sums; a single mis-scoped CR contributes at
 most `ratio_cap ×` its own estimate. The clamp is applied **at every aggregation level**
-(crew, division, company) so shrinkage parent ratios are clamped consistently.
+(crew, stream, sub-division, division, company) so shrinkage parent ratios are clamped consistently.
 
 ## A4 — Recency: trailing window
 
