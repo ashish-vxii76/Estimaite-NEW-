@@ -147,12 +147,12 @@ async function main() {
   const userTeams: Record<string, string | null> = {
     "admin@estimaite.local": null,
     "ba@estimaite.local": teamByName.Vikings ?? null,
-    "eng@estimaite.local": teamByName.Vikings ?? null,
+    "eng@estimaite.local": null, // Crew-level (Crew seat) — no pod
     "qa@estimaite.local": teamByName.Spartans ?? null,
     "reviewer@estimaite.local": teamByName.Vikings ?? null,
     "approver@estimaite.local": teamByName.Vikings ?? null,
     "delivery@estimaite.local": teamByName.Centurions ?? null,
-    "finance@estimaite.local": teamByName.Vikings ?? null,
+    "finance@estimaite.local": null, // Division-level (Division seat) — no pod
     "viewer@estimaite.local": teamByName.Praetorians ?? null,
   };
   for (const [email, teamId] of Object.entries(userTeams)) {

@@ -7,6 +7,7 @@ import { getRbacMatrix } from "@/services/rbacService";
 import { can, canAccessPath, seesAllTeams } from "@/lib/access";
 import { buildNotifications } from "@/lib/homeInbox";
 import { fromSession } from "@/lib/scope";
+import { roleLabel } from "@/lib/roles";
 
 export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -20,35 +21,28 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     redirect("/estimates");
   }
 
-  let profiles: { email: string; name: string; role: string; teamName: string | null }[] = [];
   const crossTeam = seesAllTeams(session.user.role);
   let teamName: string | null = crossTeam ? "All teams" : null;
-  try {
-    const [users, team] = await Promise.all([
-      prisma.user.findMany({
-        where: { active: true },
-        select: { email: true, name: true, role: true, team: { select: { name: true } } },
-        orderBy: { name: "asc" },
-      }),
-      session.user.teamId
-        ? prisma.team.findUnique({ where: { id: session.user.teamId }, select: { name: true } })
-        : Promise.resolve(null),
-    ]);
-    profiles = users.map((p) => ({
-      email: p.email,
-      name: p.name,
-      role: p.role,
-      teamName: p.team?.name ?? null,
-    }));
-    if (!crossTeam) teamName = team?.name ?? null;
-  } catch {
-    const users = await prisma.user.findMany({
-      where: { active: true },
-      select: { email: true, name: true, role: true },
-      orderBy: { name: "asc" },
+  if (!crossTeam && session.user.teamId) {
+    const team = await prisma.team.findUnique({
+      where: { id: session.user.teamId },
+      select: { name: true },
     });
-    profiles = users.map((p) => ({ ...p, teamName: null }));
+    teamName = team?.name ?? null;
   }
+
+  // The Switch-Role control lists only THIS user's granted roles (empty/single → hidden).
+  const grants = await prisma.roleGrant.findMany({
+    where: { userId: session.user.id },
+    include: { team: { select: { name: true } }, orgUnit: { select: { name: true } } },
+    orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+  });
+  const roleOptions = grants.map((g) => ({
+    id: g.id,
+    label: g.label ?? roleLabel(g.role),
+    scopeName: g.team?.name ?? g.orgUnit?.name ?? null,
+    isActive: session.user.activeGrantId === g.id,
+  }));
 
   const showNotifications = can(session.user.role, "home.notifications");
   const notifications = showNotifications
@@ -59,7 +53,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     <AppShell
       user={session.user}
       teamName={teamName}
-      profiles={profiles}
+      roleOptions={roleOptions}
       matrix={matrix}
       showNotifications={showNotifications}
       notifications={notifications}

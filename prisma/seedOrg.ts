@@ -55,17 +55,10 @@ export async function seedOrgHierarchy(prisma: PrismaClient) {
     });
   }
 
+  // Casey Delivery Lead is a Pod-level user (team Centurions) — no org seat.
   const delivery = await prisma.user.findUnique({ where: { email: "delivery@estimaite.local" } });
   if (delivery) {
     await prisma.orgSeat.deleteMany({ where: { userId: delivery.id } });
-    await prisma.orgSeat.create({
-      data: {
-        userId: delivery.id,
-        orgUnitId: crew.id,
-        seatType: "CREW_TECH_LEAD",
-        isPrimary: true,
-      },
-    });
   }
 
   const finance = await prisma.user.findUnique({ where: { email: "finance@estimaite.local" } });
@@ -91,6 +84,29 @@ export async function seedOrgHierarchy(prisma: PrismaClient) {
         seatType: "CREW_TECH_LEAD",
         isPrimary: true,
       },
+    });
+  }
+
+  // Multi-role demo grants: users who hold more than one role and can switch between
+  // them (login sets the primary). Scope is a pod (teamId) or an org unit (orgUnitId).
+  const centurions = await prisma.team.findFirst({ where: { name: "Centurions" } });
+  const vikings = await prisma.team.findFirst({ where: { name: "Vikings" } });
+  if (delivery && centurions) {
+    await prisma.roleGrant.deleteMany({ where: { userId: delivery.id } });
+    await prisma.roleGrant.createMany({
+      data: [
+        { userId: delivery.id, role: "DELIVERY_LEAD", label: "Delivery Lead", teamId: centurions.id, isPrimary: true },
+        { userId: delivery.id, role: "DELIVERY_LEAD", label: "Deputy Crew Tech Lead", orgUnitId: crew.id, isPrimary: false },
+      ],
+    });
+  }
+  if (eng && vikings) {
+    await prisma.roleGrant.deleteMany({ where: { userId: eng.id } });
+    await prisma.roleGrant.createMany({
+      data: [
+        { userId: eng.id, role: "ESTIMATOR", label: "Crew Tech Lead", orgUnitId: crew.id, isPrimary: true },
+        { userId: eng.id, role: "ESTIMATOR", label: "Estimator", teamId: vikings.id, isPrimary: false },
+      ],
     });
   }
 

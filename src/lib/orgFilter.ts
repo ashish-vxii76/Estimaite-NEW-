@@ -39,14 +39,18 @@ export async function getOrgFilterData(user: ScopeUser): Promise<OrgFilterData> 
   }
 
   const byId = new Map(allUnits.map((u) => [u.id, u]));
-  const seat = await getPrimarySeat(user.id);
+  // Leadership scope comes from the active role grant, else the DB primary seat.
+  const seatOrgUnitId =
+    user.activeGrantId != null
+      ? user.seatOrgUnitId ?? null
+      : (await getPrimarySeat(user.id))?.orgUnitId ?? null;
 
   // Anchor = the org unit whose ancestor chain is locked. Seat unit, else the user's team's crew.
   let anchorUnitId: string | null = null;
   let lockedTeamId: string | null = null;
   let openBelowSeat = false;
-  if (seat) {
-    anchorUnitId = seat.orgUnitId;
+  if (seatOrgUnitId) {
+    anchorUnitId = seatOrgUnitId;
     openBelowSeat = true; // levels below the seat are selectable
   } else if (user.teamId) {
     const team = await prisma.team.findUnique({ where: { id: user.teamId }, select: { crewId: true } });

@@ -22,6 +22,27 @@ model User {
   estimates       Estimate[] @relation("CreatedBy")
   auditEvents     AuditEvent[]
   orgSeats        OrgSeat[]
+  roleGrants      RoleGrant[]
+}
+
+// A role a user may hold and switch into. `isPrimary` is the login/default role.
+// Scope is EITHER a pod (teamId) or an org unit (orgUnitId); label is a display title
+// (e.g. "Deputy Crew Tech Lead"). Only multi-role users have rows here; single-role
+// users keep using User.role/teamId/seat unchanged.
+model RoleGrant {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String
+  label     String?
+  teamId    String?
+  team      Team?    @relation(fields: [teamId], references: [id])
+  orgUnitId String?
+  orgUnit   OrgUnit? @relation(fields: [orgUnitId], references: [id])
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Team {
@@ -42,6 +63,7 @@ model Team {
   members            TeamMember[]
   users              User[]
   estimates          Estimate[]
+  roleGrants         RoleGrant[]
 }
 
 model TeamMember {
@@ -79,6 +101,7 @@ model OrgUnit {
   teams     Team[]
   seats     OrgSeat[]
   budgets   CrewBudget[]
+  roleGrants RoleGrant[]
 }
 
 model OrgSeat {

@@ -178,16 +178,27 @@ export async function getPrimarySeat(userId: string) {
  * Org unit ids the user may see (subtree of primary seat).
  * App-wide Admin with scope.allTeams sees everything (returns null = unrestricted).
  */
-export async function visibleOrgUnitIds(
-  user: { id: string; role: string },
-): Promise<string[] | null> {
+/** Scope inputs; the grant fields are set when a switchable role is active. */
+type ScopeInput = {
+  id: string;
+  role: string;
+  teamId?: string | null;
+  seatOrgUnitId?: string | null;
+  activeGrantId?: string | null;
+};
+
+export async function visibleOrgUnitIds(user: ScopeInput): Promise<string[] | null> {
   if (seesAllTeams(user.role)) return null;
+  // Active role grant → use its own scope, never the DB primary seat.
+  if (user.activeGrantId != null) {
+    return user.seatOrgUnitId ? descendantIds(user.seatOrgUnitId) : [];
+  }
   const seat = await getPrimarySeat(user.id);
   if (!seat) return [];
   return descendantIds(seat.orgUnitId);
 }
 
-export async function visibleCrewIds(user: { id: string; role: string }): Promise<string[] | null> {
+export async function visibleCrewIds(user: ScopeInput): Promise<string[] | null> {
   const ids = await visibleOrgUnitIds(user);
   if (ids == null) {
     const crews = await prisma.orgUnit.findMany({
@@ -203,11 +214,13 @@ export async function visibleCrewIds(user: { id: string; role: string }): Promis
   return crews.map((c) => c.id);
 }
 
-export async function visibleTeamIds(user: { id: string; role: string }): Promise<string[] | null> {
+export async function visibleTeamIds(user: ScopeInput): Promise<string[] | null> {
   if (seesAllTeams(user.role)) return null;
   const crewIds = await visibleCrewIds(user);
   if (!crewIds || crewIds.length === 0) {
-    // Fall back to legacy pod membership when no seat yet
+    // No crew scope → fall back to the pod. An active grant carries its own teamId;
+    // otherwise read the user's legacy pod membership.
+    if (user.activeGrantId != null) return user.teamId ? [user.teamId] : [];
     const me = await prisma.user.findUnique({ where: { id: user.id }, select: { teamId: true } });
     return me?.teamId ? [me.teamId] : [];
   }

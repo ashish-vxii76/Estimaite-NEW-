@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { SideNav } from "@/components/nav/SideNav";
 import { SignOutButton } from "@/components/SignOutButton";
-import { ProfileSwitcher, type ProfileOption } from "@/components/ProfileSwitcher";
+import { RoleSwitcher, type RoleOption } from "@/components/RoleSwitcher";
 import { NotificationBell } from "@/components/NotificationBell";
 import { HeaderBar } from "@/components/HeaderBar";
 import { roleLabel } from "@/lib/roles";
@@ -12,7 +12,7 @@ export function AppShell({
   children,
   user,
   teamName,
-  profiles,
+  roleOptions,
   matrix,
   notifications = [],
   showNotifications = false,
@@ -20,7 +20,7 @@ export function AppShell({
   children: React.ReactNode;
   user: { name?: string | null; email?: string | null; role?: string };
   teamName?: string | null;
-  profiles: ProfileOption[];
+  roleOptions: RoleOption[];
   matrix?: RbacMatrix;
   notifications?: AppNotification[];
   showNotifications?: boolean;
@@ -39,13 +39,7 @@ export function AppShell({
           userName={user.name}
           userRole={roleLine}
           signOut={<SignOutButton />}
-          profileSwitcher={
-            <ProfileSwitcher
-              currentEmail={user.email}
-              currentRole={user.role}
-              profiles={profiles}
-            />
-          }
+          profileSwitcher={<RoleSwitcher options={roleOptions} />}
         />
       </Suspense>
       <div className="flex min-w-0 flex-1 flex-col">

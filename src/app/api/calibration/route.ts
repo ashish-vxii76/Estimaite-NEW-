@@ -6,11 +6,20 @@ import { lockedOrgPathForUser } from "@/lib/lockedOrgPath";
 import type { Prisma } from "@prisma/client";
 
 async function calibrationWhere(
-  user: { id: string; role: string; teamId?: string | null },
+  user: {
+    id: string;
+    role: string;
+    teamId?: string | null;
+    seatOrgUnitId?: string | null;
+    activeGrantId?: string | null;
+  },
   team?: string | null,
 ): Promise<Prisma.EstimateWhereInput> {
   const scope = await resolveEstimateScope(fromSession(user));
-  const locked = await lockedOrgPathForUser(user.id);
+  const locked = await lockedOrgPathForUser(user.id, {
+    activeGrantId: user.activeGrantId,
+    seatOrgUnitId: user.seatOrgUnitId,
+  });
   const orgWhere: Prisma.EstimateWhereInput = team
     ? { teamId: team }
     : locked.crewId

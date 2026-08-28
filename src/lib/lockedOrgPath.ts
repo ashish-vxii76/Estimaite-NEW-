@@ -68,10 +68,23 @@ async function pathFromUnitId(unitId: string): Promise<{
  * Locked org path from the user’s primary seat.
  * Ancestors of the seat are filled; descendants stay "All".
  */
-export async function lockedOrgPathForUser(userId: string): Promise<LockedOrgPathView> {
-  const seat = await getPrimarySeat(userId);
-  if (!seat) return emptyPath();
-  const walked = await pathFromUnitId(seat.orgUnitId);
+export async function lockedOrgPathForUser(
+  userId: string,
+  active?: { activeGrantId?: string | null; seatOrgUnitId?: string | null },
+): Promise<LockedOrgPathView> {
+  // An active role grant supplies its own leadership scope; else use the DB primary seat.
+  let seatOrgUnitId: string | null;
+  let seatType: string | null;
+  if (active?.activeGrantId != null) {
+    seatOrgUnitId = active.seatOrgUnitId ?? null;
+    seatType = null;
+  } else {
+    const seat = await getPrimarySeat(userId);
+    seatOrgUnitId = seat?.orgUnitId ?? null;
+    seatType = seat?.seatType ?? null;
+  }
+  if (!seatOrgUnitId) return emptyPath();
+  const walked = await pathFromUnitId(seatOrgUnitId);
   const order = ["COMPANY", "DIVISION", "SUB_DIVISION", "STREAM", "CREW"] as const;
   const seatIdx = order.indexOf(walked.unitType as (typeof order)[number]);
   const below = (type: (typeof order)[number]) =>
@@ -84,8 +97,8 @@ export async function lockedOrgPathForUser(userId: string): Promise<LockedOrgPat
     streamName: below("STREAM") ?? walked.streamName,
     crewName: below("CREW") ?? walked.crewName,
     crewId: walked.unitType === "CREW" ? walked.crewId : null,
-    seatOrgUnitId: seat.orgUnitId,
-    seatType: seat.seatType,
+    seatOrgUnitId,
+    seatType,
   };
 }
 

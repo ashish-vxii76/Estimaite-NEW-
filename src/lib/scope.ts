@@ -7,14 +7,26 @@ export type ScopeUser = {
   id: string;
   role: string;
   teamId?: string | null;
+  /** Active leadership scope (org unit) — set when a role grant is active. */
+  seatOrgUnitId?: string | null;
+  /** Non-null when the user is running as a switchable role grant. */
+  activeGrantId?: string | null;
 };
 
 export function fromSession(user: {
   id: string;
   role: string;
   teamId?: string | null;
+  seatOrgUnitId?: string | null;
+  activeGrantId?: string | null;
 }): ScopeUser {
-  return { id: user.id, role: user.role, teamId: user.teamId ?? null };
+  return {
+    id: user.id,
+    role: user.role,
+    teamId: user.teamId ?? null,
+    seatOrgUnitId: user.seatOrgUnitId ?? null,
+    activeGrantId: user.activeGrantId ?? null,
+  };
 }
 
 /** Legacy sync scope (pod teamId only). Prefer resolveEstimateScope. */
