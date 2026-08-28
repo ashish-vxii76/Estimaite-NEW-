@@ -476,6 +476,9 @@ export async function captureActuals(
   const actuals = await prisma.$transaction(async (tx) => {
     const row = await tx.actualDelivery.upsert({
       where: { estimateId: id },
+      // DEC-007 A4: `finalisedAt` is set ONLY on first authoritative capture (create) and left
+      // untouched on later edits — so re-editing actuals does not silently change their calibration
+      // recency. Re-finalisation/immutability semantics are deferred to DEC-008.
       update: {
         ...payload,
         completionDate: payload.completionDate ? new Date(payload.completionDate) : null,
@@ -485,6 +488,7 @@ export async function captureActuals(
         estimateId: id,
         ...payload,
         completionDate: payload.completionDate ? new Date(payload.completionDate) : null,
+        finalisedAt: new Date(),
         varianceJson: JSON.stringify(variance),
       },
     });

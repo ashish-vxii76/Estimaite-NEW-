@@ -82,6 +82,36 @@ export const CALIBRATION_RATIO_CAP = 3.0;
 
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
 
+// ── DEC-007 A4: trailing recency window ──────────────────────────────────────────
+/** Trailing calibration window in months. Recency basis = ActualDelivery.finalisedAt. */
+export const CALIBRATION_WINDOW_MONTHS = 12;
+
+/**
+ * A CR is within the trailing window iff its actuals were finalised on/after (now − W months).
+ * `null` finalisedAt → not eligible (never inferred from other timestamps). Boundary is
+ * inclusive. No decay; no auto-expansion — insufficient in-window history is handled upstream
+ * by A2 inheritance, not by widening the window.
+ */
+export function isWithinCalibrationWindow(
+  finalisedAt: Date | null | undefined,
+  now: Date,
+  windowMonths: number = CALIBRATION_WINDOW_MONTHS,
+): boolean {
+  if (!finalisedAt) return false;
+  // UTC calendar-month arithmetic via Date.UTC — the governed cutoff must NOT depend on the local
+  // server timezone or DST. Date.UTC normalises an out-of-range (negative) month across years.
+  const cutoff = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth() - windowMonths,
+    now.getUTCDate(),
+    now.getUTCHours(),
+    now.getUTCMinutes(),
+    now.getUTCSeconds(),
+    now.getUTCMilliseconds(),
+  );
+  return finalisedAt.getTime() >= cutoff;
+}
+
 export function calibrateDaysPerPoint(input: {
   levels: Pick<ResourceLevelConfig, "id" | "name" | "daysPerPoint">[];
   samples: CalibrationSample[];

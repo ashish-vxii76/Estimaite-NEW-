@@ -645,6 +645,9 @@ export async function seedDemoRegister(prisma: PrismaClient) {
           estimateId: estimate.id,
           ...payload,
           completionDate: new Date(createdAt.getTime() + 21 * 86400_000),
+          // DEC-007 A4: authored demo finalisation instant (seed is the system-of-record for the
+          // fictional timeline). Kept recent so seeded actuals fall inside the trailing window.
+          finalisedAt: new Date(createdAt.getTime() + 21 * 86400_000),
           varianceJson: JSON.stringify(variance),
         },
       });

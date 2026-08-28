@@ -134,14 +134,24 @@ most `ratio_cap ×` its own estimate. The clamp is applied **at every aggregatio
 
 ## A4 — Recency: trailing window
 
+**Authoritative recency field: `ActualDelivery.finalisedAt`** (added by A4). It is a
+system-controlled timestamp set server-side when actuals are authoritatively captured (estimate →
+COMPLETED). A4 **must** use it, and **must not** use or infer recency from `completionDate`,
+`ActualDelivery.createdAt`, or `Estimate.updatedAt`.
+
 ```
-Include only CRs whose actuals were finalised within the last W = 12 months (configurable).
-CRs outside the window are excluded entirely (no decay).
+eligible ⟺ finalisedAt != null AND finalisedAt >= (now − W),  W = 12 months (configurable)
 ```
 
-**No auto-expansion.** If fewer than `n_min` eligible observations exist *within* the window, the
-cell inherits its parent under A2 — it does **not** widen the window to pull in older delivery
-history.
+- `finalisedAt == null` → **not** calibration-eligible.
+- Boundary is **inclusive** (`>=`). No exponential decay.
+- **No auto-expansion:** if fewer than `n_min` eligible observations exist *within* the window, the
+  cell inherits its parent under A2 — the window is **not** widened to pull in older history.
+- **No backfill:** existing rows lacking a trustworthy finalisation instant are left `null`
+  (ineligible), never populated with an invented timestamp.
+- **Edits don't move recency:** re-editing captured actuals does **not** change `finalisedAt` (set
+  once, on first capture). Whether a legitimate re-finalisation should re-stamp it — and actuals
+  immutability generally — is deferred to **DEC-008**.
 
 ## A5 — Per-crew stored parameters + global fallback
 
@@ -206,13 +216,11 @@ magnitude, and this quality flag — not a CI.)
 ## Implementation sequence (review gate between each)
 
 1. **This record** — ACCEPTED. ✅
-2. **A1** effort-weighted ratio-of-sums (attribution preserved) + unit tests + regenerated
-   calibration golden. ← current step
-3. A2 shrinkage + min-sample floor (+ parent-chain resolution) + tests.
-4. **A3** eligibility + outlier damping + tests — **implemented as the representable subset only**
-   (COMPLETED + actuals present + `min_size_pd` + clamping); cancelled / descoped / re-baselined
-   exclusions deferred to **DEC-008**. ← current step
-5. A4 trailing window + tests.
-6. A5 per-crew stored/applied params (schema + effort resolution + ±20% guardrail) + tests;
-   **verify Golden Case A/B unchanged**.
+2. **A1** effort-weighted ratio-of-sums (attribution preserved) + tests + regenerated golden. ✅
+3. **A2** shrinkage + min-sample floor + parent-chain resolution (pure) + tests. ✅
+4. **A3** eligibility + outlier damping — **representable subset only** (COMPLETED + actuals present
+   + `min_size_pd` + clamping); cancelled / descoped / re-baselined deferred to **DEC-008**. ✅
+5. **A4** trailing window on authoritative `finalisedAt` + tests. ✅
+6. **A5** per-crew stored/applied params (schema + effort resolution + ±20% guardrail) + tests;
+   **verify Golden Case A/B unchanged**. **BLOCKED on DEC-008** (governance gate). ← next
 7. A6 quality indicator (n / bias / dispersion) + tests.

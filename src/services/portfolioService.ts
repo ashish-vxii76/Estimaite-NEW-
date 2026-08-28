@@ -3,6 +3,7 @@ import { getActiveConfig } from "@/services/configService";
 import {
   budgetStatus,
   calibrateDaysPerPoint,
+  isWithinCalibrationWindow,
   rollupPortfolio,
   type EstimateCalculationResult,
 } from "@/domain/estimation";
@@ -283,8 +284,11 @@ export async function getCalibration(scope?: Prisma.EstimateWhereInput) {
     }),
   ]);
 
+  const now = new Date();
   const samples = estimates.flatMap((estimate) => {
     if (!estimate.actuals) return [];
+    // DEC-007 A4: trailing 12-month window on the authoritative finalisedAt (null → excluded).
+    if (!isWithinCalibrationWindow(estimate.actuals.finalisedAt, now)) return [];
     // DEC-007 A1: feed RAW effort (not the precomputed ratio) so calibration is effort-weighted.
     // Attribution preserved: combined dev+qa effort filed under the estimate's Dev resource level.
     // A3 size-floor eligibility + outlier clamping are applied in calibrateDaysPerPoint.

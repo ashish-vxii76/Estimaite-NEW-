@@ -220,6 +220,10 @@ model ActualDelivery {
   actualQaResources  Int
   actualOtherCost    Float
   completionDate     DateTime?
+  // DEC-007 A4: authoritative recency timestamp for calibration. System-set when actuals are
+  // authoritatively captured (estimate → COMPLETED). NULL = not calibration-eligible. Never
+  // derived from completionDate/createdAt/updatedAt; re-finalisation/immutability → DEC-008.
+  finalisedAt        DateTime?
   varianceJson       String
   createdAt          DateTime  @default(now())
 }

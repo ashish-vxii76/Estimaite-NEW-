@@ -412,6 +412,70 @@ describe("calibration eligibility + outlier damping (DEC-007 A3)", () => {
   });
 });
 
+describe("calibration recency window (DEC-007 A4: W=12mo, basis = finalisedAt)", () => {
+  const NOW = new Date("2026-08-29T00:00:00.000Z");
+
+  it("inside the window is eligible", async () => {
+    const { isWithinCalibrationWindow } = await import("@/domain/estimation/calibration");
+    expect(isWithinCalibrationWindow(new Date("2026-05-29T00:00:00.000Z"), NOW)).toBe(true);
+  });
+
+  it("exactly on the 12-month boundary is eligible (inclusive)", async () => {
+    const { isWithinCalibrationWindow } = await import("@/domain/estimation/calibration");
+    // now − 12 months = 2025-08-29.
+    expect(isWithinCalibrationWindow(new Date("2025-08-29T00:00:00.000Z"), NOW)).toBe(true);
+  });
+
+  it("just outside the window is excluded", async () => {
+    const { isWithinCalibrationWindow } = await import("@/domain/estimation/calibration");
+    expect(isWithinCalibrationWindow(new Date("2025-08-28T23:59:59.000Z"), NOW)).toBe(false);
+    expect(isWithinCalibrationWindow(new Date("2025-02-01T00:00:00.000Z"), NOW)).toBe(false);
+  });
+
+  it("null finalisedAt is never eligible (no inference from other timestamps)", async () => {
+    const { isWithinCalibrationWindow } = await import("@/domain/estimation/calibration");
+    expect(isWithinCalibrationWindow(null, NOW)).toBe(false);
+    expect(isWithinCalibrationWindow(undefined, NOW)).toBe(false);
+  });
+
+  it("boundary is timezone/DST independent (UTC calendar arithmetic)", async () => {
+    const { isWithinCalibrationWindow } = await import("@/domain/estimation/calibration");
+    const original = process.env.TZ;
+    // `now` sits a week after the US spring-forward; cutoff is exactly 12 UTC months earlier.
+    const nowNearDst = new Date("2026-03-15T00:30:00.000Z");
+    const onBoundary = new Date("2025-03-15T00:30:00.000Z"); // == cutoff → inclusive
+    const justBefore = new Date("2025-03-15T00:29:59.999Z"); // 1 ms before → excluded
+    try {
+      for (const tz of ["UTC", "America/New_York", "Asia/Kolkata", "Pacific/Kiritimati"]) {
+        process.env.TZ = tz;
+        expect(isWithinCalibrationWindow(onBoundary, nowNearDst)).toBe(true);
+        expect(isWithinCalibrationWindow(justBefore, nowNearDst)).toBe(false);
+      }
+    } finally {
+      process.env.TZ = original;
+    }
+  });
+
+  it("insufficient in-window history flows to A2 inheritance (no window expansion)", async () => {
+    const { isWithinCalibrationWindow, calibrateWithShrinkage } = await import(
+      "@/domain/estimation/calibration"
+    );
+    // 10 finalised dates; only 3 fall inside the 12-month window.
+    const dates = [
+      "2026-08-01", "2026-06-15", "2026-01-10", // inside (3)
+      "2025-06-01", "2025-03-01", "2024-12-01", "2024-08-01",
+      "2024-01-01", "2023-06-01", "2022-12-01", // outside (7)
+    ].map((d) => new Date(`${d}T00:00:00.000Z`));
+    const inWindow = dates.filter((d) => isWithinCalibrationWindow(d, NOW));
+    expect(inWindow.length).toBe(3); // older 7 are NOT pulled in
+
+    // 3 < n_min (8) → A2 inherits the parent unchanged, rather than widening the window.
+    const r = calibrateWithShrinkage({ ratio: 1.9, n: inWindow.length }, [{ ratio: 1.1, n: 40 }]);
+    expect(r.inherited).toBe(true);
+    expect(r.ratioUsed).toBe(1.1);
+  });
+});
+
 describe("variance", () => {
   it("interprets actual/estimated ratio", () => {
     const under = calculateVariance({
