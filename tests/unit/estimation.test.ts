@@ -225,21 +225,41 @@ describe("portfolio roll-up", () => {
   });
 });
 
-describe("days/point calibration", () => {
-  it("suggests current days/point times average actual/est ratio", async () => {
+describe("days/point calibration (DEC-007 A1: effort-weighted ratio-of-sums)", () => {
+  it("single sample: suggested = current × (Σ actual ÷ Σ estimated)", async () => {
     const { calibrateDaysPerPoint } = await import("@/domain/estimation/calibration");
     const result = calibrateDaysPerPoint({
       levels: [
         { id: "beginner", name: "Beginner", daysPerPoint: 3.33 },
         { id: "intermediate", name: "Intermediate", daysPerPoint: 2 },
       ],
-      samples: [{ resourceLevelId: "beginner", actualEstimatedEffortRatio: 2.14 }],
+      // ratio 2.14 = 32.1 / 15. With one sample, ratio-of-sums == the single CR ratio,
+      // so this matches the pre-A1 expectation exactly (backward-consistent).
+      samples: [{ resourceLevelId: "beginner", actualEffortPd: 32.1, estimatedEffortPd: 15 }],
     });
+    expect(result.rows[0]?.avgActualEstRatio).toBe(2.14);
     expect(result.rows[0]?.suggestedDaysPerPoint).toBe(7.13);
     expect(result.rows[0]?.samples).toBe(1);
     expect(result.rows[1]?.samples).toBe(0);
     expect(result.rows[1]?.suggestedDaysPerPoint).toBeNull();
     expect(result.overallAvgRatio).toBe(2.14);
+  });
+
+  it("multi-sample: weights by effort (ratio-of-sums), not an unweighted mean of ratios", async () => {
+    const { calibrateDaysPerPoint } = await import("@/domain/estimation/calibration");
+    const result = calibrateDaysPerPoint({
+      levels: [{ id: "intermediate", name: "Intermediate", daysPerPoint: 2 }],
+      samples: [
+        { resourceLevelId: "intermediate", actualEffortPd: 4, estimatedEffortPd: 2 }, // ratio 2.0
+        { resourceLevelId: "intermediate", actualEffortPd: 110, estimatedEffortPd: 100 }, // ratio 1.1
+      ],
+    });
+    // ratio-of-sums = (4+110)/(2+100) = 114/102 = 1.1176 → 1.12.
+    // (An unweighted mean of the per-CR ratios would give (2.0+1.1)/2 = 1.55 — rejected.)
+    expect(result.rows[0]?.avgActualEstRatio).toBe(1.12);
+    expect(result.rows[0]?.suggestedDaysPerPoint).toBe(2.24); // round2(2 × 1.12)
+    expect(result.rows[0]?.samples).toBe(2);
+    expect(result.overallAvgRatio).toBe(1.12);
   });
 });
 

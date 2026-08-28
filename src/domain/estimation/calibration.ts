@@ -59,7 +59,9 @@ export function calculateVariance(input: {
 
 export type CalibrationSample = {
   resourceLevelId: string;
-  actualEstimatedEffortRatio: number;
+  /** Raw effort in person-days for one CR — kept unratioed so aggregation is effort-weighted. */
+  actualEffortPd: number;
+  estimatedEffortPd: number;
 };
 
 export type CalibrationRow = {
@@ -75,18 +77,23 @@ export function calibrateDaysPerPoint(input: {
   levels: Pick<ResourceLevelConfig, "id" | "name" | "daysPerPoint">[];
   samples: CalibrationSample[];
 }): { rows: CalibrationRow[]; overallAvgRatio: number | null; explanation: Explanation } {
-  const grouped = new Map<string, number[]>();
+  // DEC-007 A1: effort-weighted ratio-of-sums per resource level.
+  //   ratio(L) = Σ actual effort ÷ Σ estimated effort   (NOT the unweighted mean of per-CR ratios)
+  // so a large CR counts in proportion to its size. `avgActualEstRatio` / `overallAvgRatio` retain
+  // their names for API/UI stability but now hold this effort-weighted ratio.
+  const grouped = new Map<string, { actual: number; estimated: number; n: number }>();
   for (const sample of input.samples) {
-    const list = grouped.get(sample.resourceLevelId) ?? [];
-    list.push(sample.actualEstimatedEffortRatio);
-    grouped.set(sample.resourceLevelId, list);
+    const g = grouped.get(sample.resourceLevelId) ?? { actual: 0, estimated: 0, n: 0 };
+    g.actual += sample.actualEffortPd;
+    g.estimated += sample.estimatedEffortPd;
+    g.n += 1;
+    grouped.set(sample.resourceLevelId, g);
   }
 
   const rows: CalibrationRow[] = input.levels.map((level) => {
-    const ratios = grouped.get(level.id) ?? [];
-    const samples = ratios.length;
-    const avgActualEstRatio =
-      samples === 0 ? null : round2(ratios.reduce((sum, n) => sum + n, 0) / samples);
+    const g = grouped.get(level.id);
+    const samples = g?.n ?? 0;
+    const avgActualEstRatio = g && g.estimated > 0 ? round2(g.actual / g.estimated) : null;
     const suggestedDaysPerPoint =
       avgActualEstRatio == null ? null : round2(level.daysPerPoint * avgActualEstRatio);
     return {
@@ -99,21 +106,25 @@ export function calibrateDaysPerPoint(input: {
     };
   });
 
-  const allRatios = input.samples.map((s) => s.actualEstimatedEffortRatio);
+  let totalActual = 0;
+  let totalEstimated = 0;
+  for (const sample of input.samples) {
+    totalActual += sample.actualEffortPd;
+    totalEstimated += sample.estimatedEffortPd;
+  }
   const overallAvgRatio =
-    allRatios.length === 0
-      ? null
-      : round2(allRatios.reduce((sum, n) => sum + n, 0) / allRatios.length);
+    input.samples.length === 0 || totalEstimated === 0 ? null : round2(totalActual / totalEstimated);
 
   return {
     rows,
     overallAvgRatio,
     explanation: {
       title: "Suggested Days/Point",
-      summary: overallAvgRatio == null ? "No actuals yet" : `Overall avg ratio ${overallAvgRatio}`,
+      summary:
+        overallAvgRatio == null ? "No actuals yet" : `Overall effort-weighted ratio ${overallAvgRatio}`,
       steps: [
-        "Derived from the Register Actual/Est ratios by Dev resource level (CRs with actuals).",
-        "Suggested Days/Point = Current Days/Point × Avg Actual/Est Ratio.",
+        "Effort-weighted from Register actuals by Dev resource level (CRs with actuals): ratio = Σ actual effort ÷ Σ estimated effort.",
+        "Suggested Days/Point = Current Days/Point × effort-weighted Actual/Est ratio.",
         "Automatic parameter changes require governance approval; suggestions are not applied silently.",
       ],
     },

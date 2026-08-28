@@ -68,7 +68,7 @@ export default async function CalibrationPage({
             <tr>
               <th className="px-4 py-3">Resource Level</th>
               <th>Current Days/Point</th>
-              <th>Avg Actual/Est Ratio</th>
+              <th>Actual/Est Ratio (effort-weighted)</th>
               <th>Suggested Days/Point</th>
               <th># Samples</th>
             </tr>

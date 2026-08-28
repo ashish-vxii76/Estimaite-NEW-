@@ -282,14 +282,18 @@ export async function getCalibration(scope?: Prisma.EstimateWhereInput) {
 
   const samples = estimates.flatMap((estimate) => {
     if (!estimate.actuals) return [];
-    const variance = JSON.parse(estimate.actuals.varianceJson) as {
-      actualEstimatedEffortRatio?: number | null;
-    };
-    if (!variance.actualEstimatedEffortRatio) return [];
+    // DEC-007 A1: feed RAW effort (not the precomputed ratio) so calibration is effort-weighted.
+    // Attribution preserved: combined dev+qa effort filed under the estimate's Dev resource level.
+    const result = parseResult(estimate.resultJson);
+    if (!result) return [];
+    const estimatedEffortPd = (result.adjustedDevEffortPd ?? 0) + (result.adjustedQaEffortPd ?? 0);
+    if (estimatedEffortPd <= 0) return [];
+    const actualEffortPd = estimate.actuals.actualDevPd + estimate.actuals.actualQaPd;
     return [
       {
         resourceLevelId: estimate.devResourceLevel,
-        actualEstimatedEffortRatio: variance.actualEstimatedEffortRatio,
+        actualEffortPd,
+        estimatedEffortPd,
       },
     ];
   });
