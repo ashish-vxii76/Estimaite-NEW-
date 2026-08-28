@@ -99,8 +99,25 @@ with the parent; a cell earns majority weight only as n grows past k — this do
 
 ## A3 — Eligibility + outlier damping
 
-Eligible CR: status = COMPLETED with **finalised** actuals; **not** cancelled / descoped /
+Target eligible CR: status = COMPLETED with **finalised** actuals; **not** cancelled / descoped /
 re-baselined after estimation; estimated effort ≥ `min_size_pd` (2 PD).
+
+**Enforcement status (implemented split — Option 3).** Only the parts explicitly representable in
+the current data model are enforced by A3:
+- ✅ **status = COMPLETED** (explicit status) **and an `ActualDelivery` row present** — this is
+  how "finalised" is represented today (there is no separate actuals-lock flag; actuals remain
+  editable via upsert);
+- ✅ **estimated effort ≥ `min_size_pd` (2 PD)**;
+- ✅ **per-CR outlier clamping** (below).
+
+**Deferred — target policy, NOT yet enforceable.** The exclusions **cancelled**, **descoped**, and
+**re-baselined-after-estimation** are **not** applied, because those lifecycle states do not exist
+in the current data model (no `CANCELLED` status, no descoped flag, no baseline/re-baseline
+marker; `EstimateVersion` is a generic snapshot log, not a baseline semantic). Per governance,
+these are **not** proxied or inferred. They remain part of the target calibration policy and
+become enforceable only once the lifecycle semantics are introduced — specified separately in
+**DEC-008**. Until then, a CR that was in reality cancelled/descoped/re-baselined but still carries
+status COMPLETED + actuals will be included.
 
 **Authoritative outlier definition** (preserves effort-weighted ratio-of-sums):
 
@@ -127,6 +144,12 @@ cell inherits its parent under A2 — it does **not** widen the window to pull i
 history.
 
 ## A5 — Per-crew stored parameters + global fallback
+
+> **GOVERNANCE GATE — A5 is blocked on DEC-008.** A5 turns calibration from *analysis* into
+> *governed state* (persisted, applied per-crew Days/Point overrides). The cancelled / descoped /
+> re-baselined eligibility semantics (DEC-008) must be **accepted and implemented before** A5 may
+> persist or apply any per-crew override — parameters must not be operationally applied on top of
+> a sample set that cannot yet exclude those states.
 
 - Config gains **per-crew Days/Point overrides**: `{ crewId → { resourceLevelId → daysPerPoint } }`.
 - Effort resolution: `daysPerPoint = crewOverride(crewId, L) ?? globalDefault(L)`.
@@ -186,7 +209,9 @@ magnitude, and this quality flag — not a CI.)
 2. **A1** effort-weighted ratio-of-sums (attribution preserved) + unit tests + regenerated
    calibration golden. ← current step
 3. A2 shrinkage + min-sample floor (+ parent-chain resolution) + tests.
-4. A3 eligibility + outlier damping + tests.
+4. **A3** eligibility + outlier damping + tests — **implemented as the representable subset only**
+   (COMPLETED + actuals present + `min_size_pd` + clamping); cancelled / descoped / re-baselined
+   exclusions deferred to **DEC-008**. ← current step
 5. A4 trailing window + tests.
 6. A5 per-crew stored/applied params (schema + effort resolution + ±20% guardrail) + tests;
    **verify Golden Case A/B unchanged**.

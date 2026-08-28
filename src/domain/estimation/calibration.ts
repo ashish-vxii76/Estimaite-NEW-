@@ -73,21 +73,45 @@ export type CalibrationRow = {
   samples: number;
 };
 
+// ── DEC-007 A3: eligibility (size floor) + per-CR outlier damping ────────────────
+/** Minimum estimated effort (PD) for a CR to be eligible; also guards divide-by-zero. */
+export const CALIBRATION_MIN_SIZE_PD = 2;
+/** Per-CR ratio clamp bounds — a single mis-scoped CR contributes at most cap× its estimate. */
+export const CALIBRATION_RATIO_FLOOR = 0.33;
+export const CALIBRATION_RATIO_CAP = 3.0;
+
+const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
+
 export function calibrateDaysPerPoint(input: {
   levels: Pick<ResourceLevelConfig, "id" | "name" | "daysPerPoint">[];
   samples: CalibrationSample[];
 }): { rows: CalibrationRow[]; overallAvgRatio: number | null; explanation: Explanation } {
-  // DEC-007 A1: effort-weighted ratio-of-sums per resource level.
-  //   ratio(L) = Σ actual effort ÷ Σ estimated effort   (NOT the unweighted mean of per-CR ratios)
-  // so a large CR counts in proportion to its size. `avgActualEstRatio` / `overallAvgRatio` retain
-  // their names for API/UI stability but now hold this effort-weighted ratio.
+  // DEC-007 A1 + A3: effort-weighted ratio-of-sums per resource level, with a size-floor
+  // eligibility filter and per-CR outlier clamping that PRESERVES the effort-weighting:
+  //   raw_ratio_i     = actual_i / estimated_i
+  //   clamped_ratio_i = clamp(raw_ratio_i, FLOOR, CAP)
+  //   adjusted_actual = estimated_i × clamped_ratio_i
+  //   ratio(L)        = Σ adjusted_actual ÷ Σ estimated_i
+  // With no outliers clamped_ratio == raw_ratio, so this reduces to A1's ratio-of-sums.
+  // `avgActualEstRatio` / `overallAvgRatio` retain their names for API/UI stability.
   const grouped = new Map<string, { actual: number; estimated: number; n: number }>();
+  let totalActual = 0;
+  let totalEstimated = 0;
   for (const sample of input.samples) {
+    // A3 eligibility: exclude sub-minimum CRs (also excludes estimated ≤ 0).
+    if (sample.estimatedEffortPd < CALIBRATION_MIN_SIZE_PD) continue;
+    // A3 damping: clamp the per-CR ratio, then rebuild an adjusted actual so summation stays effort-weighted.
+    const rawRatio = sample.actualEffortPd / sample.estimatedEffortPd;
+    const clampedRatio = clamp(rawRatio, CALIBRATION_RATIO_FLOOR, CALIBRATION_RATIO_CAP);
+    const adjustedActual = sample.estimatedEffortPd * clampedRatio;
+
     const g = grouped.get(sample.resourceLevelId) ?? { actual: 0, estimated: 0, n: 0 };
-    g.actual += sample.actualEffortPd;
+    g.actual += adjustedActual;
     g.estimated += sample.estimatedEffortPd;
     g.n += 1;
     grouped.set(sample.resourceLevelId, g);
+    totalActual += adjustedActual;
+    totalEstimated += sample.estimatedEffortPd;
   }
 
   const rows: CalibrationRow[] = input.levels.map((level) => {
@@ -106,14 +130,7 @@ export function calibrateDaysPerPoint(input: {
     };
   });
 
-  let totalActual = 0;
-  let totalEstimated = 0;
-  for (const sample of input.samples) {
-    totalActual += sample.actualEffortPd;
-    totalEstimated += sample.estimatedEffortPd;
-  }
-  const overallAvgRatio =
-    input.samples.length === 0 || totalEstimated === 0 ? null : round2(totalActual / totalEstimated);
+  const overallAvgRatio = totalEstimated === 0 ? null : round2(totalActual / totalEstimated);
 
   return {
     rows,
@@ -123,7 +140,8 @@ export function calibrateDaysPerPoint(input: {
       summary:
         overallAvgRatio == null ? "No actuals yet" : `Overall effort-weighted ratio ${overallAvgRatio}`,
       steps: [
-        "Effort-weighted from Register actuals by Dev resource level (CRs with actuals): ratio = Σ actual effort ÷ Σ estimated effort.",
+        "Effort-weighted from Register actuals by Dev resource level (eligible CRs): ratio = Σ adjusted actual ÷ Σ estimated effort.",
+        `Per-CR ratios clamped to [${CALIBRATION_RATIO_FLOOR}, ${CALIBRATION_RATIO_CAP}]; CRs under ${CALIBRATION_MIN_SIZE_PD} PD excluded.`,
         "Suggested Days/Point = Current Days/Point × effort-weighted Actual/Est ratio.",
         "Automatic parameter changes require governance approval; suggestions are not applied silently.",
       ],

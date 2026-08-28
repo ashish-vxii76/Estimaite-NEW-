@@ -333,6 +333,85 @@ describe("calibration shrinkage (DEC-007 A2: k=8, n_min=8, walk all real levels)
   });
 });
 
+describe("calibration eligibility + outlier damping (DEC-007 A3)", () => {
+  const LEVELS = [{ id: "intermediate", name: "Intermediate", daysPerPoint: 2 }];
+
+  it("min_size: excludes CRs under 2 PD estimated, keeps CRs at/over the floor", async () => {
+    const { calibrateDaysPerPoint } = await import("@/domain/estimation/calibration");
+    const result = calibrateDaysPerPoint({
+      levels: LEVELS,
+      samples: [
+        { resourceLevelId: "intermediate", actualEffortPd: 10, estimatedEffortPd: 1 }, // < 2 PD → excluded
+        { resourceLevelId: "intermediate", actualEffortPd: 12, estimatedEffortPd: 10 }, // eligible → ratio 1.2
+      ],
+    });
+    expect(result.rows[0]?.samples).toBe(1); // only the eligible CR counted
+    expect(result.rows[0]?.avgActualEstRatio).toBe(1.2);
+    expect(result.overallAvgRatio).toBe(1.2);
+  });
+
+  it("min_size boundary: exactly 2 PD is eligible", async () => {
+    const { calibrateDaysPerPoint } = await import("@/domain/estimation/calibration");
+    const result = calibrateDaysPerPoint({
+      levels: LEVELS,
+      samples: [{ resourceLevelId: "intermediate", actualEffortPd: 4, estimatedEffortPd: 2 }],
+    });
+    expect(result.rows[0]?.samples).toBe(1);
+    expect(result.rows[0]?.avgActualEstRatio).toBe(2); // 4/2, within clamp range
+  });
+
+  it("clamps a high outlier ratio to the cap (5.0 → 3.0)", async () => {
+    const { calibrateDaysPerPoint } = await import("@/domain/estimation/calibration");
+    // raw 50/10 = 5.0 → clamped 3.0 → adjusted actual 30 → ratio 30/10 = 3.0
+    const result = calibrateDaysPerPoint({
+      levels: LEVELS,
+      samples: [{ resourceLevelId: "intermediate", actualEffortPd: 50, estimatedEffortPd: 10 }],
+    });
+    expect(result.rows[0]?.avgActualEstRatio).toBe(3);
+    expect(result.rows[0]?.suggestedDaysPerPoint).toBe(6); // round2(2 × 3.0)
+  });
+
+  it("clamps a low outlier ratio to the floor (0.1 → 0.33)", async () => {
+    const { calibrateDaysPerPoint } = await import("@/domain/estimation/calibration");
+    // raw 1/10 = 0.1 → clamped 0.33 → adjusted actual 3.3 → ratio 3.3/10 = 0.33
+    const result = calibrateDaysPerPoint({
+      levels: LEVELS,
+      samples: [{ resourceLevelId: "intermediate", actualEffortPd: 1, estimatedEffortPd: 10 }],
+    });
+    expect(result.rows[0]?.avgActualEstRatio).toBe(0.33);
+  });
+
+  it("clamp boundaries (exactly 3.0 and 0.33) pass through unchanged", async () => {
+    const { calibrateDaysPerPoint } = await import("@/domain/estimation/calibration");
+    const cap = calibrateDaysPerPoint({
+      levels: LEVELS,
+      samples: [{ resourceLevelId: "intermediate", actualEffortPd: 30, estimatedEffortPd: 10 }], // 3.0
+    });
+    expect(cap.rows[0]?.avgActualEstRatio).toBe(3);
+    const floor = calibrateDaysPerPoint({
+      levels: LEVELS,
+      samples: [{ resourceLevelId: "intermediate", actualEffortPd: 33, estimatedEffortPd: 100 }], // 0.33
+    });
+    expect(floor.rows[0]?.avgActualEstRatio).toBe(0.33);
+  });
+
+  it("aggregate: clamping caps a mis-scoped CR's influence on the effort-weighted ratio", async () => {
+    const { calibrateDaysPerPoint } = await import("@/domain/estimation/calibration");
+    // CR1 raw 20/2 = 10 → clamp 3.0 → adjusted 6.  CR2 raw 110/100 = 1.1 → adjusted 110.
+    // ratio = (6 + 110) / (2 + 100) = 116/102 = 1.1373 → 1.14
+    // (Un-clamped would be (20+110)/(2+100) = 130/102 = 1.27 — the outlier is damped.)
+    const result = calibrateDaysPerPoint({
+      levels: LEVELS,
+      samples: [
+        { resourceLevelId: "intermediate", actualEffortPd: 20, estimatedEffortPd: 2 },
+        { resourceLevelId: "intermediate", actualEffortPd: 110, estimatedEffortPd: 100 },
+      ],
+    });
+    expect(result.rows[0]?.avgActualEstRatio).toBe(1.14);
+    expect(result.rows[0]?.samples).toBe(2);
+  });
+});
+
 describe("variance", () => {
   it("interprets actual/estimated ratio", () => {
     const under = calculateVariance({

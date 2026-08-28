@@ -275,7 +275,10 @@ export async function getCalibration(scope?: Prisma.EstimateWhereInput) {
   const [config, estimates] = await Promise.all([
     getActiveConfig(),
     prisma.estimate.findMany({
-      where: { actuals: { isNot: null }, ...scope },
+      // DEC-007 A3 eligibility (representable subset): finalised = status COMPLETED with an
+      // actuals row present. Cancelled / descoped / re-baselined exclusions are NOT enforced
+      // here — those lifecycle states are not represented in the data model (see DEC-008).
+      where: { status: "COMPLETED", actuals: { isNot: null }, ...scope },
       include: { actuals: true },
     }),
   ]);
@@ -284,10 +287,10 @@ export async function getCalibration(scope?: Prisma.EstimateWhereInput) {
     if (!estimate.actuals) return [];
     // DEC-007 A1: feed RAW effort (not the precomputed ratio) so calibration is effort-weighted.
     // Attribution preserved: combined dev+qa effort filed under the estimate's Dev resource level.
+    // A3 size-floor eligibility + outlier clamping are applied in calibrateDaysPerPoint.
     const result = parseResult(estimate.resultJson);
     if (!result) return [];
     const estimatedEffortPd = (result.adjustedDevEffortPd ?? 0) + (result.adjustedQaEffortPd ?? 0);
-    if (estimatedEffortPd <= 0) return [];
     const actualEffortPd = estimate.actuals.actualDevPd + estimate.actuals.actualQaPd;
     return [
       {
