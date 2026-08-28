@@ -26,8 +26,10 @@ export function AppShell({
   showNotifications?: boolean;
 }) {
   const roleLine = teamName ? `${teamName} · ${roleLabel(user.role)}` : roleLabel(user.role);
+  // Desktop: fix the shell to the viewport so the nav and content panes each
+  // scroll on their own. Mobile keeps normal page flow (min-h-screen).
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen md:h-screen md:min-h-0 md:overflow-hidden">
       <Suspense
         fallback={
           <aside className="hidden w-72 shrink-0 border-r border-[var(--line)] bg-[var(--panel)] md:block" />
@@ -42,9 +44,9 @@ export function AppShell({
           profileSwitcher={<RoleSwitcher options={roleOptions} />}
         />
       </Suspense>
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col md:h-screen md:min-h-0">
         <HeaderBar bell={showNotifications ? <NotificationBell items={notifications} /> : null} />
-        <main className="px-4 py-6 md:px-8">{children}</main>
+        <main className="px-4 py-6 md:px-8 md:min-h-0 md:flex-1 md:overflow-y-auto">{children}</main>
       </div>
     </div>
   );
