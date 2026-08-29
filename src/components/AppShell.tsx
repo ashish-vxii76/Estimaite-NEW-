@@ -40,8 +40,8 @@ export function AppShell({
           matrix={matrix}
           userName={user.name}
           userRole={roleLine}
-          signOut={<SignOutButton />}
-          profileSwitcher={<RoleSwitcher options={roleOptions} />}
+          signOut={() => <SignOutButton />}
+          profileSwitcher={() => <RoleSwitcher options={roleOptions} />}
         />
       </Suspense>
       <div className="flex min-w-0 flex-1 flex-col md:h-screen md:min-h-0">
