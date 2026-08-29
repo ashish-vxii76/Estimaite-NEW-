@@ -193,6 +193,26 @@ model Estimate {
   approvals              Approval[]
   actuals                ActualDelivery?
   auditEvents            AuditEvent[]
+  baselines              EstimateBaseline[]
+}
+
+// DEC-008 L3 (D3/D5): immutable, versioned baseline. v1 committed at APPROVED; calibration
+// compares actuals against the committed baseline snapshot (not live resultJson). Re-baseline (L4)
+// appends a new version and supersedes the prior — every version is preserved, never overwritten.
+// This is NOT EstimateVersion (a generic recompute log).
+model EstimateBaseline {
+  id           String    @id @default(cuid())
+  estimateId   String
+  estimate     Estimate  @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  version      Int
+  snapshot     String    // JSON snapshot of estimation inputs + calculated outputs at commit
+  committedAt  DateTime  @default(now())
+  committedBy  String?
+  supersededAt DateTime?
+  reason       String?   // null for v1 (approval); mandatory for re-baseline versions (L4)
+
+  @@unique([estimateId, version])
+  @@index([estimateId])
 }
 
 model EstimateVersion {

@@ -585,6 +585,17 @@ export async function seedDemoRegister(prisma: PrismaClient) {
         email: approver?.email ?? admin.email,
         userId: approver?.id ?? admin.id,
       });
+      // DEC-008 L3: commit the immutable baseline v1 at approval (seed authors the snapshot).
+      if (result) {
+        await prisma.estimateBaseline.create({
+          data: {
+            estimateId: estimate.id,
+            version: 1,
+            snapshot: JSON.stringify(result),
+            committedBy: approver?.email ?? admin.email,
+          },
+        });
+      }
     }
     if (spec.status === "REJECTED") {
       workflow.push({

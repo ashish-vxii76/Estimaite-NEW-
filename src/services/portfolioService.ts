@@ -277,30 +277,38 @@ export async function getCalibration(scope?: Prisma.EstimateWhereInput) {
   const [config, estimates] = await Promise.all([
     getActiveConfig(),
     prisma.estimate.findMany({
-      // DEC-007 A3 eligibility (representable subset): finalised = status COMPLETED with an
-      // actuals row present. Cancelled / descoped / re-baselined exclusions are NOT enforced
-      // here — those lifecycle states are not represented in the data model (see DEC-008).
+      // Coarse fetch: COMPLETED CRs with actuals. Derived DEC-008 D5 eligibility (descoped,
+      // baseline versions) + DEC-007 A4 window are applied per-row below.
       where: { status: "COMPLETED", actuals: { isNot: null }, ...scope },
-      include: { actuals: true },
+      include: { actuals: true, baselines: true },
     }),
   ]);
 
   const now = new Date();
   const samples = estimates.flatMap((estimate) => {
     if (!estimate.actuals) return [];
-    // DEC-008 D5: derived lifecycle eligibility (status COMPLETED + not descoped; re-baseline
-    // clause added with L4). Excludes cancelled (never COMPLETED) and descoped CRs.
-    if (!isCalibrationLifecycleEligible({ status: estimate.status, descoped: estimate.descoped })) {
+    // DEC-008 D5: derived lifecycle eligibility — COMPLETED, not descoped, and exactly one
+    // committed baseline (i.e. a baseline exists and it was not re-baselined). Excludes cancelled
+    // (never COMPLETED), descoped, un-baselined, and re-baselined CRs.
+    const baselineVersions = estimate.baselines.length;
+    if (
+      !isCalibrationLifecycleEligible({
+        status: estimate.status,
+        descoped: estimate.descoped,
+        baselineVersions,
+      })
+    ) {
       return [];
     }
     // DEC-007 A4: trailing 12-month window on the authoritative finalisedAt (null → excluded).
     if (!isWithinCalibrationWindow(estimate.actuals.finalisedAt, now)) return [];
-    // DEC-007 A1: feed RAW effort (not the precomputed ratio) so calibration is effort-weighted.
-    // Attribution preserved: combined dev+qa effort filed under the estimate's Dev resource level.
-    // A3 size-floor eligibility + outlier clamping are applied in calibrateDaysPerPoint.
-    const result = parseResult(estimate.resultJson);
-    if (!result) return [];
-    const estimatedEffortPd = (result.adjustedDevEffortPd ?? 0) + (result.adjustedQaEffortPd ?? 0);
+    // DEC-008 D3: estimated effort comes from the committed baseline snapshot (the single v1),
+    // never live resultJson. DEC-007 A1: raw effort so aggregation is effort-weighted; attribution
+    // preserved (combined dev+qa under the Dev resource level); A3 size/clamp applied downstream.
+    const baseline = estimate.baselines[0];
+    const snap = parseResult(baseline.snapshot);
+    if (!snap) return [];
+    const estimatedEffortPd = (snap.adjustedDevEffortPd ?? 0) + (snap.adjustedQaEffortPd ?? 0);
     const actualEffortPd = estimate.actuals.actualDevPd + estimate.actuals.actualQaPd;
     return [
       {

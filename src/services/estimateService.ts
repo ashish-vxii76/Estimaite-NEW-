@@ -405,6 +405,21 @@ export async function transitionStatus(
     await tx.approval.create({
       data: { estimateId: id, action, comment, actorEmail: email },
     });
+    // DEC-008 L3 (D3): commit the immutable baseline v1 at APPROVED. Calibration compares actuals
+    // against this snapshot, never live resultJson. Idempotent — only if no baseline exists yet.
+    if (action === "approve") {
+      const existing = await tx.estimateBaseline.count({ where: { estimateId: id } });
+      if (existing === 0) {
+        await tx.estimateBaseline.create({
+          data: {
+            estimateId: id,
+            version: 1,
+            snapshot: estimate.resultJson ?? "{}",
+            committedBy: email,
+          },
+        });
+      }
+    }
     await appendAuditEvent(
       {
         estimateId: id,

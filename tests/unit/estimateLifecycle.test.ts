@@ -63,10 +63,11 @@ describe("calibration lifecycle eligibility (DEC-008 D5: derived)", () => {
     }
   });
 
-  it("re-baseline clause (L4): exactly one committed baseline is eligible; >1 is not", () => {
+  it("baseline clause (L3/L4): exactly one committed baseline is eligible", () => {
     expect(isCalibrationLifecycleEligible({ status: "COMPLETED", baselineVersions: 1 })).toBe(true);
-    expect(isCalibrationLifecycleEligible({ status: "COMPLETED", baselineVersions: 2 })).toBe(false);
-    // absent (pre-L3/L4) → clause not yet enforced
+    expect(isCalibrationLifecycleEligible({ status: "COMPLETED", baselineVersions: 0 })).toBe(false); // un-baselined (L3)
+    expect(isCalibrationLifecycleEligible({ status: "COMPLETED", baselineVersions: 2 })).toBe(false); // re-baselined (L4)
+    // absent (pre-L3 callers) → clause not yet enforced
     expect(isCalibrationLifecycleEligible({ status: "COMPLETED" })).toBe(true);
   });
 });
