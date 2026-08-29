@@ -215,6 +215,22 @@ model EstimateBaseline {
   @@index([estimateId])
 }
 
+// DEC-008 L5 (D8): an immutable record of one applied per-crew calibration. Stores the exact
+// contributing CR sample set so a past run can be FLAGGED "contains subsequently ineligible
+// evidence" if any of those CRs is later cancelled/descoped/re-baselined — the run is never
+// silently recomputed or rewritten; an authorised user may start a NEW run instead.
+model CalibrationRun {
+  id              String   @id @default(cuid())
+  crewId          String
+  configVersionId String
+  appliedAt       DateTime @default(now())
+  appliedBy       String?
+  appliedJson     String   // [{ level, from, to }] applied at the time
+  sampleJson      String   // string[] of contributing estimate ids at the time
+
+  @@index([crewId])
+}
+
 model EstimateVersion {
   id         String   @id @default(cuid())
   estimateId String

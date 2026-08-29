@@ -14,6 +14,7 @@ import type { Prisma } from "@prisma/client";
 import { parseRelease } from "@/lib/releasePeriod";
 import { listCrewBudgets, sumCrewBudgets, visibleCrewIds } from "@/services/orgService";
 import { isCalibrationLifecycleEligible } from "@/lib/estimateLifecycle";
+import { safeJsonParse } from "@/lib/safeJson";
 import type { OrgPath } from "@/lib/orgTypes";
 
 function parseResult(json: string | null): EstimateCalculationResult | null {
@@ -355,7 +356,7 @@ export type CrewCalibrationRow = {
 export async function computeCrewCalibration(
   crewId: string,
   scope?: Prisma.EstimateWhereInput,
-): Promise<{ crewId: string; rows: CrewCalibrationRow[] }> {
+): Promise<{ crewId: string; rows: CrewCalibrationRow[]; sampleEstimateIds: string[] }> {
   const [config, estimates, orgUnits] = await Promise.all([
     getActiveConfig(),
     prisma.estimate.findMany({
@@ -368,6 +369,7 @@ export async function computeCrewCalibration(
   const now = new Date();
 
   type Tagged = {
+    estimateId: string;
     crewId: string;
     ancestors: Set<string>;
     resourceLevelId: string;
@@ -398,6 +400,7 @@ export async function computeCrewCalibration(
     }
     return [
       {
+        estimateId: estimate.id,
         crewId: cId,
         ancestors,
         resourceLevelId: estimate.devResourceLevel,
@@ -422,7 +425,8 @@ export async function computeCrewCalibration(
     );
   };
 
-  const crewRatio = ratioByLevel(eligible.filter((s) => s.crewId === crewId));
+  const crewEligible = eligible.filter((s) => s.crewId === crewId);
+  const crewRatio = ratioByLevel(crewEligible);
   // Ancestor chain nearest → farthest, each aggregated over ALL crews beneath it.
   const chain: string[] = [];
   let cur = parentOf.get(crewId) ?? null;
@@ -451,7 +455,66 @@ export async function computeCrewCalibration(
     };
   });
 
-  return { crewId, rows };
+  return { crewId, rows, sampleEstimateIds: crewEligible.map((s) => s.estimateId) };
+}
+
+/**
+ * DEC-008 L5 (D8): list a crew's applied calibration runs (immutable), each derived-flagged if any
+ * of its contributing CRs has SINCE become ineligible (cancelled / descoped / re-baselined /
+ * no longer COMPLETED). The past run is never recomputed — this only surfaces the flag + affected
+ * CRs so an authorised user can decide to start a NEW run.
+ */
+export async function listCalibrationRuns(crewId?: string) {
+  const runs = await prisma.calibrationRun.findMany({
+    where: crewId ? { crewId } : {},
+    orderBy: { appliedAt: "desc" },
+  });
+  const out = [];
+  for (const run of runs) {
+    const sampleIds = safeParseIds(run.sampleJson);
+    const estimates = await prisma.estimate.findMany({
+      where: { id: { in: sampleIds } },
+      select: { id: true, reference: true, status: true, descoped: true, _count: { select: { baselines: true } } },
+    });
+    const affected = estimates
+      .filter(
+        (e) =>
+          !isCalibrationLifecycleEligible({
+            status: e.status,
+            descoped: e.descoped,
+            baselineVersions: e._count.baselines,
+          }),
+      )
+      .map((e) => ({
+        id: e.id,
+        reference: e.reference,
+        reason:
+          e.status === "CANCELLED"
+            ? "cancelled"
+            : e.descoped
+              ? "descoped"
+              : e._count.baselines !== 1
+                ? "re-baselined"
+                : `status ${e.status}`,
+      }));
+    out.push({
+      id: run.id,
+      crewId: run.crewId,
+      configVersionId: run.configVersionId,
+      appliedAt: run.appliedAt,
+      appliedBy: run.appliedBy,
+      applied: safeJsonParse<Array<{ level: string; from: number; to: number }>>(run.appliedJson, []),
+      sampleCount: sampleIds.length,
+      containsIneligibleEvidence: affected.length > 0,
+      affected,
+    });
+  }
+  return out;
+}
+
+function safeParseIds(json: string): string[] {
+  const parsed = safeJsonParse<unknown>(json, []);
+  return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === "string") : [];
 }
 
 export function releaseYearFromEstimate(release: string | null | undefined): number | null {

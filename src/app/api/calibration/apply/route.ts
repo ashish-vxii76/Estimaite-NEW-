@@ -11,6 +11,7 @@ import type { Prisma } from "@prisma/client";
 type ScopeUser = {
   id: string;
   role: string;
+  email?: string | null;
   teamId?: string | null;
   seatOrgUnitId?: string | null;
   activeGrantId?: string | null;
@@ -91,19 +92,27 @@ export async function POST(request: Request) {
 
   overrides[crewId] = crewMap;
   const next = await patchActiveConfig({ crewDaysPerPoint: overrides }, user.id);
+  const appliedLevels = applied.map((r) => ({
+    level: r.id,
+    from: r.currentDaysPerPoint,
+    to: r.suggestedDaysPerPoint,
+  }));
+  // DEC-008 L5 (D8): record the immutable run + its exact contributing sample set, so it can later
+  // be flagged if any of those CRs becomes ineligible — the run is never recomputed.
+  await prisma.calibrationRun.create({
+    data: {
+      crewId,
+      configVersionId: next.versionId,
+      appliedBy: user.email ?? user.id,
+      appliedJson: JSON.stringify(appliedLevels),
+      sampleJson: JSON.stringify(crewCal.sampleEstimateIds),
+    },
+  });
   await appendAuditEvent({
     userId: user.id,
     action: "CALIBRATION_APPLIED",
     previousValue: config.versionId,
-    newValue: JSON.stringify({
-      crewId,
-      override,
-      applied: applied.map((r) => ({
-        level: r.id,
-        from: r.currentDaysPerPoint,
-        to: r.suggestedDaysPerPoint,
-      })),
-    }),
+    newValue: JSON.stringify({ crewId, override, applied: appliedLevels }),
   });
 
   return NextResponse.json({ config: next, crewId, applied, blockedByGuardrail });
