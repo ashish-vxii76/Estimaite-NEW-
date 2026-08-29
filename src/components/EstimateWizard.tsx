@@ -101,6 +101,7 @@ export function EstimateWizard({
     canOverride: true,
     canEditActuals: true,
     canWhatIf: true,
+    canCancel: false,
     teamLocked: false,
   },
 }: {
@@ -126,6 +127,7 @@ export function EstimateWizard({
     canOverride: boolean;
     canEditActuals?: boolean;
     canWhatIf?: boolean;
+    canCancel?: boolean;
     teamLocked: boolean;
   };
 }) {
@@ -418,14 +420,14 @@ export function EstimateWizard({
     }
   }
 
-  async function workflow(path: string) {
+  async function workflow(path: string, body: Record<string, unknown> = {}) {
     if (!id) return;
     setBusy(true);
     try {
       const res = await fetch(`/api/estimates/${id}/${path}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Action failed");
@@ -440,6 +442,14 @@ export function EstimateWizard({
     } finally {
       setBusy(false);
     }
+  }
+
+  // DEC-008 L1: cancel a CR with a mandatory reason. Governed, terminal; preserves all history.
+  const CANCELLABLE = ["DRAFT", "RETURNED", "READY_FOR_REVIEW", "REVIEWED", "APPROVED"];
+  async function cancelCr() {
+    const reason = window.prompt("Reason for cancelling this CR (required):", "")?.trim();
+    if (!reason) return;
+    await workflow("cancel", { comment: reason });
   }
 
   async function override() {
@@ -1175,6 +1185,16 @@ export function EstimateWizard({
                         </button>
                       </>
                     ) : null}
+                    {capabilities.canCancel && CANCELLABLE.includes(status) ? (
+                      <button
+                        className="rounded-lg border border-[var(--line)] px-3 py-2 text-sm font-medium text-[var(--danger)]"
+                        onClick={cancelCr}
+                        disabled={busy}
+                        type="button"
+                      >
+                        Cancel CR
+                      </button>
+                    ) : null}
                     {finalUnlocked ? (
                       <button type="button" className="btn-primary" onClick={() => goTo("final")}>
                         Continue to final review
@@ -1475,6 +1495,16 @@ export function EstimateWizard({
               ) : (
                 <p className="text-sm text-[var(--muted)]">Status: {status}</p>
               )}
+              {capabilities.canCancel && CANCELLABLE.includes(status) ? (
+                <button
+                  type="button"
+                  className="rounded-lg border border-[var(--line)] px-3 py-2 text-sm font-medium text-[var(--danger)]"
+                  disabled={busy}
+                  onClick={cancelCr}
+                >
+                  Cancel CR
+                </button>
+              ) : null}
             </div>
           </section>
         )}

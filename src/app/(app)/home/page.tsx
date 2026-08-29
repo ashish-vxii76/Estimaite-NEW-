@@ -73,6 +73,7 @@ export default async function HomePage({
   const statusLabels: Record<string, string> = {
     DRAFT: "Draft", RETURNED: "Returned", READY_FOR_REVIEW: "Ready for review",
     REVIEWED: "Reviewed", APPROVED: "Approved", REJECTED: "Rejected", COMPLETED: "Completed",
+    CANCELLED: "Cancelled",
   };
   const byStatus = byStatusRows.map((r) => ({ name: statusLabels[r.status] ?? r.status, count: r._count._all }));
   const byFlag = byFlagRows.map((r) => ({ name: r.deliveryFlag, count: r._count._all })).sort((a, b) => b.count - a.count);

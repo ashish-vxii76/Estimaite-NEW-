@@ -96,6 +96,7 @@ export default async function EstimateDetailPage({
           canOverride: canEdit,
           canEditActuals: can(session?.user.role, "estimates.actuals", "RW"),
           canWhatIf: can(session?.user.role, "whatIf", "RW"),
+          canCancel: can(session?.user.role, "estimates.cancel", "RW"),
           teamLocked: session?.user.role !== "ADMINISTRATOR",
         }}
         initial={{

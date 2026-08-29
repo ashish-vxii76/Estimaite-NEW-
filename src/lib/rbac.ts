@@ -25,6 +25,7 @@ export const FEATURES = [
   { id: "estimates.review", group: "Review & approval", label: "Mark reviewed" },
   { id: "estimates.approve", group: "Review & approval", label: "Approve / reject" },
   { id: "estimates.reopen", group: "Review & approval", label: "Reopen / unlock approved" },
+  { id: "estimates.cancel", group: "Estimate lifecycle", label: "Cancel CR (governed, mandatory reason)" },
   { id: "estimates.archive", group: "Estimate lifecycle", label: "Archive / soft-delete" },
   { id: "estimates.delete", group: "Estimate lifecycle", label: "Delete (hard)" },
   { id: "estimates.export", group: "Estimate lifecycle", label: "Export estimate / data" },
@@ -137,6 +138,11 @@ export const DEFAULT_RBAC: Record<FeatureId, Record<AppRole, Access>> = {
   "estimates.reopen": cell({
     ADMINISTRATOR: RW,
     APPROVER: RW,
+  }),
+  // DEC-008 D6: conservative default — governance roles only. Admin reconfigures via the matrix.
+  "estimates.cancel": cell({
+    ADMINISTRATOR: RW,
+    DELIVERY_LEAD: RW,
   }),
   "estimates.archive": cell({
     ADMINISTRATOR: RW,

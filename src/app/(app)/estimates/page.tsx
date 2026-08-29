@@ -20,6 +20,7 @@ const STATUS_OPTIONS = [
   { value: "REVIEWED", label: "Reviewed" },
   { value: "APPROVED", label: "Approved" },
   { value: "COMPLETED", label: "Completed" },
+  { value: "CANCELLED", label: "Cancelled" },
 ];
 
 export default async function EstimatesPage({

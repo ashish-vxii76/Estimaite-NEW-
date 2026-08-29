@@ -10,6 +10,7 @@ import {
 import { getActiveConfig } from "@/services/configService";
 import { resolveOrgPathForTeam } from "@/services/orgService";
 import { appendAuditEvent } from "@/services/auditService";
+import { STATUS_TRANSITIONS, REASON_REQUIRED, type TransitionAction } from "@/lib/estimateLifecycle";
 import { safeJsonParse } from "@/lib/safeJson";
 
 const scoreSchema = z.object({
@@ -362,19 +363,18 @@ export async function calculateAndPersist(id: string, userId: string) {
 
 export async function transitionStatus(
   id: string,
-  action: "submit" | "review" | "approve" | "reject" | "return",
+  action: TransitionAction,
   userId: string,
   email: string,
   comment = "",
 ) {
-  const map: Record<string, { from: string[]; to: string }> = {
-    submit: { from: ["DRAFT", "RETURNED"], to: "READY_FOR_REVIEW" },
-    review: { from: ["READY_FOR_REVIEW"], to: "REVIEWED" },
-    approve: { from: ["REVIEWED", "READY_FOR_REVIEW"], to: "APPROVED" },
-    reject: { from: ["READY_FOR_REVIEW", "REVIEWED"], to: "REJECTED" },
-    return: { from: ["READY_FOR_REVIEW", "REVIEWED"], to: "RETURNED" },
-  };
-  const spec = map[action];
+  // Single source of truth for the state machine (pure module, unit-tested).
+  const spec = STATUS_TRANSITIONS[action];
+
+  // DEC-008 L1: reason-required actions (cancel) need a mandatory reason (captured in audit + approval).
+  if (REASON_REQUIRED.has(action) && !comment.trim()) {
+    throw new Error(`${action} requires a reason`);
+  }
 
   // Governance #3: the read (status + segregation-of-duties check) and the write
   // must be ATOMIC. Doing them in one transaction serializes concurrent transitions,
@@ -406,7 +406,14 @@ export async function transitionStatus(
       data: { estimateId: id, action, comment, actorEmail: email },
     });
     await appendAuditEvent(
-      { estimateId: id, userId, action: `ESTIMATE_${action.toUpperCase()}`, previousValue: estimate.status, newValue: spec.to },
+      {
+        estimateId: id,
+        userId,
+        // DEC-008 L1/D7: dedicated immutable action type + reason for cancellation.
+        action: action === "cancel" ? "ESTIMATE_CANCELLED" : `ESTIMATE_${action.toUpperCase()}`,
+        previousValue: estimate.status,
+        newValue: action === "cancel" ? `CANCELLED — ${comment.trim()}` : spec.to,
+      },
       tx,
     );
     return updated;
