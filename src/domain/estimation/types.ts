@@ -219,6 +219,12 @@ export type EstimationConfig = {
   readinessCriteria: ReadinessCriterionConfig[];
   /** DoR score at/above this (and below full Yes) → Estimate with Assumptions. */
   readinessAssumptionsMin: number;
+  /**
+   * DEC-007 A5: per-crew calibrated Days/Point overrides — { crewId: { resourceLevelId: dpp } }.
+   * A crew's estimate uses its override for a level if present, else the global resourceLevels
+   * default. Empty by default → every crew behaves exactly as today (golden-safe).
+   */
+  crewDaysPerPoint: Record<string, Record<string, number>>;
 };
 
 export type ComplexityScoreInput = {

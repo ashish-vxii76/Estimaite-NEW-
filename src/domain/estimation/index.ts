@@ -13,6 +13,7 @@ export * from "./aiEconomics";
 export * from "./governance";
 export * from "./confidence";
 export * from "./calibration";
+export * from "./crewCalibration";
 export * from "./whatIf";
 export * from "./readiness";
 export * from "./portfolio";

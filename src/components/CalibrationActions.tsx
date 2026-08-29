@@ -23,12 +23,22 @@ export function CalibrationActions({
       body: JSON.stringify({ team: team || undefined }),
     });
     const data = await res.json();
-    setMessage(
-      res.ok
-        ? `Published configuration ${data.config.versionId}. Days/Point updated for sampled levels only.`
-        : data.error ?? "Apply failed",
-    );
-    if (res.ok) router.refresh();
+    if (!res.ok) {
+      setMessage(data.error ?? "Apply failed");
+      return;
+    }
+    // DEC-007 A5: per-crew apply. `config` present only when at least one level was applied.
+    if (data.config) {
+      const blocked = data.blockedByGuardrail?.length
+        ? ` ${data.blockedByGuardrail.length} level(s) exceeded the ±20% guardrail and were held.`
+        : "";
+      setMessage(
+        `Published configuration ${data.config.versionId} — crew Days/Point updated for ${data.applied.length} level(s).${blocked}`,
+      );
+      router.refresh();
+    } else {
+      setMessage(data.message ?? "Nothing applied.");
+    }
   }
 
   return (
@@ -41,9 +51,9 @@ export function CalibrationActions({
         Approve and apply suggested Days/Point
       </button>
       <p className="text-xs text-[var(--muted)]">
-        Suggestions never apply themselves. This publishes a new configuration version after
-        administrator approval using samples from your locked org path
-        {team ? " and selected Pod" : ""}.
+        Suggestions never apply themselves. This publishes a new configuration version writing a
+        per-crew Days/Point override (shrunk toward org parents), moves capped at ±20% per apply
+        unless authorised{team ? " · scoped to the selected Pod's crew" : ""}.
       </p>
       {message ? <p className="text-sm text-[var(--ok)]">{message}</p> : null}
     </div>

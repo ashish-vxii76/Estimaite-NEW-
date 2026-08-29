@@ -4,6 +4,7 @@ import {
   calculateEstimate,
   calculateVariance,
   hydrateConfig,
+  resolveCrewConfig,
   simulateCostRange,
   type EstimateCalculationInput,
 } from "@/domain/estimation";
@@ -221,8 +222,11 @@ export async function calculateAndPersist(id: string, userId: string) {
   const configRow = await prisma.configurationVersion.findUnique({
     where: { id: estimate.configurationVersionId },
   });
-  const config = hydrateConfig(
-    configRow ? JSON.parse(configRow.payload) : await getActiveConfig(),
+  // DEC-007 A5: resolve the crew's calibrated Days/Point over the global defaults. With no
+  // per-crew override (the default), this returns the config unchanged — identical to today.
+  const config = resolveCrewConfig(
+    hydrateConfig(configRow ? JSON.parse(configRow.payload) : await getActiveConfig()),
+    estimate.team?.crewId ?? null,
   );
 
   // Prefer the pinned snapshot taken at creation; fall back to live for legacy estimates.

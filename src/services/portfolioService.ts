@@ -3,8 +3,11 @@ import { getActiveConfig } from "@/services/configService";
 import {
   budgetStatus,
   calibrateDaysPerPoint,
+  calibrateWithShrinkage,
   isWithinCalibrationWindow,
+  withinCalibrationGuardrail,
   rollupPortfolio,
+  type CalibrationCell,
   type EstimateCalculationResult,
 } from "@/domain/estimation";
 import type { Prisma } from "@prisma/client";
@@ -329,6 +332,126 @@ export async function getCalibration(scope?: Prisma.EstimateWhereInput) {
     sampleCount: samples.length,
     configVersionId: config.versionId,
   };
+}
+
+export type CrewCalibrationRow = {
+  id: string;
+  name: string;
+  currentDaysPerPoint: number;
+  samples: number;
+  ratioUsed: number;
+  suggestedDaysPerPoint: number;
+  inherited: boolean;
+  withinGuardrail: boolean;
+};
+
+/**
+ * DEC-007 A5 (+A2 shrinkage adapter): compute a crew's suggested Days/Point per resource level,
+ * shrinking toward the crew's real org ancestors (stream → sub-division → division → company),
+ * inheriting the nearest qualifying ancestor when the crew is thin, and flagging whether each
+ * suggestion is within the ±20% Apply guardrail. Eligibility, baseline-sourced effort, window and
+ * clamping mirror getCalibration. Uses the same effort-weighted, clamped ratio for every level.
+ */
+export async function computeCrewCalibration(
+  crewId: string,
+  scope?: Prisma.EstimateWhereInput,
+): Promise<{ crewId: string; rows: CrewCalibrationRow[] }> {
+  const [config, estimates, orgUnits] = await Promise.all([
+    getActiveConfig(),
+    prisma.estimate.findMany({
+      where: { status: "COMPLETED", actuals: { isNot: null }, ...scope },
+      include: { actuals: true, baselines: true, team: true },
+    }),
+    prisma.orgUnit.findMany({ select: { id: true, parentId: true } }),
+  ]);
+  const parentOf = new Map(orgUnits.map((u) => [u.id, u.parentId] as const));
+  const now = new Date();
+
+  type Tagged = {
+    crewId: string;
+    ancestors: Set<string>;
+    resourceLevelId: string;
+    actualEffortPd: number;
+    estimatedEffortPd: number;
+  };
+  const eligible: Tagged[] = estimates.flatMap((estimate) => {
+    if (!estimate.actuals) return [];
+    if (
+      !isCalibrationLifecycleEligible({
+        status: estimate.status,
+        descoped: estimate.descoped,
+        baselineVersions: estimate.baselines.length,
+      })
+    ) {
+      return [];
+    }
+    if (!isWithinCalibrationWindow(estimate.actuals.finalisedAt, now)) return [];
+    const snap = parseResult(estimate.baselines[0].snapshot);
+    if (!snap) return [];
+    const cId = estimate.team?.crewId;
+    if (!cId) return [];
+    const ancestors = new Set<string>();
+    let cur = parentOf.get(cId) ?? null;
+    while (cur) {
+      ancestors.add(cur);
+      cur = parentOf.get(cur) ?? null;
+    }
+    return [
+      {
+        crewId: cId,
+        ancestors,
+        resourceLevelId: estimate.devResourceLevel,
+        actualEffortPd: estimate.actuals.actualDevPd + estimate.actuals.actualQaPd,
+        estimatedEffortPd: (snap.adjustedDevEffortPd ?? 0) + (snap.adjustedQaEffortPd ?? 0),
+      },
+    ];
+  });
+
+  // Effort-weighted, clamped ratio + n per level for an arbitrary sample subset.
+  const ratioByLevel = (subset: Tagged[]) => {
+    const cal = calibrateDaysPerPoint({
+      levels: config.resourceLevels,
+      samples: subset.map((s) => ({
+        resourceLevelId: s.resourceLevelId,
+        actualEffortPd: s.actualEffortPd,
+        estimatedEffortPd: s.estimatedEffortPd,
+      })),
+    });
+    return new Map<string, CalibrationCell>(
+      cal.rows.map((r) => [r.id, { ratio: r.avgActualEstRatio, n: r.samples }]),
+    );
+  };
+
+  const crewRatio = ratioByLevel(eligible.filter((s) => s.crewId === crewId));
+  // Ancestor chain nearest → farthest, each aggregated over ALL crews beneath it.
+  const chain: string[] = [];
+  let cur = parentOf.get(crewId) ?? null;
+  while (cur) {
+    chain.push(cur);
+    cur = parentOf.get(cur) ?? null;
+  }
+  const ancestorRatios = chain.map((unitId) =>
+    ratioByLevel(eligible.filter((s) => s.ancestors.has(unitId))),
+  );
+
+  const rows: CrewCalibrationRow[] = config.resourceLevels.map((level) => {
+    const cell = crewRatio.get(level.id) ?? { ratio: null, n: 0 };
+    const ancestors = ancestorRatios.map((m) => m.get(level.id) ?? { ratio: null, n: 0 });
+    const { ratioUsed, inherited } = calibrateWithShrinkage(cell, ancestors);
+    const suggested = Math.round(level.daysPerPoint * ratioUsed * 100) / 100;
+    return {
+      id: level.id,
+      name: level.name,
+      currentDaysPerPoint: level.daysPerPoint,
+      samples: cell.n,
+      ratioUsed,
+      suggestedDaysPerPoint: suggested,
+      inherited,
+      withinGuardrail: withinCalibrationGuardrail(level.daysPerPoint, suggested),
+    };
+  });
+
+  return { crewId, rows };
 }
 
 export function releaseYearFromEstimate(release: string | null | undefined): number | null {

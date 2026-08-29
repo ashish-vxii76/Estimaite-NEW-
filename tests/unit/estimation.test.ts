@@ -476,6 +476,37 @@ describe("calibration recency window (DEC-007 A4: W=12mo, basis = finalisedAt)",
   });
 });
 
+describe("per-crew calibration resolution + guardrail (DEC-007 A5)", () => {
+  it("no override (or null crew) returns the config unchanged — golden-safe", async () => {
+    const { resolveCrewConfig } = await import("@/domain/estimation/crewCalibration");
+    const { DEFAULT_CONFIG } = await import("@/domain/estimation");
+    expect(resolveCrewConfig(DEFAULT_CONFIG, null)).toBe(DEFAULT_CONFIG);
+    expect(resolveCrewConfig(DEFAULT_CONFIG, "crew-with-no-override")).toBe(DEFAULT_CONFIG);
+  });
+
+  it("overlays only the crew's overridden levels; others keep the global default", async () => {
+    const { resolveCrewConfig } = await import("@/domain/estimation/crewCalibration");
+    const { DEFAULT_CONFIG } = await import("@/domain/estimation");
+    const cfg = { ...DEFAULT_CONFIG, crewDaysPerPoint: { crewX: { senior: 1.5 } } };
+    const resolved = resolveCrewConfig(cfg, "crewX");
+    const senior = resolved.resourceLevels.find((l) => l.id === "senior");
+    const beginner = resolved.resourceLevels.find((l) => l.id === "beginner");
+    expect(senior?.daysPerPoint).toBe(1.5); // overridden
+    expect(beginner?.daysPerPoint).toBe(
+      DEFAULT_CONFIG.resourceLevels.find((l) => l.id === "beginner")?.daysPerPoint,
+    ); // untouched
+  });
+
+  it("guardrail: within ±20% passes; beyond fails; boundary inclusive", async () => {
+    const { withinCalibrationGuardrail } = await import("@/domain/estimation/crewCalibration");
+    expect(withinCalibrationGuardrail(2.0, 2.2)).toBe(true); // +10%
+    expect(withinCalibrationGuardrail(2.0, 2.4)).toBe(true); // +20% boundary
+    expect(withinCalibrationGuardrail(2.0, 1.6)).toBe(true); // -20% boundary
+    expect(withinCalibrationGuardrail(2.0, 2.5)).toBe(false); // +25%
+    expect(withinCalibrationGuardrail(2.0, 1.4)).toBe(false); // -30%
+  });
+});
+
 describe("variance", () => {
   it("interprets actual/estimated ratio", () => {
     const under = calculateVariance({
