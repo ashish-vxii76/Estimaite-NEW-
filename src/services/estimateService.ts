@@ -420,6 +420,36 @@ export async function transitionStatus(
   });
 }
 
+/**
+ * DEC-008 L2 (D2): governed whole-CR descoping. Orthogonal to status — a descoped CR keeps its
+ * status, baseline, versions, actuals and audit; it is only excluded from Days/Point calibration.
+ * Mandatory reason; immutable ESTIMATE_DESCOPED audit (actor + timestamp + reason).
+ */
+export async function descopeEstimate(id: string, reason: string, userId: string, email: string) {
+  if (!reason.trim()) throw new Error("Descoping requires a reason");
+  return prisma.$transaction(async (tx) => {
+    const estimate = await tx.estimate.findUnique({ where: { id } });
+    if (!estimate) return null;
+    if (estimate.status === "CANCELLED") throw new Error("Cannot descope a cancelled CR");
+    if (estimate.descoped) throw new Error("This CR is already descoped");
+    const updated = await tx.estimate.update({ where: { id }, data: { descoped: true } });
+    await tx.approval.create({
+      data: { estimateId: id, action: "descope", comment: reason, actorEmail: email },
+    });
+    await appendAuditEvent(
+      {
+        estimateId: id,
+        userId,
+        action: "ESTIMATE_DESCOPED",
+        previousValue: `descoped=false status=${estimate.status}`,
+        newValue: `descoped=true — ${reason.trim()}`,
+      },
+      tx,
+    );
+    return updated;
+  });
+}
+
 export async function applyOverride(
   id: string,
   payload: { overrideSp: number; reason: string; requestedBy: string },

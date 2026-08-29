@@ -24,3 +24,23 @@ export const REASON_REQUIRED: ReadonlySet<TransitionAction> = new Set(["cancel"]
 export function canTransition(action: TransitionAction, from: string): boolean {
   return STATUS_TRANSITIONS[action].from.includes(from);
 }
+
+/**
+ * DEC-008 D5: calibration eligibility is DERIVED from governed facts (single source of truth,
+ * no drift-prone flag). Lifecycle gate (combined with the DEC-007 A3/A4 predicate elsewhere):
+ *   eligible ⟺ status = COMPLETED
+ *            AND descoped = false                       (L2/D2)
+ *            AND not re-baselined after commit          (L4/D4: exactly one committed baseline)
+ * `baselineVersions` is optional until the baseline model exists (L3/L4); when absent the
+ * re-baseline clause is not yet enforced.
+ */
+export function isCalibrationLifecycleEligible(cr: {
+  status: string;
+  descoped?: boolean;
+  baselineVersions?: number;
+}): boolean {
+  if (cr.status !== "COMPLETED") return false;
+  if (cr.descoped) return false;
+  if (cr.baselineVersions != null && cr.baselineVersions !== 1) return false;
+  return true;
+}

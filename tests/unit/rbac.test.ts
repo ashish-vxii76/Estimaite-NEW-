@@ -83,6 +83,7 @@ const PDF: Record<FeatureId, Partial<Record<AppRole, Access>>> = {
   "estimates.approve": { ADMINISTRATOR: "RW", APPROVER: "RW" },
   "estimates.reopen": { ADMINISTRATOR: "RW", APPROVER: "RW" },
   "estimates.cancel": { ADMINISTRATOR: "RW", DELIVERY_LEAD: "RW" }, // DEC-008 D6
+  "estimates.descope": { ADMINISTRATOR: "RW", DELIVERY_LEAD: "RW" }, // DEC-008 D6
   "estimates.archive": { ADMINISTRATOR: "RW", ESTIMATOR: "RW", DELIVERY_LEAD: "RW" },
   "estimates.delete": { ADMINISTRATOR: "RW" },
   "estimates.export": { ADMINISTRATOR: "RW", DELIVERY_LEAD: "RW", FINANCE: "RW" },

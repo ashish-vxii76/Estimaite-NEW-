@@ -10,6 +10,7 @@ import {
 import type { Prisma } from "@prisma/client";
 import { parseRelease } from "@/lib/releasePeriod";
 import { listCrewBudgets, sumCrewBudgets, visibleCrewIds } from "@/services/orgService";
+import { isCalibrationLifecycleEligible } from "@/lib/estimateLifecycle";
 import type { OrgPath } from "@/lib/orgTypes";
 
 function parseResult(json: string | null): EstimateCalculationResult | null {
@@ -287,6 +288,11 @@ export async function getCalibration(scope?: Prisma.EstimateWhereInput) {
   const now = new Date();
   const samples = estimates.flatMap((estimate) => {
     if (!estimate.actuals) return [];
+    // DEC-008 D5: derived lifecycle eligibility (status COMPLETED + not descoped; re-baseline
+    // clause added with L4). Excludes cancelled (never COMPLETED) and descoped CRs.
+    if (!isCalibrationLifecycleEligible({ status: estimate.status, descoped: estimate.descoped })) {
+      return [];
+    }
     // DEC-007 A4: trailing 12-month window on the authoritative finalisedAt (null → excluded).
     if (!isWithinCalibrationWindow(estimate.actuals.finalisedAt, now)) return [];
     // DEC-007 A1: feed RAW effort (not the precomputed ratio) so calibration is effort-weighted.

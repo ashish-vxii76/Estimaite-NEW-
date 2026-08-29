@@ -3,6 +3,7 @@ import {
   STATUS_TRANSITIONS,
   REASON_REQUIRED,
   canTransition,
+  isCalibrationLifecycleEligible,
   type TransitionAction,
 } from "@/lib/estimateLifecycle";
 
@@ -43,5 +44,29 @@ describe("estimate lifecycle — cancel transition (DEC-008 L1)", () => {
     expect(canTransition("reject", "READY_FOR_REVIEW")).toBe(true);
     expect(canTransition("review", "APPROVED")).toBe(false);
     expect(canTransition("submit", "COMPLETED")).toBe(false);
+  });
+});
+
+describe("calibration lifecycle eligibility (DEC-008 D5: derived)", () => {
+  it("eligible: COMPLETED, not descoped", () => {
+    expect(isCalibrationLifecycleEligible({ status: "COMPLETED", descoped: false })).toBe(true);
+    expect(isCalibrationLifecycleEligible({ status: "COMPLETED" })).toBe(true);
+  });
+
+  it("ineligible: descoped (L2/D2)", () => {
+    expect(isCalibrationLifecycleEligible({ status: "COMPLETED", descoped: true })).toBe(false);
+  });
+
+  it("ineligible: not COMPLETED (cancelled, approved, etc.)", () => {
+    for (const status of ["DRAFT", "APPROVED", "REJECTED", "CANCELLED"]) {
+      expect(isCalibrationLifecycleEligible({ status })).toBe(false);
+    }
+  });
+
+  it("re-baseline clause (L4): exactly one committed baseline is eligible; >1 is not", () => {
+    expect(isCalibrationLifecycleEligible({ status: "COMPLETED", baselineVersions: 1 })).toBe(true);
+    expect(isCalibrationLifecycleEligible({ status: "COMPLETED", baselineVersions: 2 })).toBe(false);
+    // absent (pre-L3/L4) → clause not yet enforced
+    expect(isCalibrationLifecycleEligible({ status: "COMPLETED" })).toBe(true);
   });
 });

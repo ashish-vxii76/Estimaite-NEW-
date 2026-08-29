@@ -91,6 +91,7 @@ export function EstimateWizard({
   resourceLevels = DEFAULT_CONFIG.resourceLevels,
   actuals = null,
   estimateStatus = "DRAFT",
+  descoped = false,
   scenarioTeams = [],
   savedScenario = null,
   capabilities = {
@@ -102,6 +103,7 @@ export function EstimateWizard({
     canEditActuals: true,
     canWhatIf: true,
     canCancel: false,
+    canDescope: false,
     teamLocked: false,
   },
 }: {
@@ -117,6 +119,7 @@ export function EstimateWizard({
   resourceLevels?: ResourceLevelConfig[];
   actuals?: ActualsPayload;
   estimateStatus?: string;
+  descoped?: boolean;
   scenarioTeams?: ScenarioTeam[];
   savedScenario?: SavedScenarioSnapshot | null;
   capabilities?: {
@@ -128,6 +131,7 @@ export function EstimateWizard({
     canEditActuals?: boolean;
     canWhatIf?: boolean;
     canCancel?: boolean;
+    canDescope?: boolean;
     teamLocked: boolean;
   };
 }) {
@@ -450,6 +454,14 @@ export function EstimateWizard({
     const reason = window.prompt("Reason for cancelling this CR (required):", "")?.trim();
     if (!reason) return;
     await workflow("cancel", { comment: reason });
+  }
+
+  // DEC-008 L2: descope a CR with a mandatory reason. Governed; excludes it from calibration.
+  const canDescopeNow = capabilities.canDescope && status !== "CANCELLED" && !descoped;
+  async function descopeCr() {
+    const reason = window.prompt("Reason for descoping this CR (required):", "")?.trim();
+    if (!reason) return;
+    await workflow("descope", { comment: reason });
   }
 
   async function override() {
@@ -1195,6 +1207,16 @@ export function EstimateWizard({
                         Cancel CR
                       </button>
                     ) : null}
+                    {canDescopeNow ? (
+                      <button
+                        className="rounded-lg border border-[var(--line)] px-3 py-2 text-sm font-medium text-[var(--muted)]"
+                        onClick={descopeCr}
+                        disabled={busy}
+                        type="button"
+                      >
+                        Descope CR
+                      </button>
+                    ) : null}
                     {finalUnlocked ? (
                       <button type="button" className="btn-primary" onClick={() => goTo("final")}>
                         Continue to final review
@@ -1503,6 +1525,16 @@ export function EstimateWizard({
                   onClick={cancelCr}
                 >
                   Cancel CR
+                </button>
+              ) : null}
+              {canDescopeNow ? (
+                <button
+                  type="button"
+                  className="rounded-lg border border-[var(--line)] px-3 py-2 text-sm font-medium text-[var(--muted)]"
+                  disabled={busy}
+                  onClick={descopeCr}
+                >
+                  Descope CR
                 </button>
               ) : null}
             </div>

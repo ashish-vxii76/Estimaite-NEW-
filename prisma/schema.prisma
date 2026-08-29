@@ -144,6 +144,10 @@ model Estimate {
   teamId                 String
   team                   Team      @relation(fields: [teamId], references: [id])
   status                 String    @default("DRAFT")
+  // DEC-008 L2 (D2/D5): governed whole-CR descoping flag. Set by an explicit action, never
+  // inferred; excludes the CR from Days/Point calibration. Boolean for now — architected so a
+  // future scope-delta model (partial vs full, magnitude) can be added without rework.
+  descoped               Boolean   @default(false)
   requester              String
   jiraId                 String?
   project                String?

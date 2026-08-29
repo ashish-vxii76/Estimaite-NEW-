@@ -86,6 +86,7 @@ export default async function EstimateDetailPage({
         resourceLevels={config.resourceLevels}
         actuals={estimate.actuals}
         estimateStatus={estimate.status}
+        descoped={estimate.descoped}
         scenarioTeams={toScenarioTeams(teams, locations)}
         savedScenario={savedScenario}
         capabilities={{
@@ -97,6 +98,7 @@ export default async function EstimateDetailPage({
           canEditActuals: can(session?.user.role, "estimates.actuals", "RW"),
           canWhatIf: can(session?.user.role, "whatIf", "RW"),
           canCancel: can(session?.user.role, "estimates.cancel", "RW"),
+          canDescope: can(session?.user.role, "estimates.descope", "RW"),
           teamLocked: session?.user.role !== "ADMINISTRATOR",
         }}
         initial={{
