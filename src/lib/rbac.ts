@@ -27,6 +27,7 @@ export const FEATURES = [
   { id: "estimates.reopen", group: "Review & approval", label: "Reopen / unlock approved" },
   { id: "estimates.cancel", group: "Estimate lifecycle", label: "Cancel CR (governed, mandatory reason)" },
   { id: "estimates.descope", group: "Estimate lifecycle", label: "Descope CR (governed, mandatory reason)" },
+  { id: "estimates.rebaseline", group: "Estimate lifecycle", label: "Re-baseline CR (governed, mandatory reason)" },
   { id: "estimates.archive", group: "Estimate lifecycle", label: "Archive / soft-delete" },
   { id: "estimates.delete", group: "Estimate lifecycle", label: "Delete (hard)" },
   { id: "estimates.export", group: "Estimate lifecycle", label: "Export estimate / data" },
@@ -148,6 +149,10 @@ export const DEFAULT_RBAC: Record<FeatureId, Record<AppRole, Access>> = {
   "estimates.descope": cell({
     ADMINISTRATOR: RW,
     DELIVERY_LEAD: RW,
+  }),
+  // DEC-008 D6: re-baseline gets the strongest governance — default to ADMINISTRATOR only.
+  "estimates.rebaseline": cell({
+    ADMINISTRATOR: RW,
   }),
   "estimates.archive": cell({
     ADMINISTRATOR: RW,

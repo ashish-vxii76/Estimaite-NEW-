@@ -104,6 +104,7 @@ export function EstimateWizard({
     canWhatIf: true,
     canCancel: false,
     canDescope: false,
+    canRebaseline: false,
     teamLocked: false,
   },
 }: {
@@ -132,6 +133,7 @@ export function EstimateWizard({
     canWhatIf?: boolean;
     canCancel?: boolean;
     canDescope?: boolean;
+    canRebaseline?: boolean;
     teamLocked: boolean;
   };
 }) {
@@ -462,6 +464,16 @@ export function EstimateWizard({
     const reason = window.prompt("Reason for descoping this CR (required):", "")?.trim();
     if (!reason) return;
     await workflow("descope", { comment: reason });
+  }
+
+  // DEC-008 L4: re-baseline (approved CRs have a committed baseline). Governed; makes the CR
+  // calibration-ineligible while preserving the original baseline.
+  const canRebaselineNow =
+    capabilities.canRebaseline && ["APPROVED", "COMPLETED"].includes(status);
+  async function rebaselineCr() {
+    const reason = window.prompt("Reason for re-baselining this CR (required):", "")?.trim();
+    if (!reason) return;
+    await workflow("rebaseline", { comment: reason });
   }
 
   async function override() {
@@ -1217,6 +1229,16 @@ export function EstimateWizard({
                         Descope CR
                       </button>
                     ) : null}
+                    {canRebaselineNow ? (
+                      <button
+                        className="rounded-lg border border-[var(--line)] px-3 py-2 text-sm font-medium text-[var(--muted)]"
+                        onClick={rebaselineCr}
+                        disabled={busy}
+                        type="button"
+                      >
+                        Re-baseline CR
+                      </button>
+                    ) : null}
                     {finalUnlocked ? (
                       <button type="button" className="btn-primary" onClick={() => goTo("final")}>
                         Continue to final review
@@ -1535,6 +1557,16 @@ export function EstimateWizard({
                   onClick={descopeCr}
                 >
                   Descope CR
+                </button>
+              ) : null}
+              {canRebaselineNow ? (
+                <button
+                  type="button"
+                  className="rounded-lg border border-[var(--line)] px-3 py-2 text-sm font-medium text-[var(--muted)]"
+                  disabled={busy}
+                  onClick={rebaselineCr}
+                >
+                  Re-baseline CR
                 </button>
               ) : null}
             </div>

@@ -99,6 +99,7 @@ export default async function EstimateDetailPage({
           canWhatIf: can(session?.user.role, "whatIf", "RW"),
           canCancel: can(session?.user.role, "estimates.cancel", "RW"),
           canDescope: can(session?.user.role, "estimates.descope", "RW"),
+          canRebaseline: can(session?.user.role, "estimates.rebaseline", "RW"),
           teamLocked: session?.user.role !== "ADMINISTRATOR",
         }}
         initial={{

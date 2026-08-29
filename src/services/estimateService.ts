@@ -465,6 +465,56 @@ export async function descopeEstimate(id: string, reason: string, userId: string
   });
 }
 
+/**
+ * DEC-008 L4 (D4): governed re-baselining. Appends a NEW baseline version (superseding the prior),
+ * preserving the original and every version. A re-baselined CR (>1 committed baseline) becomes
+ * calibration-ineligible by derivation (isCalibrationLifecycleEligible). Mandatory reason;
+ * immutable ESTIMATE_REBASELINED audit. Strongest governance (D6).
+ */
+export async function rebaselineEstimate(id: string, reason: string, userId: string, email: string) {
+  if (!reason.trim()) throw new Error("Re-baselining requires a reason");
+  return prisma.$transaction(async (tx) => {
+    const estimate = await tx.estimate.findUnique({ where: { id } });
+    if (!estimate) return null;
+    if (estimate.status === "CANCELLED") throw new Error("Cannot re-baseline a cancelled CR");
+    const baselines = await tx.estimateBaseline.findMany({
+      where: { estimateId: id },
+      orderBy: { version: "desc" },
+    });
+    if (baselines.length === 0) {
+      throw new Error("No committed baseline to re-baseline (approve the CR first)");
+    }
+    const latest = baselines[0];
+    await tx.estimateBaseline.update({
+      where: { id: latest.id },
+      data: { supersededAt: new Date() },
+    });
+    const created = await tx.estimateBaseline.create({
+      data: {
+        estimateId: id,
+        version: latest.version + 1,
+        snapshot: estimate.resultJson ?? "{}",
+        committedBy: email,
+        reason: reason.trim(),
+      },
+    });
+    await tx.approval.create({
+      data: { estimateId: id, action: "rebaseline", comment: reason, actorEmail: email },
+    });
+    await appendAuditEvent(
+      {
+        estimateId: id,
+        userId,
+        action: "ESTIMATE_REBASELINED",
+        previousValue: `baseline v${latest.version}`,
+        newValue: `baseline v${created.version} — ${reason.trim()}`,
+      },
+      tx,
+    );
+    return estimate;
+  });
+}
+
 export async function applyOverride(
   id: string,
   payload: { overrideSp: number; reason: string; requestedBy: string },
