@@ -33,11 +33,11 @@ export function SideNav({
   matrix?: RbacMatrix;
   userName?: string | null;
   userRole?: string | null;
-  // Factories, not elements: the sidebar renders these in two mount points (mobile drawer +
-  // desktop aside), so each call must produce a FRESH element — reusing one instance across both
-  // triggers React's "unique key" warning.
-  signOut: () => React.ReactNode;
-  profileSwitcher?: () => React.ReactNode;
+  // Elements (not functions): AppShell is a Server Component, so only serializable React elements
+  // may cross the boundary. SideNav renders them in one mount point at a time (mobile drawer XOR
+  // desktop aside), so a single instance is safe.
+  signOut: React.ReactNode;
+  profileSwitcher?: React.ReactNode;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -211,15 +211,15 @@ function UserBlock({
 }: {
   name?: string | null;
   role?: string | null;
-  signOut: () => React.ReactNode;
-  profileSwitcher?: () => React.ReactNode;
+  signOut: React.ReactNode;
+  profileSwitcher?: React.ReactNode;
 }) {
   return (
     <div className="mt-6 border-t border-[var(--line)] pt-4 text-xs text-[var(--muted)]">
       <p className="font-medium text-[var(--navy)]">{name}</p>
       <p>{role}</p>
-      {profileSwitcher?.()}
-      {signOut()}
+      {profileSwitcher}
+      {signOut}
     </div>
   );
 }
