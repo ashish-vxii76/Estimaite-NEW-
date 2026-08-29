@@ -221,6 +221,10 @@ magnitude, and this quality flag — not a CI.)
 4. **A3** eligibility + outlier damping — **representable subset only** (COMPLETED + actuals present
    + `min_size_pd` + clamping); cancelled / descoped / re-baselined deferred to **DEC-008**. ✅
 5. **A4** trailing window on authoritative `finalisedAt` + tests. ✅
-6. **A5** per-crew stored/applied params (schema + effort resolution + ±20% guardrail) + tests;
-   **verify Golden Case A/B unchanged**. **BLOCKED on DEC-008** (governance gate). ← next
-7. A6 quality indicator (n / bias / dispersion) + tests.
+6. **A5** per-crew stored/applied params (config `crewDaysPerPoint` + crew effort resolution +
+   per-crew compute with A2 shrinkage + ±20% guardrail, versioned/audited) + tests; Golden Case
+   A/B verified unchanged. ✅ (DEC-008 L1–L5 implemented first — gate cleared.)
+7. **A6** quality indicator — n / bias / dispersion (CV) with the `cv_flag` low-confidence flag; no
+   formal CI + tests. ✅
+
+**All DEC-007 tiers (A1–A6) and the DEC-008 lifecycle (L1–L5) are implemented.**

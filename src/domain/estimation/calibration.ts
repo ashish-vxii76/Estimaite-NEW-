@@ -68,10 +68,19 @@ export type CalibrationRow = {
   id: string;
   name: string;
   currentDaysPerPoint: number;
+  /** Systematic bias — the effort-weighted Actual/Est ratio. */
   avgActualEstRatio: number | null;
   suggestedDaysPerPoint: number | null;
+  /** Sample sufficiency. */
   samples: number;
+  /** DEC-007 A6: dispersion — coefficient of variation of the per-CR clamped ratios (null if <2). */
+  dispersionCv: number | null;
+  /** DEC-007 A6: true when CV > cv_flag — a single multiplier can't fix scatter (low-confidence). */
+  lowConfidence: boolean;
 };
+
+/** DEC-007 A6: dispersion threshold — above this a cell is flagged inconsistent / low-confidence. */
+export const CALIBRATION_CV_FLAG = 0.5;
 
 // ── DEC-007 A3: eligibility (size floor) + per-CR outlier damping ────────────────
 /** Minimum estimated effort (PD) for a CR to be eligible; also guards divide-by-zero. */
@@ -81,6 +90,19 @@ export const CALIBRATION_RATIO_FLOOR = 0.33;
 export const CALIBRATION_RATIO_CAP = 3.0;
 
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
+
+/**
+ * DEC-007 A6: coefficient of variation (population stddev ÷ mean) of a set of per-CR ratios.
+ * Returns null for fewer than 2 samples or a non-positive mean. A high CV means the cell is
+ * inconsistent — bias correction alone can't fix scatter.
+ */
+export function coefficientOfVariation(values: number[]): number | null {
+  if (values.length < 2) return null;
+  const mean = values.reduce((s, v) => s + v, 0) / values.length;
+  if (mean <= 0) return null;
+  const variance = values.reduce((s, v) => s + (v - mean) ** 2, 0) / values.length;
+  return round2(Math.sqrt(variance) / mean);
+}
 
 // ── DEC-007 A4: trailing recency window ──────────────────────────────────────────
 /** Trailing calibration window in months. Recency basis = ActualDelivery.finalisedAt. */
@@ -124,7 +146,7 @@ export function calibrateDaysPerPoint(input: {
   //   ratio(L)        = Σ adjusted_actual ÷ Σ estimated_i
   // With no outliers clamped_ratio == raw_ratio, so this reduces to A1's ratio-of-sums.
   // `avgActualEstRatio` / `overallAvgRatio` retain their names for API/UI stability.
-  const grouped = new Map<string, { actual: number; estimated: number; n: number }>();
+  const grouped = new Map<string, { actual: number; estimated: number; n: number; ratios: number[] }>();
   let totalActual = 0;
   let totalEstimated = 0;
   for (const sample of input.samples) {
@@ -135,10 +157,11 @@ export function calibrateDaysPerPoint(input: {
     const clampedRatio = clamp(rawRatio, CALIBRATION_RATIO_FLOOR, CALIBRATION_RATIO_CAP);
     const adjustedActual = sample.estimatedEffortPd * clampedRatio;
 
-    const g = grouped.get(sample.resourceLevelId) ?? { actual: 0, estimated: 0, n: 0 };
+    const g = grouped.get(sample.resourceLevelId) ?? { actual: 0, estimated: 0, n: 0, ratios: [] };
     g.actual += adjustedActual;
     g.estimated += sample.estimatedEffortPd;
     g.n += 1;
+    g.ratios.push(clampedRatio); // A6: per-CR ratios for the dispersion measure
     grouped.set(sample.resourceLevelId, g);
     totalActual += adjustedActual;
     totalEstimated += sample.estimatedEffortPd;
@@ -150,6 +173,8 @@ export function calibrateDaysPerPoint(input: {
     const avgActualEstRatio = g && g.estimated > 0 ? round2(g.actual / g.estimated) : null;
     const suggestedDaysPerPoint =
       avgActualEstRatio == null ? null : round2(level.daysPerPoint * avgActualEstRatio);
+    // A6: dispersion (coefficient of variation) of the per-CR ratios — separate from bias.
+    const dispersionCv = g ? coefficientOfVariation(g.ratios) : null;
     return {
       id: level.id,
       name: level.name,
@@ -157,6 +182,8 @@ export function calibrateDaysPerPoint(input: {
       avgActualEstRatio,
       suggestedDaysPerPoint,
       samples,
+      dispersionCv,
+      lowConfidence: dispersionCv != null && dispersionCv > CALIBRATION_CV_FLAG,
     };
   });
 

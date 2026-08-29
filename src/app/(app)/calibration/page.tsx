@@ -89,6 +89,7 @@ export default async function CalibrationPage({
               <th>Actual/Est Ratio (effort-weighted)</th>
               <th>Suggested Days/Point</th>
               <th># Samples</th>
+              <th>Consistency</th>
             </tr>
           </thead>
           <tbody>
@@ -105,6 +106,19 @@ export default async function CalibrationPage({
                     : row.suggestedDaysPerPoint.toFixed(2)}
                 </td>
                 <td>{row.samples}</td>
+                <td>
+                  {row.dispersionCv == null ? (
+                    <span className="text-[var(--muted)]">—</span>
+                  ) : row.lowConfidence ? (
+                    <span className="chip-warn rounded px-1.5 py-0.5 text-xs">
+                      CV {row.dispersionCv.toFixed(2)} · low confidence
+                    </span>
+                  ) : (
+                    <span className="chip-ok rounded px-1.5 py-0.5 text-xs">
+                      CV {row.dispersionCv.toFixed(2)}
+                    </span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

@@ -476,6 +476,51 @@ describe("calibration recency window (DEC-007 A4: W=12mo, basis = finalisedAt)",
   });
 });
 
+describe("calibration quality indicator (DEC-007 A6: n / bias / dispersion)", () => {
+  const LEVELS = [{ id: "intermediate", name: "Intermediate", daysPerPoint: 2 }];
+
+  it("consistent samples → low CV, not flagged", async () => {
+    const { calibrateDaysPerPoint } = await import("@/domain/estimation/calibration");
+    const result = calibrateDaysPerPoint({
+      levels: LEVELS,
+      samples: [
+        { resourceLevelId: "intermediate", actualEffortPd: 10.5, estimatedEffortPd: 10 }, // 1.05
+        { resourceLevelId: "intermediate", actualEffortPd: 20, estimatedEffortPd: 20 }, // 1.00
+        { resourceLevelId: "intermediate", actualEffortPd: 9.5, estimatedEffortPd: 10 }, // 0.95
+      ],
+    });
+    const row = result.rows[0]!;
+    expect(row.dispersionCv).not.toBeNull();
+    expect(row.dispersionCv!).toBeLessThan(0.5);
+    expect(row.lowConfidence).toBe(false);
+  });
+
+  it("scattered samples → high CV, flagged low-confidence", async () => {
+    const { calibrateDaysPerPoint } = await import("@/domain/estimation/calibration");
+    const result = calibrateDaysPerPoint({
+      levels: LEVELS,
+      samples: [
+        { resourceLevelId: "intermediate", actualEffortPd: 3, estimatedEffortPd: 10 }, // 0.30 → clamp 0.33
+        { resourceLevelId: "intermediate", actualEffortPd: 30, estimatedEffortPd: 10 }, // 3.0
+        { resourceLevelId: "intermediate", actualEffortPd: 10, estimatedEffortPd: 10 }, // 1.0
+      ],
+    });
+    const row = result.rows[0]!;
+    expect(row.dispersionCv!).toBeGreaterThan(0.5);
+    expect(row.lowConfidence).toBe(true);
+  });
+
+  it("single sample → CV null (dispersion undefined), not flagged", async () => {
+    const { calibrateDaysPerPoint } = await import("@/domain/estimation/calibration");
+    const result = calibrateDaysPerPoint({
+      levels: LEVELS,
+      samples: [{ resourceLevelId: "intermediate", actualEffortPd: 12, estimatedEffortPd: 10 }],
+    });
+    expect(result.rows[0]!.dispersionCv).toBeNull();
+    expect(result.rows[0]!.lowConfidence).toBe(false);
+  });
+});
+
 describe("per-crew calibration resolution + guardrail (DEC-007 A5)", () => {
   it("no override (or null crew) returns the config unchanged — golden-safe", async () => {
     const { resolveCrewConfig } = await import("@/domain/estimation/crewCalibration");
