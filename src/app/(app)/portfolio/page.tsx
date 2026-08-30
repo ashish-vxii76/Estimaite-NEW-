@@ -10,7 +10,7 @@ import { getOrgFilterData } from "@/lib/orgFilter";
 import { getActiveConfig } from "@/services/configService";
 import { yearsFromCatalogue } from "@/lib/releasePeriod";
 import { descendantIds, resolveOrgCurrency } from "@/services/orgService";
-import { OrgScopeFilters } from "@/components/OrgScopeFilters";
+import { ScopeFilterBar } from "@/components/ScopeFilterBar";
 import { RollupCharts } from "@/components/RollupCharts";
 
 const RAG_CLASS: Record<string, string> = {
@@ -107,7 +107,7 @@ export default async function PortfolioPage({
         </div>
       </section>
 
-      <OrgScopeFilters
+      <ScopeFilterBar
         basePath="/portfolio"
         units={orgFilter.units}
         teams={orgFilter.teams}

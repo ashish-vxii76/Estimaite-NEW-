@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { StatusBadge, Release } from "@/components/ui";
-import { OrgScopeFilters } from "@/components/OrgScopeFilters";
+import { ScopeFilterBar } from "@/components/ScopeFilterBar";
 import { formatMoney } from "@/lib/utils";
 import type { EstimateCalculationResult } from "@/domain/estimation/types";
 import { DELIVERY_FLAGS } from "@/domain/estimation/portfolio";
@@ -108,7 +108,7 @@ export default async function EstimatesPage({
         ) : null}
       </div>
 
-      <OrgScopeFilters
+      <ScopeFilterBar
         basePath="/estimates"
         units={orgFilter.units}
         teams={orgFilter.teams}

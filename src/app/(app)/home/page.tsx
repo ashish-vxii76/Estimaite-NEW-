@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { HomeDashboard } from "@/components/HomeDashboard";
-import { OrgScopeFilters } from "@/components/OrgScopeFilters";
+import { ScopeFilterBar } from "@/components/ScopeFilterBar";
 import { HomeActionsPanel } from "@/components/HomeActionsPanel";
 import { can } from "@/lib/access";
 import { fromSession, teamsForUser } from "@/lib/scope";
@@ -128,7 +128,7 @@ export default async function HomePage({
         </p>
       </div>
 
-      <OrgScopeFilters
+      <ScopeFilterBar
         basePath="/home"
         units={orgFilter.units}
         teams={orgFilter.teams}

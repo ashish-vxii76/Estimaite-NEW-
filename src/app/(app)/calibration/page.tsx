@@ -1,6 +1,6 @@
 import { getCalibration, listCalibrationRuns } from "@/services/portfolioService";
 import { CalibrationActions } from "@/components/CalibrationActions";
-import { OrgScopeFilters } from "@/components/OrgScopeFilters";
+import { ScopeFilterBar } from "@/components/ScopeFilterBar";
 import { ExplanationPanel } from "@/components/ui";
 import { auth } from "@/auth";
 import { can } from "@/lib/access";
@@ -52,7 +52,7 @@ export default async function CalibrationPage({
         </p>
       </div>
 
-      <OrgScopeFilters
+      <ScopeFilterBar
         basePath="/calibration"
         units={orgFilter.units}
         teams={orgFilter.teams}

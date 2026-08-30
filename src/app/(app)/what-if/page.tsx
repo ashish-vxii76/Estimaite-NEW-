@@ -1,5 +1,5 @@
 import { WhatIfForm } from "@/components/WhatIfForm";
-import { OrgScopeFilters } from "@/components/OrgScopeFilters";
+import { ScopeFilterBar } from "@/components/ScopeFilterBar";
 import { toScenarioTeams } from "@/lib/scenarioTeams";
 import { auth } from "@/auth";
 import { fromSession, teamsForUser } from "@/lib/scope";
@@ -50,7 +50,7 @@ export default async function WhatIfPage({
         and use Scenarios there when you have a governed pack.
       </p>
 
-      <OrgScopeFilters
+      <ScopeFilterBar
         basePath="/what-if"
         units={orgFilter.units}
         teams={orgFilter.teams}
