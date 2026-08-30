@@ -177,9 +177,18 @@ export function ScopeFilterBar(props: Props) {
 
         {extraFilters.map((f) => {
           const lbl = extraChip(f);
-          return lbl ? (
+          if (!lbl) return null;
+          // Mandatory filters (e.g. budget year) show as a non-removable chip — change via the drawer.
+          return f.required ? (
+            <span
+              key={f.param}
+              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--line)] bg-[var(--panel-2)] px-2.5 py-1 text-xs font-medium text-[var(--muted)]"
+            >
+              {f.label}: {lbl}
+            </span>
+          ) : (
             <Chip key={f.param} label={`${f.label}: ${lbl}`} onRemove={() => navigate({ [f.param]: "" })} />
-          ) : null;
+          );
         })}
 
         {activeCount === 0 && !lockedPath ? (

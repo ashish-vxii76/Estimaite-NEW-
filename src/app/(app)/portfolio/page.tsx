@@ -86,27 +86,6 @@ export default async function PortfolioPage({
         </p>
       </div>
 
-      <section className="card space-y-4 p-5">
-        <div>
-          <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Budget / release year</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {yearOptions.map((y) => (
-              <Link
-                key={y}
-                href={`/portfolio?year=${y}${org ? `&org=${org}` : ""}${team ? `&team=${team}` : ""}`}
-                className={`rounded-lg border px-3 py-2 text-sm text-[var(--navy)] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)] ${
-                  y === year
-                    ? "border-[var(--gold)] bg-[var(--gold-soft)] font-semibold"
-                    : "border-[var(--line)] bg-[var(--panel-2)] font-normal"
-                }`}
-              >
-                {y}
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-
       <ScopeFilterBar
         basePath="/portfolio"
         units={orgFilter.units}
@@ -116,7 +95,15 @@ export default async function PortfolioPage({
         org={org}
         team={team}
         showWorkRelease={false}
-        extraParams={{ year: String(year) }}
+        extraFilters={[
+          {
+            label: "Budget year",
+            param: "year",
+            value: String(year),
+            required: true, // budgets are per-year — always set, changed via the drawer
+            options: yearOptions.map((y) => ({ value: String(y), label: String(y) })),
+          },
+        ]}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

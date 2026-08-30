@@ -16,6 +16,8 @@ export type ExtraFilter = {
   param: string;
   value: string;
   options: { value: string; label: string }[];
+  /** Mandatory filter (e.g. budget year): shown as a non-removable chip, changed only via the drawer. */
+  required?: boolean;
 };
 
 const OPEN =
