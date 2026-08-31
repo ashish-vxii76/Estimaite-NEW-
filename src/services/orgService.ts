@@ -261,7 +261,7 @@ export async function upsertPrimarySeat(input: {
   });
 }
 
-export async function listCrewBudgets(year?: number, crewIds?: string[] | null) {
+export async function listCrewBudgets(year?: number | null, crewIds?: string[] | null) {
   return prisma.crewBudget.findMany({
     where: {
       ...(year != null ? { year } : {}),
@@ -321,7 +321,7 @@ export async function saveCrewBudget(input: {
   return saved;
 }
 
-export async function sumCrewBudgets(year: number, crewIds?: string[] | null) {
+export async function sumCrewBudgets(year?: number | null, crewIds?: string[] | null) {
   const rows = await listCrewBudgets(year, crewIds);
   return rows.reduce((sum, row) => sum + row.amount, 0);
 }

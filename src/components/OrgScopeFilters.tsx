@@ -16,8 +16,11 @@ export type ExtraFilter = {
   param: string;
   value: string;
   options: { value: string; label: string }[];
-  /** Mandatory filter (e.g. budget year): shown as a non-removable chip, changed only via the drawer. */
+  /** Mandatory filter: shown as a non-removable chip, changed only via the drawer. */
   required?: boolean;
+  /** Value the chip's ✕ navigates to (default ""). Also the value at which no chip is shown —
+   *  e.g. budget year uses "all" so removing the year means "all years", not "back to default". */
+  clearValue?: string;
 };
 
 const OPEN =

@@ -37,8 +37,9 @@ function parseOrgPath(json: string | null | undefined): OrgPath | null {
 
 export type PortfolioOptions = {
   scope?: Prisma.EstimateWhereInput;
-  /** Budget year (= release year). Defaults to current calendar year. */
-  year?: number;
+  /** Budget year (= release year). `undefined` → current calendar year; `null` → ALL years (no
+   *  release filter, budgets summed across every year — the whole dataset). */
+  year?: number | null;
   /** Optional crew filter (org roll-up drill-down). */
   crewId?: string | null;
   /** Crews implied by an org-cascade selection (any level). Intersected with visibility. */
@@ -56,8 +57,9 @@ export async function getPortfolio(options: PortfolioOptions | Prisma.EstimateWh
       ? (options as PortfolioOptions)
       : { scope: options as Prisma.EstimateWhereInput };
 
-  const year = opts.year ?? new Date().getFullYear();
-  const yearPrefix = `${year}-`;
+  // `null` = all years (whole dataset); `undefined` = default to the current year.
+  const year = opts.year === null ? null : opts.year ?? new Date().getFullYear();
+  const yearPrefix = year != null ? `${year}-` : null;
 
   let crewIds: string[] | null = null;
   if (opts.user) {
@@ -81,7 +83,7 @@ export async function getPortfolio(options: PortfolioOptions | Prisma.EstimateWh
     ...opts.scope,
     ...teamFilter,
     ...(opts.teamId ? { teamId: opts.teamId } : {}),
-    release: { startsWith: yearPrefix },
+    ...(yearPrefix ? { release: { startsWith: yearPrefix } } : {}),
   };
 
   const [estimates, budgetTotal, budgetRows] = await Promise.all([

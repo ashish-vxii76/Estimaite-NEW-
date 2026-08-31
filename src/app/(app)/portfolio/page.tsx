@@ -44,9 +44,14 @@ export default async function PortfolioPage({
   // if it's configured, else the latest configured year.
   const catalogueYears = yearsFromCatalogue(config.releaseQuarters ?? []).map(Number);
   const calYear = new Date().getFullYear();
-  const year =
-    Number(yearParam) || (catalogueYears.includes(calYear) ? calYear : catalogueYears[0] ?? calYear);
-  const yearOptions = Array.from(new Set([...catalogueYears, year])).sort((a, b) => a - b);
+  const defaultYear = catalogueYears.includes(calYear) ? calYear : catalogueYears[0] ?? calYear;
+  // `year=all` → whole dataset (all years); no/blank param → default year; else the selected year.
+  const allYears = yearParam === "all";
+  const year: number | null = allYears ? null : Number(yearParam) || defaultYear;
+  const yearLabel = year == null ? "All years" : String(year);
+  const yearOptions = Array.from(
+    new Set([...catalogueYears, ...(year != null ? [year] : [])]),
+  ).sort((a, b) => a - b);
 
   // Resolve the org-cascade selection to the crews it implies (budgets live at crew level).
   let selectionCrewIds: string[] | null = null;
@@ -99,15 +104,18 @@ export default async function PortfolioPage({
           {
             label: "Budget year",
             param: "year",
-            value: String(year),
-            required: true, // budgets are per-year — always set, changed via the drawer
-            options: yearOptions.map((y) => ({ value: String(y), label: String(y) })),
+            value: allYears ? "all" : String(year),
+            clearValue: "all", // removing the year chip → all years (whole dataset)
+            options: [
+              { value: "all", label: "All years" },
+              ...yearOptions.map((y) => ({ value: String(y), label: String(y) })),
+            ],
           },
         ]}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Tile label={`Estimates (${year})`} value={String(data.totalEstimates)} />
+        <Tile label={`Estimates (${yearLabel})`} value={String(data.totalEstimates)} />
         <Tile label="Pipeline AI-adjusted (CHF)" value={formatMoney(data.totalAiAdjustedCost, currency)} />
         <Tile label="Pipeline baseline (CHF)" value={formatMoney(data.totalBaselineCost, currency)} />
         <Tile label="Total effort (PD)" value={data.totalEffortPd.toLocaleString()} />
@@ -125,7 +133,7 @@ export default async function PortfolioPage({
             <section className="card space-y-4 p-5">
               <div>
                 <h2 className="font-display text-lg font-semibold text-[var(--navy)]">
-                  Delivery variance · {year}
+                  Delivery variance · {yearLabel}
                 </h2>
                 <p className="text-sm text-[var(--muted)]">
                   Actual vs estimated effort for {dv.sampleCount} completed CR
@@ -184,7 +192,7 @@ export default async function PortfolioPage({
       <section id="budget" className="card scroll-mt-6 space-y-3 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="font-medium text-[var(--navy)]">Crew yearly budgets ({year})</h2>
+            <h2 className="font-medium text-[var(--navy)]">Crew yearly budgets ({yearLabel})</h2>
             <p className="text-sm text-[var(--muted)]">
               Budgets are set per Crew in CHF. Higher org levels roll up as the sum of Crews.
             </p>
@@ -196,7 +204,9 @@ export default async function PortfolioPage({
           ) : null}
         </div>
         {data.crewBudgets.length === 0 ? (
-          <p className="text-sm text-[var(--muted)]">No Crew budgets for {year} yet.</p>
+          <p className="text-sm text-[var(--muted)]">
+            {allYears ? "No Crew budgets yet." : `No Crew budgets for ${year} yet.`}
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[560px] text-sm">
@@ -263,10 +273,10 @@ export default async function PortfolioPage({
 
       <section className="card overflow-x-auto">
         <div className="flex items-center justify-between px-5 py-4">
-          <h2 className="font-medium">CR Register ({year})</h2>
+          <h2 className="font-medium">CR Register ({yearLabel})</h2>
           <div className="flex items-center gap-3">
             <a
-              href={`/api/portfolio/export?year=${year}${org ? `&org=${org}` : ""}${team ? `&team=${team}` : ""}`}
+              href={`/api/portfolio/export?year=${allYears ? "all" : year}${org ? `&org=${org}` : ""}${team ? `&team=${team}` : ""}`}
               download
               className="text-sm font-medium text-[var(--navy)] underline"
             >
@@ -299,7 +309,7 @@ export default async function PortfolioPage({
             {data.register.length === 0 ? (
               <tr>
                 <td className="px-4 py-6 text-[var(--muted)]" colSpan={11}>
-                  No CRs with release year {year} in scope.
+                  {allYears ? "No CRs in scope." : `No CRs with release year ${year} in scope.`}
                 </td>
               </tr>
             ) : (
@@ -363,7 +373,7 @@ type BudgetUtil = {
   pipelineCount: number;
 };
 
-function BudgetUtilisation({ u, year, currency }: { u: BudgetUtil; year: number; currency: string }) {
+function BudgetUtilisation({ u, year, currency }: { u: BudgetUtil; year: number | null; currency: string }) {
   const money = (n: number | null) => (n == null ? "—" : formatMoney(n, currency));
   const overspent = u.remaining != null && u.remaining < 0;
   return (
@@ -371,7 +381,7 @@ function BudgetUtilisation({ u, year, currency }: { u: BudgetUtil; year: number;
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-display text-lg font-semibold text-[var(--navy)]">
-            Budget vs utilisation · {year}
+            Budget vs utilisation · {year ?? "All years"}
           </h2>
           <p className="text-sm text-[var(--muted)]">
             Utilised = committed CRs (Approved + Completed), AI-adjusted. Rolls up quarter → year and

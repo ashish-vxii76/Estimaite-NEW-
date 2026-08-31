@@ -121,8 +121,6 @@ export function ScopeFilterBar(props: Props) {
     return { type: t, id, name: byId.get(id)?.name ?? "—" };
   }).filter(Boolean) as { type: OrgType; id: string; name: string }[];
 
-  const extraChip = (f: ExtraFilter) =>
-    f.value ? f.options.find((o) => o.value === f.value)?.label ?? f.value : null;
 
   const activeCount =
     orgChips.length +
@@ -130,7 +128,7 @@ export function ScopeFilterBar(props: Props) {
     (showWorkRelease && workItemType ? 1 : 0) +
     (showWorkRelease && parsed.year ? 1 : 0) +
     (showWorkRelease && parsed.quarter ? 1 : 0) +
-    extraFilters.filter((f) => f.value).length;
+    extraFilters.filter((f) => f.value && f.value !== (f.clearValue ?? "")).length;
 
   // Remove an org level → set org to that level's PARENT selection (clears it + everything below).
   function removeOrgLevel(t: OrgType) {
@@ -176,9 +174,11 @@ export function ScopeFilterBar(props: Props) {
         ) : null}
 
         {extraFilters.map((f) => {
-          const lbl = extraChip(f);
-          if (!lbl) return null;
-          // Mandatory filters (e.g. budget year) show as a non-removable chip — change via the drawer.
+          const clearVal = f.clearValue ?? "";
+          // No chip when unset or at its cleared state (e.g. budget year = "all" → all years).
+          if (!f.value || f.value === clearVal) return null;
+          const lbl = f.options.find((o) => o.value === f.value)?.label ?? f.value;
+          // Mandatory filters show as a non-removable chip — change via the drawer.
           return f.required ? (
             <span
               key={f.param}
@@ -187,7 +187,7 @@ export function ScopeFilterBar(props: Props) {
               {f.label}: {lbl}
             </span>
           ) : (
-            <Chip key={f.param} label={`${f.label}: ${lbl}`} onRemove={() => navigate({ [f.param]: "" })} />
+            <Chip key={f.param} label={`${f.label}: ${lbl}`} onRemove={() => navigate({ [f.param]: clearVal })} />
           );
         })}
 
