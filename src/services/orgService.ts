@@ -321,6 +321,24 @@ export async function saveCrewBudget(input: {
   return saved;
 }
 
+export async function deleteCrewBudget(id: string, actorUserId?: string) {
+  const existing = await prisma.crewBudget.findUnique({ where: { id }, include: { crew: true } });
+  if (!existing) throw new Error("Budget not found");
+  await prisma.crewBudget.delete({ where: { id } });
+  await appendAuditEvent({
+    userId: actorUserId,
+    action: "CREW_BUDGET_DELETED",
+    previousValue: JSON.stringify({
+      crewId: existing.crewId,
+      year: existing.year,
+      amount: existing.amount,
+      currency: existing.currency,
+    }),
+    newValue: "",
+  });
+  return existing;
+}
+
 export async function sumCrewBudgets(year?: number | null, crewIds?: string[] | null) {
   const rows = await listCrewBudgets(year, crewIds);
   return rows.reduce((sum, row) => sum + row.amount, 0);
