@@ -2,9 +2,9 @@ import { prisma } from "@/lib/prisma";
 import { fromSession, type ScopeUser } from "@/lib/scope";
 import { resolveCrewScope } from "@/lib/crewScope";
 import { getActiveConfig } from "@/services/configService";
-import { MAPPING_TABLE_META } from "@/components/admin/crewMappingTables";
+import { MAPPING_TABLE_META, type OverrideDomain } from "@/components/admin/crewMappingTables";
 
-type Table = "ISSUE" | "EPIC" | "COMPLEXITY";
+type Table = OverrideDomain;
 type Row = Record<string, unknown>;
 
 // DEC-011: shared server loader for the three per-crew mapping pages (Issue/Epic/Complexity).

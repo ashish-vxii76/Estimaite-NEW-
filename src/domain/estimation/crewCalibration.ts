@@ -1,55 +1,36 @@
-import type {
-  AllowedIssueSpConfig,
-  ComplexityBandConfig,
-  ComplexityMappingConfig,
-  EpicMappingConfig,
-  EpicRomMappingConfig,
-  EstimationConfig,
-  IssueMappingConfig,
-  StoryPointMappingConfig,
-} from "./types";
+import type { EstimationConfig } from "./types";
 
-// DEC-007 A5 / DEC-011: per-crew applied overrides — pure helpers (no I/O). The service layer supplies
-// the crew's approved mapping overrides; this stays I/O-free so it remains golden-testable.
+// DEC-007 A5 / DEC-011 / DEC-013: per-crew applied overrides — pure helpers (no I/O). The service
+// layer supplies the crew's approved override fields; this stays I/O-free so it remains golden-testable.
 
-/** DEC-011: the three per-crew mapping tables, as APPROVED override payloads (partial → overlay). */
-export type CrewMappingOverrides = {
-  ISSUE?: {
-    issueMappings?: IssueMappingConfig[];
-    issueStoryPointMappings?: StoryPointMappingConfig[];
-    allowedIssueStoryPoints?: AllowedIssueSpConfig[];
-  };
-  EPIC?: {
-    epicMappings?: EpicMappingConfig[];
-    epicRomMappings?: EpicRomMappingConfig[];
-  };
-  COMPLEXITY?: {
-    complexityMappings?: ComplexityMappingConfig[];
-    complexityBands?: ComplexityBandConfig[];
-  };
-};
+/**
+ * DEC-013: a crew's APPROVED overrides, already merged into the config fields they replace (mapping
+ * tables, rate tables, and Class-A estimation-config scalars). An empty object → nothing overridden.
+ * Only whitelisted fields ever reach here — the service builds it from governed override payloads.
+ */
+export type CrewConfigOverrides = Partial<EstimationConfig>;
 
 /**
  * Resolve a crew's effective config by overlaying its per-crew overrides onto the global config:
  *  - calibrated / manual Days/Point and Capacity/sprint (DEC-007 A5 / DEC-009), from the config blob;
- *  - APPROVED mapping tables (DEC-011), passed in by the service from `CrewMappingOverride`.
+ *  - APPROVED override fields (DEC-011 mappings + DEC-013 rates/config), passed in by the service.
  * A crew with no override of any kind (or a null crewId) returns the config UNCHANGED — this is what
  * keeps Golden Case A/B byte-for-byte unchanged.
  */
 export function resolveCrewConfig(
   config: EstimationConfig,
   crewId: string | null | undefined,
-  mappingOverrides?: CrewMappingOverrides | null,
+  overrideFields?: CrewConfigOverrides | null,
 ): EstimationConfig {
   if (!crewId) return config;
   const dpp = config.crewDaysPerPoint?.[crewId];
   const cap = config.crewCapacitySpPerSprint?.[crewId];
   const hasDpp = dpp && Object.keys(dpp).length > 0;
   const hasCap = cap && Object.keys(cap).length > 0;
-  const mo = mappingOverrides ?? undefined;
-  const hasMapping = !!mo && (!!mo.ISSUE || !!mo.EPIC || !!mo.COMPLEXITY);
+  const fields = overrideFields ?? undefined;
+  const hasFields = !!fields && Object.keys(fields).length > 0;
   // Nothing overridden → identical config, so undiverged crews behave exactly as today.
-  if (!hasDpp && !hasCap && !hasMapping) return config;
+  if (!hasDpp && !hasCap && !hasFields) return config;
 
   const next: EstimationConfig = { ...config };
   if (hasDpp || hasCap) {
@@ -60,19 +41,9 @@ export function resolveCrewConfig(
       return { ...lvl, daysPerPoint: nextDpp, capacitySpPerSprint: nextCap };
     });
   }
-  if (mo?.ISSUE) {
-    if (mo.ISSUE.issueMappings) next.issueMappings = mo.ISSUE.issueMappings;
-    if (mo.ISSUE.issueStoryPointMappings) next.issueStoryPointMappings = mo.ISSUE.issueStoryPointMappings;
-    if (mo.ISSUE.allowedIssueStoryPoints) next.allowedIssueStoryPoints = mo.ISSUE.allowedIssueStoryPoints;
-  }
-  if (mo?.EPIC) {
-    if (mo.EPIC.epicMappings) next.epicMappings = mo.EPIC.epicMappings;
-    if (mo.EPIC.epicRomMappings) next.epicRomMappings = mo.EPIC.epicRomMappings;
-  }
-  if (mo?.COMPLEXITY) {
-    if (mo.COMPLEXITY.complexityMappings) next.complexityMappings = mo.COMPLEXITY.complexityMappings;
-    if (mo.COMPLEXITY.complexityBands) next.complexityBands = mo.COMPLEXITY.complexityBands;
-  }
+  // Overlay the approved override fields (arrays replaced wholesale, scalars replaced). The service
+  // only ever includes governed-safe fields here.
+  if (hasFields) Object.assign(next, fields);
   return next;
 }
 

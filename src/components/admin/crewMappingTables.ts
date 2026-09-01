@@ -3,8 +3,16 @@
 
 export type MappingColumn = { key: string; label: string; num?: boolean; wide?: boolean };
 
+export type OverrideDomain =
+  | "ISSUE"
+  | "EPIC"
+  | "COMPLEXITY"
+  | "LOCATION_SPRINT_RATES"
+  | "LOCATION_DAILY_RATES"
+  | "ESTIMATION_CONFIG";
+
 export type MappingTableMeta = {
-  table: "ISSUE" | "EPIC" | "COMPLEXITY";
+  table: OverrideDomain;
   label: string;
   /** EstimationConfig fields this table owns (the coherent set copied/overridden together). */
   fields: string[];
@@ -13,7 +21,7 @@ export type MappingTableMeta = {
   columns: MappingColumn[];
 };
 
-export const MAPPING_TABLE_META: Record<"ISSUE" | "EPIC" | "COMPLEXITY", MappingTableMeta> = {
+export const MAPPING_TABLE_META: Record<OverrideDomain, MappingTableMeta> = {
   ISSUE: {
     table: "ISSUE",
     label: "Issue mapping",
@@ -62,6 +70,40 @@ export const MAPPING_TABLE_META: Record<"ISSUE" | "EPIC" | "COMPLEXITY", Mapping
       { key: "governance", label: "Governance" },
       { key: "interpretation", label: "Interpretation", wide: true },
     ],
+  },
+  // DEC-013 crew-scoped rate domains (row-based, same editor as mappings).
+  LOCATION_SPRINT_RATES: {
+    table: "LOCATION_SPRINT_RATES",
+    label: "Location sprint rates",
+    fields: ["costMappings"],
+    rowsField: "costMappings",
+    columns: [
+      { key: "location", label: "Location" },
+      { key: "teamSprintCost", label: "Team sprint cost", num: true },
+      { key: "resourceSprintCost", label: "Resource sprint cost", num: true },
+      { key: "standardTeamSize", label: "Std team size", num: true },
+      { key: "currency", label: "Currency" },
+    ],
+  },
+  LOCATION_DAILY_RATES: {
+    table: "LOCATION_DAILY_RATES",
+    label: "Location daily rates",
+    fields: ["locationDailyRates"],
+    rowsField: "locationDailyRates",
+    columns: [
+      { key: "location", label: "Location" },
+      { key: "dailyRate", label: "Daily rate", num: true },
+      { key: "currency", label: "Currency" },
+    ],
+  },
+  // DEC-013 estimation config is SCALAR (Class-A fields), not a row table — its page uses a
+  // dedicated scalar editor (R5), so rowsField/columns are unused here.
+  ESTIMATION_CONFIG: {
+    table: "ESTIMATION_CONFIG",
+    label: "Estimation config",
+    fields: ["aiMinPct", "aiMaxPct", "standardTeamSize", "fullTeamRateUtilisationWarning"],
+    rowsField: "",
+    columns: [],
   },
 };
 

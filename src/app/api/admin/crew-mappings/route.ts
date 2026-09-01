@@ -15,8 +15,8 @@ import { MAPPING_TABLE_META } from "@/components/admin/crewMappingTables";
 //   revert   → drop the override, back to global (crew lead)
 // Global is the default: no APPROVED row → estimates resolve global (golden-safe, see M0).
 
-type Table = "ISSUE" | "EPIC" | "COMPLEXITY";
-const TABLES = new Set<Table>(["ISSUE", "EPIC", "COMPLEXITY"]);
+type Table = keyof typeof MAPPING_TABLE_META;
+const TABLES = new Set<Table>(Object.keys(MAPPING_TABLE_META) as Table[]);
 
 async function inScope(user: ReturnType<typeof fromSession>, crewId: string) {
   const visible = await visibleCrewIds(user);

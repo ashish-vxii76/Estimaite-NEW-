@@ -4,8 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CrewScopePanel } from "@/components/admin/CrewScopePanel";
 import { MappingEditor, type Column } from "@/components/admin/MappingEditor";
+import type { OverrideDomain } from "@/components/admin/crewMappingTables";
 
-type Table = "ISSUE" | "EPIC" | "COMPLEXITY";
+type Table = OverrideDomain;
 type Row = Record<string, unknown>;
 type Unit = { id: string; type: string; name: string; parentId: string | null };
 
