@@ -61,11 +61,13 @@ export function CrewScopePanel({
   const fullyLocked =
     lockedUnitIds.length > 0 && LEVELS.every(([t]) => selected[t] === ALL || locked.has(selected[t]));
 
+  // Strict cascade: options are ONLY the children of the selected parent. A level with an unset
+  // ("All") parent has no options and isn't shown (see the render guard) — no skipping ahead.
   function optionsFor(type: string, parentType: string | null): Unit[] {
     const parentVal = parentType ? selected[parentType] : null;
     let base: Unit[];
     if (!parentType) base = units.filter((u) => u.type === type && u.parentId == null);
-    else if (parentVal === ALL) base = units.filter((u) => u.type === type);
+    else if (parentVal === ALL) base = [];
     else base = units.filter((u) => u.type === type && u.parentId === parentVal);
     return base.slice().sort((a, b) => a.name.localeCompare(b.name));
   }
@@ -100,10 +102,13 @@ export function CrewScopePanel({
         {LEVELS.map(([type, label], i) => {
           const value = selected[type] ?? ALL;
           const isLocked = value !== ALL && locked.has(value);
+          // Strict drill-down: a level is greyed out (disabled) until its parent has a concrete
+          // (non-"All") value — visible the whole time, never skippable.
+          const disabled = i > 0 && selected[LEVELS[i - 1][0]] === ALL;
           const opts = optionsFor(type, i === 0 ? null : LEVELS[i - 1][0]);
           const displayName = value === ALL ? "All" : byId.get(value)?.name ?? "—";
           return (
-            <div key={type} className="min-w-0">
+            <div key={type} className={`min-w-0 ${disabled ? "opacity-45" : ""}`}>
               <div className="mb-1 text-[11px] text-[var(--muted)]">{label}</div>
               {isLocked ? (
                 <div className="flex h-8 items-center justify-between gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-2.5" title={displayName}>
@@ -115,9 +120,10 @@ export function CrewScopePanel({
                 </div>
               ) : (
                 <select
-                  className="h-8 w-full truncate rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-2 text-[13px] text-[var(--navy)]"
+                  className={`h-8 w-full truncate rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-2 text-[13px] text-[var(--navy)] ${disabled ? "cursor-not-allowed" : ""}`}
                   value={value}
-                  title={displayName}
+                  title={disabled ? "Select the level above first" : displayName}
+                  disabled={disabled}
                   onChange={(e) => chooseLevel(i, e.target.value)}
                 >
                   <option value={ALL}>All</option>
@@ -134,7 +140,7 @@ export function CrewScopePanel({
       <p className="mt-3 text-[11.5px] leading-relaxed text-[var(--muted)]">
         {fullyLocked
           ? "Auto-selected from your active role and read-only. You configure only your crew."
-          : "“All” at every level is the global config. Drill down to a crew to configure it specifically."}
+          : "Leave Company on “All” for the global config. Pick a level to reveal the next one, down to a crew, to configure that crew."}
       </p>
     </aside>
   );
