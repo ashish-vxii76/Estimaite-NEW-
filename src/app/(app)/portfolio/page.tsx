@@ -122,11 +122,11 @@ export default async function PortfolioPage({
 
       {divergedCrews.length > 0 ? (
         <div className="rounded-xl border border-[var(--line)] bg-[var(--panel-2)] px-4 py-3 text-sm text-[var(--navy)]">
-          <span className="font-medium">Story-point totals across crews aren&apos;t directly comparable.</span>{" "}
+          <span className="font-medium">Story-point and cost totals across crews aren&apos;t directly comparable.</span>{" "}
           {divergedCrews.length === 1
-            ? `1 crew uses crew-specific mappings (${divergedCrews[0].crewName}).`
-            : `${divergedCrews.length} crews use crew-specific mappings (${divergedCrews.map((c) => c.crewName).join(", ")}).`}{" "}
-          Compare across crews in person-days, not raw story points.
+            ? `1 crew uses crew-specific config (${divergedCrews[0].crewName}).`
+            : `${divergedCrews.length} crews use crew-specific config (${divergedCrews.map((c) => c.crewName).join(", ")}).`}{" "}
+          Compare across crews in person-days, and treat cross-crew cost totals as scope-dependent.
         </div>
       ) : null}
 

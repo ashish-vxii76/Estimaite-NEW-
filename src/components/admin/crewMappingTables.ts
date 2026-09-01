@@ -9,6 +9,7 @@ export type OverrideDomain =
   | "COMPLEXITY"
   | "LOCATION_SPRINT_RATES"
   | "LOCATION_DAILY_RATES"
+  | "TEAM_SPRINT_RATES"
   | "ESTIMATION_CONFIG";
 
 export type MappingTableMeta = {
@@ -93,6 +94,22 @@ export const MAPPING_TABLE_META: Record<OverrideDomain, MappingTableMeta> = {
     columns: [
       { key: "location", label: "Location" },
       { key: "dailyRate", label: "Daily rate", num: true },
+      { key: "currency", label: "Currency" },
+    ],
+  },
+  // DEC-013: team rates are per-pod (rows keyed by team/pod name); a crew override tunes its pods'
+  // rate rows, resolved via config.teamCostMappings in the estimate.
+  TEAM_SPRINT_RATES: {
+    table: "TEAM_SPRINT_RATES",
+    label: "Team sprint rates",
+    fields: ["teamCostMappings"],
+    rowsField: "teamCostMappings",
+    columns: [
+      { key: "teamLocation", label: "Team location" },
+      { key: "teamName", label: "Team / Pod" },
+      { key: "teamSprintCost", label: "Team sprint cost", num: true },
+      { key: "resourceSprintCost", label: "Resource sprint cost", num: true },
+      { key: "standardTeamSize", label: "Std team size", num: true },
       { key: "currency", label: "Currency" },
     ],
   },

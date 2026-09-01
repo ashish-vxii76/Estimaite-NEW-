@@ -1,23 +1,49 @@
-import { getActiveConfig } from "@/services/configService";
-import { GuardedMapping } from "@/components/admin/GuardedMapping";
+import { Suspense } from "react";
+import { auth } from "@/auth";
+import { can } from "@/lib/access";
+import { redirect } from "next/navigation";
+import { loadMappingPageData } from "@/lib/mappingPageData";
+import { MappingPageShell } from "@/components/admin/MappingPageShell";
+import type { Column } from "@/components/admin/MappingEditor";
 
-export default async function TeamCostMappingPage() {
-  const config = await getActiveConfig();
+const COLUMNS: Column[] = [
+  { key: "teamLocation", label: "Team Location" },
+  { key: "teamName", label: "Team / Pod" },
+  { key: "teamSprintCost", label: "Team Sprint Cost", type: "number" },
+  { key: "resourceSprintCost", label: "Resource Sprint Cost", type: "number" },
+  { key: "standardTeamSize", label: "Standard Team Size", type: "number" },
+  { key: "currency", label: "Currency" },
+];
+
+export default async function TeamCostMappingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ crew?: string }>;
+}) {
+  const session = await auth();
+  const role = session?.user.role;
+  if (!can(role, "config.rates") && !can(role, "config.crewMappings")) redirect("/home");
+  const { crew = "" } = await searchParams;
+  const { scope, globalRows, override } = await loadMappingPageData(session!.user, "TEAM_SPRINT_RATES", crew);
+
   return (
-    <GuardedMapping
-      feature="config.rates"
-      title="Team Cost Mapping"
-      description="Team Location, Team Name, Cost Method, Cost, Standard Team Size and Currency. Team Sprint Rate is not prorated unless a commercial policy says so."
-      section="teamCostMappings"
-      rows={config.teamCostMappings as unknown as Record<string, unknown>[]}
-      columns={[
-        { key: "teamLocation", label: "Team Location" },
-        { key: "teamName", label: "Team Name" },
-        { key: "teamSprintCost", label: "Team Sprint Cost", type: "number" },
-        { key: "resourceSprintCost", label: "Resource Sprint Cost", type: "number" },
-        { key: "standardTeamSize", label: "Standard Team Size", type: "number" },
-        { key: "currency", label: "Currency" },
-      ]}
-    />
+    <Suspense fallback={<div className="text-sm text-[var(--muted)]">Loading…</div>}>
+      <MappingPageShell
+        table="TEAM_SPRINT_RATES"
+        title="Team Sprint Rates"
+        description="Team/Pod-level sprint rates. Rows are per Pod; a crew tunes its pods' rates. Team Sprint Rate is not prorated unless a commercial policy says so."
+        section="teamCostMappings"
+        columns={COLUMNS}
+        globalRows={globalRows}
+        units={scope.units}
+        lockedUnitIds={scope.lockedUnitIds}
+        crews={scope.crews}
+        activeCrewId={scope.activeCrewId}
+        override={override}
+        canEditGlobal={can(role, "config.rates", "RW")}
+        canWriteCrew={can(role, "config.crewMappings", "RW")}
+        canApprove={can(role, "config.rates", "RW")}
+      />
+    </Suspense>
   );
 }

@@ -13,6 +13,7 @@ export const MAPPING_TABLES = [
   "COMPLEXITY",
   "LOCATION_SPRINT_RATES",
   "LOCATION_DAILY_RATES",
+  "TEAM_SPRINT_RATES",
   "ESTIMATION_CONFIG",
 ] as const;
 export type MappingTable = (typeof MAPPING_TABLES)[number];
