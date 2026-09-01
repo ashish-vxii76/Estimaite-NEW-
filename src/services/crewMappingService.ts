@@ -29,3 +29,27 @@ export async function getApprovedMappingOverrides(
   }
   return out;
 }
+
+export type DivergedCrew = { crewId: string; crewName: string; tables: MappingTable[] };
+
+/**
+ * DEC-011 M5: crews with an APPROVED mapping override in the given scope. A diverged crew's story
+ * points are NOT comparable with other crews' — cross-crew rollups must compare in person-days
+ * (DEC-010). Used to surface the comparability warning on the roll-up. Empty scope / no divergence
+ * → empty array (the default state today).
+ */
+export async function listDivergedCrews(crewIds?: string[] | null): Promise<DivergedCrew[]> {
+  if (crewIds && crewIds.length === 0) return [];
+  const rows = await prisma.crewMappingOverride.findMany({
+    where: { status: "APPROVED", ...(crewIds ? { crewId: { in: crewIds } } : {}) },
+    include: { crew: { select: { name: true } } },
+    orderBy: { crew: { name: "asc" } },
+  });
+  const byCrew = new Map<string, DivergedCrew>();
+  for (const r of rows) {
+    const entry = byCrew.get(r.crewId) ?? { crewId: r.crewId, crewName: r.crew.name, tables: [] };
+    entry.tables.push(r.table as MappingTable);
+    byCrew.set(r.crewId, entry);
+  }
+  return [...byCrew.values()];
+}

@@ -10,6 +10,7 @@ import { getOrgFilterData } from "@/lib/orgFilter";
 import { getActiveConfig } from "@/services/configService";
 import { yearsFromCatalogue } from "@/lib/releasePeriod";
 import { descendantIds, resolveOrgCurrency } from "@/services/orgService";
+import { listDivergedCrews } from "@/services/crewMappingService";
 import { ScopeFilterBar } from "@/components/ScopeFilterBar";
 import { RollupCharts } from "@/components/RollupCharts";
 
@@ -75,6 +76,11 @@ export default async function PortfolioPage({
     currency: displayCurrency,
   });
   const currency = data.currency;
+  // DEC-011 M5: warn when the rolled-up crews include any on crew-specific mappings — their story
+  // points aren't comparable, so cross-crew SP totals mislead (compare in person-days, DEC-010).
+  const scopeCrewIds =
+    selectionCrewIds ?? orgFilter.units.filter((u) => u.type === "CREW").map((u) => u.id);
+  const divergedCrews = await listDivergedCrews(scopeCrewIds);
   const canCreate = can(session?.user.role, "estimates.create", "RW");
   const canBudget =
     can(session?.user.role, "org.budget") || can(session?.user.role, "portfolio.budget");
@@ -113,6 +119,16 @@ export default async function PortfolioPage({
           },
         ]}
       />
+
+      {divergedCrews.length > 0 ? (
+        <div className="rounded-xl border border-[var(--line)] bg-[var(--panel-2)] px-4 py-3 text-sm text-[var(--navy)]">
+          <span className="font-medium">Story-point totals across crews aren&apos;t directly comparable.</span>{" "}
+          {divergedCrews.length === 1
+            ? `1 crew uses crew-specific mappings (${divergedCrews[0].crewName}).`
+            : `${divergedCrews.length} crews use crew-specific mappings (${divergedCrews.map((c) => c.crewName).join(", ")}).`}{" "}
+          Compare across crews in person-days, not raw story points.
+        </div>
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Tile label={`Estimates (${yearLabel})`} value={String(data.totalEstimates)} />
