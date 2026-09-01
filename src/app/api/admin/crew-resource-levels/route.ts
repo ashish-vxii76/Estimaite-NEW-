@@ -35,6 +35,7 @@ export async function GET() {
       daysPerPoint: l.daysPerPoint,
     })),
     overrides: config.crewDaysPerPoint ?? {},
+    capacityOverrides: config.crewCapacitySpPerSprint ?? {},
     crews,
   });
 }
@@ -49,6 +50,7 @@ export async function POST(request: Request) {
   const crewId = String(body.crewId ?? "");
   // { levelId: number | null }  — null/absent clears the override (inherit global)
   const incoming = (body.overrides ?? {}) as Record<string, number | null>;
+  const incomingCap = (body.capacityOverrides ?? {}) as Record<string, number | null>;
 
   // Scope: the crew must be one the actor can see.
   const visible = await visibleCrewIds(fromSession(session!.user));
@@ -77,6 +79,20 @@ export async function POST(request: Request) {
     crewMap[levelId] = val;
   }
 
+  // Same validation for capacity/sprint overrides.
+  const crewCapMap: Record<string, number> = {};
+  for (const [levelId, raw] of Object.entries(incomingCap)) {
+    if (!validLevelIds.has(levelId)) {
+      return NextResponse.json({ error: `Unknown resource level: ${levelId}` }, { status: 400 });
+    }
+    if (raw == null || raw === ("" as unknown as number)) continue; // cleared → inherit global
+    const val = Number(raw);
+    if (!Number.isFinite(val) || val <= 0) {
+      return NextResponse.json({ error: `Capacity for ${levelId} must be a positive number` }, { status: 400 });
+    }
+    crewCapMap[levelId] = val;
+  }
+
   const allOverrides: Record<string, Record<string, number>> = { ...(config.crewDaysPerPoint ?? {}) };
   if (Object.keys(crewMap).length === 0) {
     delete allOverrides[crewId]; // fully inherit → remove the crew entry (stays golden-safe)
@@ -84,6 +100,20 @@ export async function POST(request: Request) {
     allOverrides[crewId] = crewMap;
   }
 
-  await patchActiveConfig({ crewDaysPerPoint: allOverrides }, session!.user.id);
-  return NextResponse.json({ ok: true, overrides: allOverrides[crewId] ?? {} });
+  const allCap: Record<string, Record<string, number>> = { ...(config.crewCapacitySpPerSprint ?? {}) };
+  if (Object.keys(crewCapMap).length === 0) {
+    delete allCap[crewId];
+  } else {
+    allCap[crewId] = crewCapMap;
+  }
+
+  await patchActiveConfig(
+    { crewDaysPerPoint: allOverrides, crewCapacitySpPerSprint: allCap },
+    session!.user.id,
+  );
+  return NextResponse.json({
+    ok: true,
+    overrides: allOverrides[crewId] ?? {},
+    capacityOverrides: allCap[crewId] ?? {},
+  });
 }

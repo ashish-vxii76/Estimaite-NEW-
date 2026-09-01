@@ -281,6 +281,7 @@ export const DEFAULT_CONFIG: EstimationConfig = {
   readinessCriteria: DEFAULT_READINESS_CRITERIA.map((c) => ({ id: c.id, label: c.label })),
   readinessAssumptionsMin: 3,
   crewDaysPerPoint: {}, // DEC-007 A5: no per-crew overrides by default (golden-safe).
+  crewCapacitySpPerSprint: {}, // DEC-009 Class-A: no per-crew capacity overrides by default (golden-safe).
 };
 
 export function hydrateConfig(raw: Partial<EstimationConfig> | null | undefined): EstimationConfig {

@@ -225,6 +225,12 @@ export type EstimationConfig = {
    * default. Empty by default → every crew behaves exactly as today (golden-safe).
    */
   crewDaysPerPoint: Record<string, Record<string, number>>;
+  /**
+   * DEC-009 Class-A: per-crew SP-capacity/sprint overrides — { crewId: { resourceLevelId: cap } }.
+   * A crew's estimate uses its override for a level if present, else the global resourceLevels
+   * capacity. Empty by default → every crew behaves exactly as today (golden-safe).
+   */
+  crewCapacitySpPerSprint: Record<string, Record<string, number>>;
 };
 
 export type ComplexityScoreInput = {

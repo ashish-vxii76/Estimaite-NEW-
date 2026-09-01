@@ -13,13 +13,21 @@ export function resolveCrewConfig(
   crewId: string | null | undefined,
 ): EstimationConfig {
   if (!crewId) return config;
-  const overrides = config.crewDaysPerPoint?.[crewId];
-  if (!overrides || Object.keys(overrides).length === 0) return config;
+  const dpp = config.crewDaysPerPoint?.[crewId];
+  const cap = config.crewCapacitySpPerSprint?.[crewId];
+  const hasDpp = dpp && Object.keys(dpp).length > 0;
+  const hasCap = cap && Object.keys(cap).length > 0;
+  // No override of either kind → identical config, so uncalibrated crews behave exactly as today
+  // (this is what keeps Golden Case A/B unchanged).
+  if (!hasDpp && !hasCap) return config;
   return {
     ...config,
-    resourceLevels: config.resourceLevels.map((lvl) =>
-      overrides[lvl.id] != null ? { ...lvl, daysPerPoint: overrides[lvl.id] } : lvl,
-    ),
+    resourceLevels: config.resourceLevels.map((lvl) => {
+      const nextDpp = hasDpp && dpp![lvl.id] != null ? dpp![lvl.id] : lvl.daysPerPoint;
+      const nextCap = hasCap && cap![lvl.id] != null ? cap![lvl.id] : lvl.capacitySpPerSprint;
+      if (nextDpp === lvl.daysPerPoint && nextCap === lvl.capacitySpPerSprint) return lvl;
+      return { ...lvl, daysPerPoint: nextDpp, capacitySpPerSprint: nextCap };
+    }),
   };
 }
 

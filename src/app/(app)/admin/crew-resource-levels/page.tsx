@@ -30,6 +30,7 @@ export default async function CrewResourceLevelsPage() {
           daysPerPoint: l.daysPerPoint,
         }))}
         overrides={config.crewDaysPerPoint ?? {}}
+        capacityOverrides={config.crewCapacitySpPerSprint ?? {}}
         canWrite={can(session?.user.role, "config.crewLevels", "RW")}
       />
     </div>
