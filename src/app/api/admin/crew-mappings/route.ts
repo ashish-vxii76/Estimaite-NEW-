@@ -107,12 +107,26 @@ export async function POST(request: Request) {
     if (!existing || existing.status !== "APPROVED") {
       return NextResponse.json({ error: "Approve crew-specific mappings before editing" }, { status: 400 });
     }
-    const rows = body.rows;
-    if (!Array.isArray(rows) || rows.length === 0) {
-      return NextResponse.json({ error: "Rows must be a non-empty array" }, { status: 400 });
-    }
     const payload = JSON.parse(existing.payload) as Record<string, unknown>;
-    payload[meta.rowsField] = rows;
+    if (meta.rowsField === "") {
+      // Scalar domain (e.g. ESTIMATION_CONFIG): merge only the whitelisted Class-A fields, coerced
+      // to finite numbers. Class-B governed fields are never accepted here.
+      const fields = (body.fields ?? {}) as Record<string, unknown>;
+      for (const key of meta.fields) {
+        if (!(key in fields)) continue;
+        const val = Number(fields[key]);
+        if (!Number.isFinite(val)) {
+          return NextResponse.json({ error: `${key} must be a number` }, { status: 400 });
+        }
+        payload[key] = val;
+      }
+    } else {
+      const rows = body.rows;
+      if (!Array.isArray(rows) || rows.length === 0) {
+        return NextResponse.json({ error: "Rows must be a non-empty array" }, { status: 400 });
+      }
+      payload[meta.rowsField] = rows;
+    }
     const row = await prisma.crewMappingOverride.update({
       where: { id: existing.id },
       data: { payload: JSON.stringify(payload), version: existing.version + 1 },
