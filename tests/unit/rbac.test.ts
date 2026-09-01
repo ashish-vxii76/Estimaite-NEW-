@@ -138,6 +138,12 @@ const PDF: Record<FeatureId, Partial<Record<AppRole, Access>>> = {
     DELIVERY_LEAD: "RW",
     FINANCE: "R",
   },
+  // DEC-011 additive feature: per-crew mapping overrides.
+  "config.crewMappings": {
+    ADMINISTRATOR: "RW",
+    DELIVERY_LEAD: "RW",
+    FINANCE: "R",
+  },
   "config.users": { ADMINISTRATOR: "RW" },
   "config.rbac": { ADMINISTRATOR: "RW" },
   "org.setup": { ADMINISTRATOR: "RW", DELIVERY_LEAD: "R" },

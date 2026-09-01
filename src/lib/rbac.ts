@@ -41,6 +41,7 @@ export const FEATURES = [
   { id: "config.rates", group: "Configuration", label: "Rate cards (cost / team cost)" },
   { id: "config.mappings", group: "Configuration", label: "Mappings & thresholds" },
   { id: "config.crewLevels", group: "Configuration", label: "Per-crew resource levels (Days/Point)" },
+  { id: "config.crewMappings", group: "Configuration", label: "Per-crew mapping overrides (Issue/Epic/Complexity)" },
   { id: "config.users", group: "Configuration", label: "User & role management" },
   { id: "config.rbac", group: "Configuration", label: "RBAC matrix" },
   { id: "org.setup", group: "Organisation", label: "Organisation setup (tree & seats)" },
@@ -232,6 +233,13 @@ export const DEFAULT_RBAC: Record<FeatureId, Record<AppRole, Access>> = {
     DELIVERY_LEAD: RW,
     FINANCE: R,
   }),
+  // DEC-011: crew leads manage their crew's mapping overrides (RW); opting a crew IN is
+  // admin-approved (approval gate checks config.mappings RW). FINANCE read-only.
+  "config.crewMappings": cell({
+    ADMINISTRATOR: RW,
+    DELIVERY_LEAD: RW,
+    FINANCE: R,
+  }),
   "config.users": cell({
     ADMINISTRATOR: RW,
   }),
@@ -357,6 +365,7 @@ export const PATH_FEATURES: { prefix: string; feature: FeatureId; mode: "R" | "R
   { prefix: "/admin/complexity-mapping", feature: "config.mappings", mode: "R" },
   { prefix: "/admin/resource-mapping", feature: "config.mappings", mode: "R" },
   { prefix: "/admin/crew-resource-levels", feature: "config.crewLevels", mode: "R" },
+  { prefix: "/admin/crew-mappings", feature: "config.crewMappings", mode: "R" },
   { prefix: "/admin/estimation-config", feature: "config.mappings", mode: "R" },
   { prefix: "/what-if", feature: "whatIf", mode: "R" },
   { prefix: "/calibration", feature: "calibration.view", mode: "R" },
