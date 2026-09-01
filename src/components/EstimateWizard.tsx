@@ -16,6 +16,7 @@ import {
 import { GovernedSummary } from "@/components/GovernedSummary";
 import { ActualsForm } from "@/components/ActualsForm";
 import { WhatIfForm, type ScenarioTeam, type SavedScenarioSnapshot } from "@/components/WhatIfForm";
+import { OrgPodPicker } from "@/components/estimate/OrgPodPicker";
 import { ExplanationPanel } from "@/components/ui";
 import type {
   ComplexityDimensionConfig,
@@ -704,17 +705,14 @@ export function EstimateWizard({
                   onChange={(e) => setForm({ ...form, requester: e.target.value })}
                 />
               </Field>
-              <div className="md:col-span-2 rounded-lg border border-[var(--line)] bg-[var(--panel-2)] p-3">
-                <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
-                  Organisation (from Pod)
-                </p>
-                <p className="mt-1 text-sm text-[var(--navy)]">
-                  {orgPathLabels.company} → {orgPathLabels.division} → {orgPathLabels.subDivision} →{" "}
-                  {orgPathLabels.stream} → {orgPathLabels.crew} → {orgPathLabels.pod}
-                </p>
-                <p className="mt-1 text-xs text-[var(--muted)]">
-                  Derived from the selected Pod&apos;s Crew. Change Pod on Plan &amp; cost.
-                </p>
+              <div className="md:col-span-2">
+                <OrgPodPicker
+                  orgUnits={orgUnits}
+                  teams={teams}
+                  value={form.teamId}
+                  onChange={applyTeam}
+                  locked={capabilities.teamLocked || !capabilities.canEdit}
+                />
               </div>
               <Field label="Project">
                 <input value={form.project} onChange={(e) => setForm({ ...form, project: e.target.value })} />
