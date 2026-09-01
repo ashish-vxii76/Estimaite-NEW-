@@ -11,7 +11,6 @@ export const ADMIN_PAGES = [
   ["/admin/epic-mapping", "Epic mapping"],
   ["/admin/resource-mapping", "Resource mapping"],
   ["/admin/crew-resource-levels", "Crew resource levels"],
-  ["/admin/crew-mappings", "Crew mappings"],
   ["/admin/complexity-mapping", "Complexity mapping"],
   ["/admin/cost-mapping", "Location sprint rates"],
   ["/admin/team-cost-mapping", "Team sprint rates"],

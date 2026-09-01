@@ -365,7 +365,6 @@ export const PATH_FEATURES: { prefix: string; feature: FeatureId; mode: "R" | "R
   { prefix: "/admin/complexity-mapping", feature: "config.mappings", mode: "R" },
   { prefix: "/admin/resource-mapping", feature: "config.mappings", mode: "R" },
   { prefix: "/admin/crew-resource-levels", feature: "config.crewLevels", mode: "R" },
-  { prefix: "/admin/crew-mappings", feature: "config.crewMappings", mode: "R" },
   { prefix: "/admin/estimation-config", feature: "config.mappings", mode: "R" },
   { prefix: "/what-if", feature: "whatIf", mode: "R" },
   { prefix: "/calibration", feature: "calibration.view", mode: "R" },

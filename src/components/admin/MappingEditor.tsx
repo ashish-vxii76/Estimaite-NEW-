@@ -18,6 +18,11 @@ export function MappingEditor({
   rows,
   allowAdd = true,
   readOnly = false,
+  hideHeader = false,
+  crew,
+  seedRows,
+  saveLabel,
+  onSaved,
 }: {
   title: string;
   description: string;
@@ -26,6 +31,13 @@ export function MappingEditor({
   rows: Record<string, unknown>[];
   allowAdd?: boolean;
   readOnly?: boolean;
+  hideHeader?: boolean;
+  /** DEC-011: when set, Save writes to the crew's override instead of the global config. */
+  crew?: { crewId: string; table: string };
+  /** DEC-011: global rows for the "Copy from global" reseed in crew mode. */
+  seedRows?: Record<string, unknown>[];
+  saveLabel?: string;
+  onSaved?: () => void;
 }) {
   const [data, setData] = useState(rows);
   const [message, setMessage] = useState("");
@@ -50,14 +62,26 @@ export function MappingEditor({
     setBusy(true);
     setMessage("");
     try {
-      const res = await fetch("/api/admin/config", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ section, rows: data }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Save failed");
-      setMessage(`Saved configuration ${json.config.versionId}`);
+      if (crew) {
+        const res = await fetch("/api/admin/crew-mappings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "save", table: crew.table, crewId: crew.crewId, rows: data }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error ?? "Save failed");
+        setMessage("Saved crew-specific mappings.");
+        onSaved?.();
+      } else {
+        const res = await fetch("/api/admin/config", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ section, rows: data }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error ?? "Save failed");
+        setMessage(`Saved configuration ${json.config.versionId}`);
+      }
     } catch (e) {
       setMessage((e as Error).message);
     } finally {
@@ -67,10 +91,12 @@ export function MappingEditor({
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold">{title}</h1>
-        <p className="mt-1 text-sm text-[var(--muted)]">{description}</p>
-      </div>
+      {hideHeader ? null : (
+        <div>
+          <h1 className="text-2xl font-semibold">{title}</h1>
+          <p className="mt-1 text-sm text-[var(--muted)]">{description}</p>
+        </div>
+      )}
       <div className="card overflow-x-auto">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="bg-[var(--panel-2)] text-[var(--muted)]">
@@ -148,12 +174,20 @@ export function MappingEditor({
             Add row
           </button>
         ) : null}
+        {crew && seedRows ? (
+          <button
+            className="rounded-lg border border-[var(--line)] px-3 py-2"
+            onClick={() => setData(seedRows.map((r) => ({ ...r })))}
+          >
+            Copy from global
+          </button>
+        ) : null}
         <button
           className="btn-primary"
           onClick={save}
           disabled={busy}
         >
-          Save and publish version
+          {saveLabel ?? "Save and publish version"}
         </button>
       </div>
       )}
