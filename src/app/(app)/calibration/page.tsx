@@ -1,4 +1,5 @@
 import { getCalibration, listCalibrationRuns } from "@/services/portfolioService";
+import { listPdIncomparableCrews } from "@/services/crewMappingService";
 import { CalibrationActions } from "@/components/CalibrationActions";
 import { ScopeFilterBar } from "@/components/ScopeFilterBar";
 import { ExplanationPanel } from "@/components/ui";
@@ -40,6 +41,9 @@ export default async function CalibrationPage({
     crewId = locked.crewId;
   }
   const runs = crewId ? await listCalibrationRuns(crewId) : [];
+  // DEC-014 G5: if the resolved crew overrides Tier-3 config (effort scale), its actual-vs-estimate
+  // ratio is no longer a clean signal → calibration is advisory-only.
+  const advisoryOnly = crewId ? (await listPdIncomparableCrews([crewId])).length > 0 : false;
 
   return (
     <div className="space-y-6">
@@ -51,6 +55,15 @@ export default async function CalibrationPage({
           resource level (CRs with actuals) within the selected org scope.
         </p>
       </div>
+
+      {advisoryOnly ? (
+        <div className="rounded-xl border border-[var(--danger)] bg-[var(--bg-danger,rgba(220,50,50,.08))] px-4 py-3 text-sm text-[var(--danger)]">
+          <span className="font-semibold">Calibration is advisory-only for this crew.</span> It overrides
+          Tier-3 estimation config (complexity multipliers or the calibration floor), so its effort scale
+          differs from global — the actual-vs-estimate ratio can no longer cleanly separate &quot;slower&quot;
+          from &quot;configured differently&quot; (DEC-014).
+        </div>
+      ) : null}
 
       <ScopeFilterBar
         basePath="/calibration"

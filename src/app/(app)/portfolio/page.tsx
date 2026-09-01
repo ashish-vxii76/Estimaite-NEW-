@@ -10,7 +10,7 @@ import { getOrgFilterData } from "@/lib/orgFilter";
 import { getActiveConfig } from "@/services/configService";
 import { yearsFromCatalogue } from "@/lib/releasePeriod";
 import { descendantIds, resolveOrgCurrency } from "@/services/orgService";
-import { listDivergedCrews } from "@/services/crewMappingService";
+import { listDivergedCrews, listPdIncomparableCrews } from "@/services/crewMappingService";
 import { ScopeFilterBar } from "@/components/ScopeFilterBar";
 import { RollupCharts } from "@/components/RollupCharts";
 
@@ -81,6 +81,9 @@ export default async function PortfolioPage({
   const scopeCrewIds =
     selectionCrewIds ?? orgFilter.units.filter((u) => u.type === "CREW").map((u) => u.id);
   const divergedCrews = await listDivergedCrews(scopeCrewIds);
+  // DEC-014: crews that broke person-days comparability (Tier-3 config override) — shown distinctly.
+  const pdIncomparable = await listPdIncomparableCrews(scopeCrewIds);
+  const pdIncomparableIds = new Set(pdIncomparable.map((c) => c.crewId));
   const canCreate = can(session?.user.role, "estimates.create", "RW");
   const canBudget =
     can(session?.user.role, "org.budget") || can(session?.user.role, "portfolio.budget");
@@ -120,14 +123,28 @@ export default async function PortfolioPage({
         ]}
       />
 
-      {divergedCrews.length > 0 ? (
-        <div className="rounded-xl border border-[var(--line)] bg-[var(--panel-2)] px-4 py-3 text-sm text-[var(--navy)]">
-          <span className="font-medium">Story-point and cost totals across crews aren&apos;t directly comparable.</span>{" "}
-          {divergedCrews.length === 1
-            ? `1 crew uses crew-specific config (${divergedCrews[0].crewName}).`
-            : `${divergedCrews.length} crews use crew-specific config (${divergedCrews.map((c) => c.crewName).join(", ")}).`}{" "}
-          Compare across crews in person-days, and treat cross-crew cost totals as scope-dependent.
+      {pdIncomparable.length > 0 ? (
+        <div className="rounded-xl border border-[var(--danger)] bg-[var(--bg-danger,rgba(220,50,50,.08))] px-4 py-3 text-sm text-[var(--danger)]">
+          <span className="font-semibold">Not comparable even in person-days.</span>{" "}
+          {pdIncomparable.map((c) => c.crewName).join(", ")}{" "}
+          {pdIncomparable.length === 1 ? "has" : "have"} a Tier-3 estimation-config override (complexity
+          multipliers or calibration floor) — the effort scale itself differs, so these crews&apos; totals
+          must not be pooled with others&apos; and their calibration is advisory-only (DEC-014).
         </div>
+      ) : null}
+      {divergedCrews.filter((c) => !pdIncomparableIds.has(c.crewId)).length > 0 ? (
+        (() => {
+          const rest = divergedCrews.filter((c) => !pdIncomparableIds.has(c.crewId));
+          return (
+            <div className="rounded-xl border border-[var(--line)] bg-[var(--panel-2)] px-4 py-3 text-sm text-[var(--navy)]">
+              <span className="font-medium">Story-point and cost totals across crews aren&apos;t directly comparable.</span>{" "}
+              {rest.length === 1
+                ? `1 crew uses crew-specific config (${rest[0].crewName}).`
+                : `${rest.length} crews use crew-specific config (${rest.map((c) => c.crewName).join(", ")}).`}{" "}
+              Compare across crews in person-days, and treat cross-crew cost totals as scope-dependent.
+            </div>
+          );
+        })()
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

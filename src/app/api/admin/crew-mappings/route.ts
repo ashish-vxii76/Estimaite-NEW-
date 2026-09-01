@@ -109,11 +109,28 @@ export async function POST(request: Request) {
     }
     const payload = JSON.parse(existing.payload) as Record<string, unknown>;
     if (meta.rowsField === "") {
-      // Scalar domain (e.g. ESTIMATION_CONFIG): merge only the whitelisted Class-A fields, coerced
-      // to finite numbers. Class-B governed fields are never accepted here.
+      // Scalar domain (ESTIMATION_CONFIG): merge only the whitelisted fields. Scalars → finite
+      // number; complexityMultipliers → object of finite per-t-shirt numbers (DEC-014). Rounding is
+      // never a field here (stays global).
       const fields = (body.fields ?? {}) as Record<string, unknown>;
       for (const key of meta.fields) {
         if (!(key in fields)) continue;
+        if (key === "complexityMultipliers") {
+          const obj = fields[key] as Record<string, unknown>;
+          if (!obj || typeof obj !== "object") {
+            return NextResponse.json({ error: "complexityMultipliers must be an object" }, { status: 400 });
+          }
+          const clean: Record<string, number> = {};
+          for (const [k, v] of Object.entries(obj)) {
+            const n = Number(v);
+            if (!Number.isFinite(n)) {
+              return NextResponse.json({ error: `complexityMultipliers.${k} must be a number` }, { status: 400 });
+            }
+            clean[k] = n;
+          }
+          payload[key] = clean;
+          continue;
+        }
         const val = Number(fields[key]);
         if (!Number.isFinite(val)) {
           return NextResponse.json({ error: `${key} must be a number` }, { status: 400 });

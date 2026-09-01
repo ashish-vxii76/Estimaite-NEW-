@@ -62,3 +62,38 @@ export async function listDivergedCrews(crewIds?: string[] | null): Promise<Dive
   }
   return [...byCrew.values()];
 }
+
+/**
+ * DEC-014 G3/G4/G5: crews that are NO LONGER COMPARABLE EVEN IN PERSON-DAYS — those whose APPROVED
+ * ESTIMATION_CONFIG override changes a Tier-3 field (complexity multipliers or the calibration floor),
+ * i.e. the effort scale / confidence floor itself. Their calibration is advisory-only. This is a
+ * strict superset-flag beyond `listDivergedCrews` (which is only SP/cost-scope-dependent).
+ */
+export async function listPdIncomparableCrews(
+  crewIds?: string[] | null,
+): Promise<{ crewId: string; crewName: string }[]> {
+  if (crewIds && crewIds.length === 0) return [];
+  const { getActiveConfig } = await import("@/services/configService");
+  const config = await getActiveConfig();
+  const rows = await prisma.crewMappingOverride.findMany({
+    where: {
+      status: "APPROVED",
+      table: "ESTIMATION_CONFIG",
+      ...(crewIds ? { crewId: { in: crewIds } } : {}),
+    },
+    include: { crew: { select: { name: true } } },
+    orderBy: { crew: { name: "asc" } },
+  });
+  const out: { crewId: string; crewName: string }[] = [];
+  for (const r of rows) {
+    const p = safeJsonParse<Record<string, unknown>>(r.payload, {});
+    const pm = (p.complexityMultipliers as Record<string, number> | undefined) ?? undefined;
+    const multChanged =
+      !!pm && Object.keys(config.complexityMultipliers).some(
+        (k) => pm[k] !== (config.complexityMultipliers as Record<string, number>)[k],
+      );
+    const floorChanged = p.calibrationMinSamples != null && Number(p.calibrationMinSamples) !== config.calibrationMinSamples;
+    if (multChanged || floorChanged) out.push({ crewId: r.crewId, crewName: r.crew.name });
+  }
+  return out;
+}

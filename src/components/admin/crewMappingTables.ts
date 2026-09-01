@@ -113,12 +113,32 @@ export const MAPPING_TABLE_META: Record<OverrideDomain, MappingTableMeta> = {
       { key: "currency", label: "Currency" },
     ],
   },
-  // DEC-013 estimation config is SCALAR (Class-A fields), not a row table — its page uses a
-  // dedicated scalar editor (R5), so rowsField/columns are unused here.
+  // DEC-013/DEC-014 estimation config is SCALAR (+ the complexityMultipliers object), not a row
+  // table — its page uses a dedicated editor. fields = every crew-overridable field across all tiers
+  // (Class-A + governed Tier-2/Tier-3). Rounding is NOT here (stays global, DEC-014).
   ESTIMATION_CONFIG: {
     table: "ESTIMATION_CONFIG",
     label: "Estimation config",
-    fields: ["aiMinPct", "aiMaxPct", "standardTeamSize", "fullTeamRateUtilisationWarning"],
+    fields: [
+      // Tier 1 (Class-A)
+      "sprintWorkingDays",
+      "aiMinPct",
+      "aiMaxPct",
+      "standardTeamSize",
+      "fullTeamRateUtilisationWarning",
+      // Tier 2 (governance policy)
+      "issueMaxRecommendedSprints",
+      "issueReviewSp",
+      "issueSplitSp",
+      "epicDecomposeSp",
+      "epicSplitSp",
+      "indexReviewMin",
+      "indexSplitMin",
+      "dashboardMinEstimates",
+      // Tier 3 (comparability-breaking)
+      "calibrationMinSamples",
+      "complexityMultipliers",
+    ],
     rowsField: "",
     columns: [],
   },
