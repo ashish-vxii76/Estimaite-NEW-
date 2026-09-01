@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
 type Unit = { id: string; type: string; name: string; parentId: string | null };
@@ -32,18 +32,31 @@ export function CrewScopePanel({
   const byId = useMemo(() => new Map(units.map((u) => [u.id, u])), [units]);
   const locked = useMemo(() => new Set(lockedUnitIds), [lockedUnitIds]);
 
-  // Seed the cascade from the active crew's ancestry; with no active crew every level is "All".
-  const selected = useMemo(() => {
-    const out: Record<string, string> = {
-      COMPANY: ALL, DIVISION: ALL, SUB_DIVISION: ALL, STREAM: ALL, CREW: ALL,
-    };
-    let cur = activeCrewId ? byId.get(activeCrewId) : undefined;
-    while (cur) {
-      out[cur.type] = cur.id;
-      cur = cur.parentId ? byId.get(cur.parentId) : undefined;
-    }
-    return out;
-  }, [activeCrewId, byId]);
+  // Cascade selection is LOCAL state so an in-progress pick (e.g. Company) persists while the user
+  // drills down — we only navigate when the resolved Crew changes. Seed from the active crew's
+  // ancestry; with no active crew every level is "All".
+  const deriveFromCrew = useCallback(
+    (crewId: string | null): Record<string, string> => {
+      const out: Record<string, string> = {
+        COMPANY: ALL, DIVISION: ALL, SUB_DIVISION: ALL, STREAM: ALL, CREW: ALL,
+      };
+      let cur = crewId ? byId.get(crewId) : undefined;
+      while (cur) {
+        out[cur.type] = cur.id;
+        cur = cur.parentId ? byId.get(cur.parentId) : undefined;
+      }
+      return out;
+    },
+    [byId],
+  );
+
+  const [selected, setSelected] = useState<Record<string, string>>(() => deriveFromCrew(activeCrewId));
+
+  // Re-sync when the server's active crew changes (after a navigation) — but not on plain in-panel
+  // picks, which don't change activeCrewId, so those stay put.
+  useEffect(() => {
+    setSelected(deriveFromCrew(activeCrewId));
+  }, [activeCrewId, deriveFromCrew]);
 
   const fullyLocked =
     lockedUnitIds.length > 0 && LEVELS.every(([t]) => selected[t] === ALL || locked.has(selected[t]));
@@ -64,12 +77,14 @@ export function CrewScopePanel({
     router.push(`${pathname}?${next.toString()}`);
   }
 
-  // Choosing a level sets it and resets every lower level to "All". The active crew is the Crew
-  // selection (empty = All = Global).
+  // Choosing a level sets it and resets every lower level to "All". Intermediate picks (Company…
+  // Stream) update local state only; we navigate solely when the resolved Crew actually changes.
   function chooseLevel(levelIndex: number, value: string) {
     const next: Record<string, string> = { ...selected, [LEVELS[levelIndex][0]]: value };
     for (let i = levelIndex + 1; i < LEVELS.length; i++) next[LEVELS[i][0]] = ALL;
-    navigateCrew(next.CREW === ALL ? "" : next.CREW);
+    setSelected(next);
+    const resolvedCrew = next.CREW === ALL ? null : next.CREW;
+    if (resolvedCrew !== (activeCrewId ?? null)) navigateCrew(resolvedCrew ?? "");
   }
 
   return (
