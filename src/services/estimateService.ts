@@ -9,6 +9,7 @@ import {
   type EstimateCalculationInput,
 } from "@/domain/estimation";
 import { getActiveConfig } from "@/services/configService";
+import { getApprovedMappingOverrides } from "@/services/crewMappingService";
 import { resolveOrgPathForTeam } from "@/services/orgService";
 import { appendAuditEvent } from "@/services/auditService";
 import { STATUS_TRANSITIONS, REASON_REQUIRED, type TransitionAction } from "@/lib/estimateLifecycle";
@@ -222,11 +223,14 @@ export async function calculateAndPersist(id: string, userId: string) {
   const configRow = await prisma.configurationVersion.findUnique({
     where: { id: estimate.configurationVersionId },
   });
-  // DEC-007 A5: resolve the crew's calibrated Days/Point over the global defaults. With no
-  // per-crew override (the default), this returns the config unchanged — identical to today.
+  // DEC-007 A5 / DEC-009 / DEC-011: resolve the crew's per-crew overrides over the global config —
+  // Days/Point + Capacity (from the config blob) and APPROVED mapping tables (from CrewMappingOverride).
+  // With no override of any kind (the default), this returns the config unchanged — identical to today.
+  const crewId = estimate.team?.crewId ?? null;
   const config = resolveCrewConfig(
     hydrateConfig(configRow ? JSON.parse(configRow.payload) : await getActiveConfig()),
-    estimate.team?.crewId ?? null,
+    crewId,
+    await getApprovedMappingOverrides(crewId),
   );
 
   // Prefer the pinned snapshot taken at creation; fall back to live for legacy estimates.

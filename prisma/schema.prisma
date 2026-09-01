@@ -102,6 +102,7 @@ model OrgUnit {
   seats     OrgSeat[]
   budgets   CrewBudget[]
   roleGrants RoleGrant[]
+  mappingOverrides CrewMappingOverride[]
 }
 
 model OrgSeat {
@@ -126,6 +127,27 @@ model CrewBudget {
   createdAt DateTime @default(now())
 
   @@unique([crewId, year])
+}
+
+// DEC-011: opt-in, governed per-crew override for a bounded set of mapping tables
+// (ISSUE / EPIC / COMPLEXITY). One row per crew per table; global is the default when no
+// APPROVED row exists (golden-safe). payload holds the crew's mapping rows as JSON.
+model CrewMappingOverride {
+  id          String    @id @default(cuid())
+  crewId      String
+  crew        OrgUnit   @relation(fields: [crewId], references: [id], onDelete: Cascade)
+  table       String
+  status      String    @default("REQUESTED")
+  payload     String
+  version     Int       @default(1)
+  requestedBy String?
+  approvedBy  String?
+  reason      String    @default("")
+  requestedAt DateTime  @default(now())
+  approvedAt  DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([crewId, table])
 }
 
 model ConfigurationVersion {

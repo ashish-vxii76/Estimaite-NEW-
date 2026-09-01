@@ -552,6 +552,37 @@ describe("per-crew calibration resolution + guardrail (DEC-007 A5)", () => {
   });
 });
 
+describe("per-crew mapping override resolution (DEC-011)", () => {
+  it("no mapping override → config unchanged (golden-safe)", async () => {
+    const { resolveCrewConfig } = await import("@/domain/estimation/crewCalibration");
+    const { DEFAULT_CONFIG } = await import("@/domain/estimation");
+    expect(resolveCrewConfig(DEFAULT_CONFIG, "crewX", {})).toBe(DEFAULT_CONFIG);
+    expect(resolveCrewConfig(DEFAULT_CONFIG, "crewX", null)).toBe(DEFAULT_CONFIG);
+    expect(resolveCrewConfig(DEFAULT_CONFIG, "crewX", undefined)).toBe(DEFAULT_CONFIG);
+  });
+
+  it("overlays only the supplied mapping tables; others keep global", async () => {
+    const { resolveCrewConfig } = await import("@/domain/estimation/crewCalibration");
+    const { DEFAULT_CONFIG } = await import("@/domain/estimation");
+    const customIssue = DEFAULT_CONFIG.issueMappings.map((m) => ({ ...m, totalPd: m.totalPd + 1 }));
+    const resolved = resolveCrewConfig(DEFAULT_CONFIG, "crewX", { ISSUE: { issueMappings: customIssue } });
+    expect(resolved.issueMappings).toBe(customIssue); // ISSUE overridden
+    expect(resolved.epicMappings).toBe(DEFAULT_CONFIG.epicMappings); // EPIC untouched
+    expect(resolved.complexityMappings).toBe(DEFAULT_CONFIG.complexityMappings); // COMPLEXITY untouched
+    expect(resolved.complexityDimensions).toBe(DEFAULT_CONFIG.complexityDimensions); // dimensions never per-crew
+  });
+
+  it("mapping override coexists with Days/Point override", async () => {
+    const { resolveCrewConfig } = await import("@/domain/estimation/crewCalibration");
+    const { DEFAULT_CONFIG } = await import("@/domain/estimation");
+    const cfg = { ...DEFAULT_CONFIG, crewDaysPerPoint: { crewX: { senior: 1.5 } } };
+    const customBands = DEFAULT_CONFIG.complexityBands.map((b) => ({ ...b }));
+    const resolved = resolveCrewConfig(cfg, "crewX", { COMPLEXITY: { complexityBands: customBands } });
+    expect(resolved.resourceLevels.find((l) => l.id === "senior")?.daysPerPoint).toBe(1.5);
+    expect(resolved.complexityBands).toBe(customBands);
+  });
+});
+
 describe("variance", () => {
   it("interprets actual/estimated ratio", () => {
     const under = calculateVariance({
