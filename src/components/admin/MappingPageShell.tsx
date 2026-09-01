@@ -9,9 +9,9 @@ type Table = "ISSUE" | "EPIC" | "COMPLEXITY";
 type Row = Record<string, unknown>;
 type Unit = { id: string; type: string; name: string; parentId: string | null };
 
-// DEC-011: wraps a global mapping editor with the Company→Crew scope panel and a
-// global/crew-specific toggle. Global mode = the existing governed editor. Crew mode = the crew's
-// opt-in (admin-approved) override of the same table.
+// DEC-011: a mapping page = Company→Crew scope panel + one editor. The scope selection decides what
+// you edit: "All" everywhere → the governed Global config; a specific Crew → that crew's opt-in
+// (admin-approved) override of the same table.
 export function MappingPageShell({
   table,
   title,
@@ -44,9 +44,9 @@ export function MappingPageShell({
   canApprove: boolean;
 }) {
   const router = useRouter();
+  const editingGlobal = !activeCrewId;
   const isApproved = override?.status === "APPROVED";
   const isRequested = override?.status === "REQUESTED";
-  const [mode, setMode] = useState<"global" | "crew">("global");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const crewName = crews.find((c) => c.id === activeCrewId)?.name ?? "—";
@@ -87,24 +87,16 @@ export function MappingPageShell({
         <CrewScopePanel units={units} lockedUnitIds={lockedUnitIds} activeCrewId={activeCrewId} />
 
         <section className="min-w-[340px] flex-1 space-y-3">
-          <div className="flex w-fit gap-1.5 rounded-xl border border-[var(--line)] bg-[var(--panel-2)] p-1">
-            <button
-              type="button"
-              onClick={() => setMode("global")}
-              className={`rounded-lg px-3.5 py-1.5 text-sm ${mode === "global" ? "bg-[var(--panel)] font-medium text-[var(--navy)]" : "text-[var(--muted)]"}`}
-            >
-              Use global (governed)
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("crew")}
-              className={`rounded-lg px-3.5 py-1.5 text-sm ${mode === "crew" ? "bg-[var(--panel)] font-medium text-[var(--navy)]" : "text-[var(--muted)]"}`}
-            >
-              Use crew-specific
-            </button>
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-[var(--muted)]">Editing:</span>
+            {editingGlobal ? (
+              <span className="rounded-full bg-[var(--panel-2)] px-2.5 py-0.5 font-medium text-[var(--navy)]">Global · all crews</span>
+            ) : (
+              <span className="rounded-full bg-[var(--panel-2)] px-2.5 py-0.5 font-medium text-[var(--navy)]">{crewName}{isApproved ? " · crew-specific" : ""}</span>
+            )}
           </div>
 
-          {mode === "global" ? (
+          {editingGlobal ? (
             <MappingEditor
               title={title}
               description={description}
@@ -114,8 +106,6 @@ export function MappingPageShell({
               readOnly={!canEditGlobal}
               hideHeader
             />
-          ) : !activeCrewId ? (
-            <p className="text-sm text-[var(--muted)]">No crew in your scope to configure.</p>
           ) : isApproved ? (
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
@@ -124,7 +114,7 @@ export function MappingPageShell({
                     Revert to global
                   </button>
                 ) : null}
-                <span className="text-xs text-[var(--muted)]">Crew-specific · v{override?.version} · cross-crew rollups compare in person-days</span>
+                <span className="text-xs text-[var(--muted)]">v{override?.version} · cross-crew rollups compare in person-days</span>
               </div>
               <MappingEditor
                 title={title}
@@ -133,7 +123,7 @@ export function MappingPageShell({
                 columns={columns}
                 rows={override?.rows ?? []}
                 seedRows={globalRows}
-                crew={{ crewId: activeCrewId, table }}
+                crew={{ crewId: activeCrewId!, table }}
                 readOnly={!canWriteCrew}
                 hideHeader
                 saveLabel={`Save for ${crewName}`}
@@ -151,16 +141,27 @@ export function MappingPageShell({
               ) : null}
             </div>
           ) : (
-            <div className="flex flex-wrap items-center gap-2 rounded-lg bg-[var(--panel-2)] px-3 py-2 text-sm text-[var(--navy)]">
-              <span>
-                {crewName} uses the governed global {title.toLowerCase()}.{" "}
-                {canApprove ? "Enable a crew-specific copy for this crew?" : "Opt into a crew-specific copy (admin-approved)?"}
-              </span>
-              {canWriteCrew ? (
-                <button type="button" className="btn-primary text-sm" disabled={busy} onClick={() => call("request")}>
-                  {canApprove ? "Enable crew-specific" : "Request crew-specific"}
-                </button>
-              ) : null}
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2 rounded-lg bg-[var(--panel-2)] px-3 py-2 text-sm text-[var(--navy)]">
+                <span>
+                  {crewName} uses the governed global {title.toLowerCase()}.{" "}
+                  {canApprove ? "Enable a crew-specific copy for this crew?" : "Opt into a crew-specific copy (admin-approved)?"}
+                </span>
+                {canWriteCrew ? (
+                  <button type="button" className="btn-primary text-sm" disabled={busy} onClick={() => call("request")}>
+                    {canApprove ? "Enable crew-specific" : "Request crew-specific"}
+                  </button>
+                ) : null}
+              </div>
+              <MappingEditor
+                title={title}
+                description={description}
+                section={section}
+                columns={columns}
+                rows={globalRows}
+                readOnly
+                hideHeader
+              />
             </div>
           )}
 

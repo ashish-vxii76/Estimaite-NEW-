@@ -12,7 +12,10 @@ const LEVELS: [string, string][] = [
   ["STREAM", "Stream"],
   ["CREW", "Crew"],
 ];
+const ALL = "ALL";
 
+// DEC-011: Company→Crew waterfall. "All" at every level = the true Global config; drilling to a
+// specific Crew = that crew's config. Levels the user's role locks are read-only chips.
 export function CrewScopePanel({
   units,
   lockedUnitIds,
@@ -29,9 +32,11 @@ export function CrewScopePanel({
   const byId = useMemo(() => new Map(units.map((u) => [u.id, u])), [units]);
   const locked = useMemo(() => new Set(lockedUnitIds), [lockedUnitIds]);
 
-  // Ancestry of the active crew: type → selected unit id.
+  // Seed the cascade from the active crew's ancestry; with no active crew every level is "All".
   const selected = useMemo(() => {
-    const out: Record<string, string> = {};
+    const out: Record<string, string> = {
+      COMPANY: ALL, DIVISION: ALL, SUB_DIVISION: ALL, STREAM: ALL, CREW: ALL,
+    };
     let cur = activeCrewId ? byId.get(activeCrewId) : undefined;
     while (cur) {
       out[cur.type] = cur.id;
@@ -40,68 +45,54 @@ export function CrewScopePanel({
     return out;
   }, [activeCrewId, byId]);
 
-  const fullyLocked = LEVELS.every(([t]) => !selected[t] || locked.has(selected[t]));
+  const fullyLocked =
+    lockedUnitIds.length > 0 && LEVELS.every(([t]) => selected[t] === ALL || locked.has(selected[t]));
 
   function optionsFor(type: string, parentType: string | null): Unit[] {
-    const parentId = parentType ? selected[parentType] : null;
-    return units
-      .filter((u) => u.type === type && (parentType ? u.parentId === parentId : u.parentId == null))
-      .sort((a, b) => a.name.localeCompare(b.name));
+    const parentVal = parentType ? selected[parentType] : null;
+    let base: Unit[];
+    if (!parentType) base = units.filter((u) => u.type === type && u.parentId == null);
+    else if (parentVal === ALL) base = units.filter((u) => u.type === type);
+    else base = units.filter((u) => u.type === type && u.parentId === parentVal);
+    return base.slice().sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  function navigateToCrew(crewId: string) {
+  function navigateCrew(crewIdOrEmpty: string) {
     const next = new URLSearchParams(params.toString());
-    next.set("crew", crewId);
+    if (crewIdOrEmpty) next.set("crew", crewIdOrEmpty);
+    else next.delete("crew");
     router.push(`${pathname}?${next.toString()}`);
   }
 
-  // Choosing an upper level → cascade down to the first crew in that subtree, then navigate.
-  function chooseLevel(levelIndex: number, id: string) {
-    if (LEVELS[levelIndex][0] === "CREW") {
-      navigateToCrew(id);
-      return;
-    }
-    let parentId = id;
-    for (let i = levelIndex + 1; i < LEVELS.length; i++) {
-      const child = units
-        .filter((u) => u.type === LEVELS[i][0] && u.parentId === parentId)
-        .sort((a, b) => a.name.localeCompare(b.name))[0];
-      if (!child) return;
-      if (LEVELS[i][0] === "CREW") {
-        navigateToCrew(child.id);
-        return;
-      }
-      parentId = child.id;
-    }
+  // Choosing a level sets it and resets every lower level to "All". The active crew is the Crew
+  // selection (empty = All = Global).
+  function chooseLevel(levelIndex: number, value: string) {
+    const next: Record<string, string> = { ...selected, [LEVELS[levelIndex][0]]: value };
+    for (let i = levelIndex + 1; i < LEVELS.length; i++) next[LEVELS[i][0]] = ALL;
+    navigateCrew(next.CREW === ALL ? "" : next.CREW);
   }
 
   return (
-    <aside style={{ flex: "0 0 210px" }} className="rounded-xl border border-[var(--line)] bg-[var(--panel)] p-4">
+    <aside style={{ flex: "0 0 288px" }} className="rounded-xl border border-[var(--line)] bg-[var(--panel)] p-4">
       <div className="mb-2 flex items-center justify-between">
         <span className="text-sm font-medium text-[var(--navy)]">Scope</span>
-        <span
-          className={`rounded-full px-2 py-0.5 text-[11px] ${
-            fullyLocked ? "bg-[var(--panel-2)] text-[var(--muted)]" : "bg-[var(--panel-2)] text-[var(--navy)]"
-          }`}
-        >
+        <span className="rounded-full bg-[var(--panel-2)] px-2 py-0.5 text-[11px] text-[var(--muted)]">
           {fullyLocked ? "Locked to role" : "Selectable"}
         </span>
       </div>
 
       <div className="flex flex-col gap-2.5">
         {LEVELS.map(([type, label], i) => {
-          const value = selected[type] ?? "";
+          const value = selected[type] ?? ALL;
+          const isLocked = value !== ALL && locked.has(value);
           const opts = optionsFor(type, i === 0 ? null : LEVELS[i - 1][0]);
-          // Read-only ONLY when RBAC locks this level (auto-selected from the role grant). A level the
-          // user may choose is always a real dropdown — even if it currently has a single option.
-          const isLocked = value !== "" && locked.has(value);
-          const name = byId.get(value)?.name ?? "—";
+          const displayName = value === ALL ? "All" : byId.get(value)?.name ?? "—";
           return (
             <div key={type} className="min-w-0">
               <div className="mb-1 text-[11px] text-[var(--muted)]">{label}</div>
               {isLocked ? (
-                <div className="flex h-8 items-center justify-between gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-2.5" title={name}>
-                  <span className="truncate text-[13px] text-[var(--navy)]">{name}</span>
+                <div className="flex h-8 items-center justify-between gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-2.5" title={displayName}>
+                  <span className="truncate text-[13px] text-[var(--navy)]">{displayName}</span>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[var(--muted)]" aria-hidden="true">
                     <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                     <path d="M7 11V7a5 5 0 0 1 10 0v4" />
@@ -111,10 +102,10 @@ export function CrewScopePanel({
                 <select
                   className="h-8 w-full truncate rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-2 text-[13px] text-[var(--navy)]"
                   value={value}
-                  title={name}
+                  title={displayName}
                   onChange={(e) => chooseLevel(i, e.target.value)}
                 >
-                  {value === "" ? <option value="">Select</option> : null}
+                  <option value={ALL}>All</option>
                   {opts.map((o) => (
                     <option key={o.id} value={o.id}>{o.name}</option>
                   ))}
@@ -127,8 +118,8 @@ export function CrewScopePanel({
 
       <p className="mt-3 text-[11.5px] leading-relaxed text-[var(--muted)]">
         {fullyLocked
-          ? "Auto-selected from your active role and read-only. You configure only crews in your scope."
-          : "Levels within your scope are selectable. Pick a crew to configure it."}
+          ? "Auto-selected from your active role and read-only. You configure only your crew."
+          : "“All” at every level is the global config. Drill down to a crew to configure it specifically."}
       </p>
     </aside>
   );

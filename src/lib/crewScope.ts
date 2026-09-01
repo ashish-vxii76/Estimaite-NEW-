@@ -35,11 +35,11 @@ export async function resolveCrewScope(
   const inScope = new Set(crews.map((c) => c.id));
   let activeCrewId: string | null = null;
   if (lockedCrewId) {
-    activeCrewId = lockedCrewId; // read-only, never overridable by the request
-  } else if (requestedCrewId && inScope.has(requestedCrewId)) {
+    activeCrewId = lockedCrewId; // pod-level: read-only, forced to their crew
+  } else if (requestedCrewId && requestedCrewId !== "ALL" && inScope.has(requestedCrewId)) {
     activeCrewId = requestedCrewId;
   } else {
-    activeCrewId = crews[0]?.id ?? null;
+    activeCrewId = null; // default = "All" everywhere = Global config
   }
 
   return { units, lockedUnitIds, crews, activeCrewId, adminAll: lockedUnitIds.length === 0 };
