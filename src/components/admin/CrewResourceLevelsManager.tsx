@@ -218,6 +218,30 @@ export function CrewResourceLevelsManager({
         {message ? <p className="text-sm text-[var(--navy)]">{message}</p> : null}
         {!canWrite ? <p className="text-sm text-[var(--muted)]">Read only for this role.</p> : null}
       </section>
+
+      <section className="card p-5">
+        <h2 className="font-medium text-[var(--navy)]">Governed globally (read-only)</h2>
+        <p className="mt-1 max-w-3xl text-sm text-[var(--muted)]">
+          The rest of the estimation model is the same for every crew and is <strong>not</strong> per-crew
+          editable — this keeps estimates governed and comparable across crews. Administrators manage these
+          centrally; a crew tunes only its Capacity/sprint and Days/Point above.
+        </p>
+        <ul className="mt-3 grid gap-2 text-sm text-[var(--navy)] sm:grid-cols-2">
+          {GOVERNED_GLOBAL.map((g) => (
+            <li key={g} className="rounded-lg border border-[var(--line)] px-3 py-2">{g}</li>
+          ))}
+        </ul>
+      </section>
     </div>
   );
 }
+
+/** DEC-009 D7 Class-B: governed domain model — global-only, shown here so crews know what is fixed. */
+const GOVERNED_GLOBAL = [
+  "Complexity dimensions & weights",
+  "Complexity → t-shirt bands & mappings",
+  "Story-point / issue / epic size mappings",
+  "Governance thresholds (review / split / decompose)",
+  "Sprint working days, Dev/QA split, rounding",
+  "Commercial costing semantics",
+];

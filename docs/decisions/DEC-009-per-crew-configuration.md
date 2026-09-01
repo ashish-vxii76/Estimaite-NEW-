@@ -1,9 +1,27 @@
 # DEC-009 Per-crew configuration (Resource Levels / Size Mappings / Estimation Config)
 
-**Status: ACCEPTED (decisions) — 2026-09-01. Implementation pending (its own governed increments).**
-Supersedes the single-global-config assumption of DEC-004 for these three domains. No configuration
-code is written until an implementation plan is approved and the data-model prerequisites below are
-verified. Golden Case A/B must remain **byte-for-byte unchanged** through every increment.
+**Status: ACCEPTED + Class-A IMPLEMENTED — 2026-09-01.** Supersedes the single-global-config assumption
+of DEC-004 for the crew-tunable slice. Golden Case A/B remain **byte-for-byte unchanged**.
+
+**Implementation state (2026-09-01):**
+- **Class-A (crew-tunable) — DONE.** Per-crew **Days/Point** and **Capacity/sprint** per resource level,
+  page `/admin/crew-resource-levels`, RBAC `config.crewLevels` (ADMIN RW, DELIVERY_LEAD RW, FINANCE R),
+  persisted via the golden-safe override maps `crewDaysPerPoint` (DEC-007 A5) + `crewCapacitySpPerSprint`;
+  `resolveCrewConfig` overlays both, returning config unchanged when a crew overrides neither.
+- **Class-B (governed-global) — LOCKED (D7).** Mappings/thresholds stay global; shown read-only on the
+  crew page ("Governed globally" panel). No per-crew CRUD, by decision.
+- **D2 snapshot-on-create — realised by inherit-default.** Under the override seam a new crew with no
+  overrides already resolves to the global config (starts as global); the **"Copy from global config"**
+  button materialises explicit values on demand. No separate copy hook is built, because materialising a
+  full copy would discard the golden-safe empty state for no numeric difference. (If auto-materialisation
+  at creation is later wanted, add it as a thin hook — recorded, not built.)
+- **D4 version-pinning — already satisfied.** Estimates store `configurationVersionId` and resolve
+  through it at calculation; a later crew edit creates a new config version and never mutates prior
+  estimates.
+- **D6 calibration consistency — verified.** Calibration Apply patches only `crewDaysPerPoint` via
+  `patchActiveConfig` (a merge), preserving `crewCapacitySpPerSprint`; calibration adjusts Days/Point only
+  (DEC-007 scope). Manual edits and calibration share the one per-crew Days/Point store, last-writer per
+  level.
 
 ## Why this exists
 
