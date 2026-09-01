@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireFeature, requireUser } from "@/lib/api-auth";
+import { can } from "@/lib/access";
 import { fromSession } from "@/lib/scope";
 import { visibleCrewIds } from "@/services/orgService";
 import { getActiveConfig } from "@/services/configService";
@@ -81,16 +82,23 @@ export async function POST(request: Request) {
     }
     const config = await getActiveConfig();
     const payload = JSON.stringify(seedPayload(table, config));
+    // An actor who can approve (config.mappings RW — i.e. an administrator) self-approves in one
+    // step: there is no one above them to gate it. Others go to REQUESTED for admin approval.
+    const selfApprove = can(session!.user.role, "config.mappings", "RW");
+    const now = new Date();
+    const base = selfApprove
+      ? { status: "APPROVED", approvedBy: session!.user.id, approvedAt: now }
+      : { status: "REQUESTED", approvedBy: null, approvedAt: null };
     const row = await prisma.crewMappingOverride.upsert({
       where: { crewId_table: { crewId, table } },
-      update: { status: "REQUESTED", payload, requestedBy: session!.user.id, requestedAt: new Date(), approvedBy: null, approvedAt: null },
-      create: { crewId, table, status: "REQUESTED", payload, requestedBy: session!.user.id },
+      update: { ...base, payload, requestedBy: session!.user.id, requestedAt: now },
+      create: { crewId, table, payload, requestedBy: session!.user.id, ...base },
     });
     await appendAuditEvent({
       userId: session!.user.id,
-      action: "CREW_MAPPING_REQUESTED",
+      action: selfApprove ? "CREW_MAPPING_APPROVED" : "CREW_MAPPING_REQUESTED",
       previousValue: "global",
-      newValue: `${crew.name}/${table} REQUESTED`,
+      newValue: `${crew.name}/${table} ${row.status}`,
     });
     return NextResponse.json({ ok: true, status: row.status });
   }

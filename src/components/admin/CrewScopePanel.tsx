@@ -92,26 +92,26 @@ export function CrewScopePanel({
         {LEVELS.map(([type, label], i) => {
           const value = selected[type] ?? "";
           const opts = optionsFor(type, i === 0 ? null : LEVELS[i - 1][0]);
+          // Read-only ONLY when RBAC locks this level (auto-selected from the role grant). A level the
+          // user may choose is always a real dropdown — even if it currently has a single option.
           const isLocked = value !== "" && locked.has(value);
-          const noChoice = opts.length <= 1;
-          const readOnly = isLocked || (noChoice && value !== "");
+          const name = byId.get(value)?.name ?? "—";
           return (
-            <div key={type}>
+            <div key={type} className="min-w-0">
               <div className="mb-1 text-[11px] text-[var(--muted)]">{label}</div>
-              {readOnly ? (
-                <div className="flex h-8 items-center justify-between gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-2.5">
-                  <span className="text-[13px] text-[var(--navy)]">{byId.get(value)?.name ?? "—"}</span>
-                  {isLocked ? (
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--muted)]" aria-hidden="true">
-                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                    </svg>
-                  ) : null}
+              {isLocked ? (
+                <div className="flex h-8 items-center justify-between gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-2.5" title={name}>
+                  <span className="truncate text-[13px] text-[var(--navy)]">{name}</span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[var(--muted)]" aria-hidden="true">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
                 </div>
               ) : (
                 <select
-                  className="h-8 w-full rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-2 text-[13px] text-[var(--navy)]"
+                  className="h-8 w-full truncate rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-2 text-[13px] text-[var(--navy)]"
                   value={value}
+                  title={name}
                   onChange={(e) => chooseLevel(i, e.target.value)}
                 >
                   {value === "" ? <option value="">Select</option> : null}

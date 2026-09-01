@@ -152,9 +152,14 @@ export function MappingPageShell({
             </div>
           ) : (
             <div className="flex flex-wrap items-center gap-2 rounded-lg bg-[var(--panel-2)] px-3 py-2 text-sm text-[var(--navy)]">
-              <span>{crewName} uses the governed global {title.toLowerCase()}. Opt into a crew-specific copy (admin-approved)?</span>
+              <span>
+                {crewName} uses the governed global {title.toLowerCase()}.{" "}
+                {canApprove ? "Enable a crew-specific copy for this crew?" : "Opt into a crew-specific copy (admin-approved)?"}
+              </span>
               {canWriteCrew ? (
-                <button type="button" className="btn-primary text-sm" disabled={busy} onClick={() => call("request")}>Request crew-specific</button>
+                <button type="button" className="btn-primary text-sm" disabled={busy} onClick={() => call("request")}>
+                  {canApprove ? "Enable crew-specific" : "Request crew-specific"}
+                </button>
               ) : null}
             </div>
           )}
