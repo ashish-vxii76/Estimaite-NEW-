@@ -303,17 +303,24 @@ function FilterDrawer({
             {ORG_TYPES.map((levelType) => {
               const parentType = PARENT_TYPE[levelType];
               const parentSel = parentType ? sel[parentType] : undefined;
+              // Strict cascade (same as the mapping pages): a level is greyed/disabled until its
+              // parent has a concrete value; options are ONLY that parent's children.
+              const needsParent = !!parentType && !parentSel;
               const options = units.filter(
-                (u) => u.type === levelType && (parentSel ? u.parentId === parentSel : true),
+                (u) => u.type === levelType && (parentType ? u.parentId === parentSel : true),
               );
               const value = sel[levelType] ?? "";
               const locked = value !== "" && lockedSet.has(value);
               return (
-                <label key={levelType} className="mb-2 block text-sm">
+                <label key={levelType} className={`mb-2 block text-sm ${needsParent ? "opacity-60" : ""}`}>
                   {ORG_TYPE_LABEL[levelType]}
                   {locked ? (
                     <select className={SEL_LOCKED} value={value} disabled aria-readonly="true">
                       <option value={value}>{byId.get(value)?.name ?? "—"}</option>
+                    </select>
+                  ) : needsParent ? (
+                    <select className={SEL} value="" disabled aria-readonly="true">
+                      <option value="">{ALL_LABEL[levelType]}</option>
                     </select>
                   ) : (
                     <select className={SEL} value={value} onChange={(e) => pickOrg(levelType, e.target.value)}>
@@ -328,11 +335,15 @@ function FilterDrawer({
                 </label>
               );
             })}
-            <label className="mb-2 block text-sm">
+            <label className={`mb-2 block text-sm ${!crewSel && !lockedTeamId ? "opacity-60" : ""}`}>
               Pod / Team
               {lockedTeamId ? (
                 <select className={SEL_LOCKED} value={lockedTeamId} disabled aria-readonly="true">
                   <option value={lockedTeamId}>{teams.find((t) => t.id === lockedTeamId)?.name ?? "—"}</option>
+                </select>
+              ) : !crewSel ? (
+                <select className={SEL} value="" disabled aria-readonly="true">
+                  <option value="">All pods</option>
                 </select>
               ) : (
                 <select className={SEL} value={dTeam} onChange={(e) => setDTeam(e.target.value)}>
