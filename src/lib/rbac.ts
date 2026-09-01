@@ -40,6 +40,7 @@ export const FEATURES = [
   { id: "config.teams", group: "Configuration", label: "Teams & roster" },
   { id: "config.rates", group: "Configuration", label: "Rate cards (cost / team cost)" },
   { id: "config.mappings", group: "Configuration", label: "Mappings & thresholds" },
+  { id: "config.crewLevels", group: "Configuration", label: "Per-crew resource levels (Days/Point)" },
   { id: "config.users", group: "Configuration", label: "User & role management" },
   { id: "config.rbac", group: "Configuration", label: "RBAC matrix" },
   { id: "org.setup", group: "Organisation", label: "Organisation setup (tree & seats)" },
@@ -223,6 +224,14 @@ export const DEFAULT_RBAC: Record<FeatureId, Record<AppRole, Access>> = {
     APPROVER: R,
     DELIVERY_LEAD: R,
   }),
+  // DEC-009 D7 Class-A: per-crew Days/Point is crew-tunable and safe (golden-safe override seam),
+  // separate from the governed global "config.mappings" so crew leads can hold it without the
+  // governed mapping/threshold pages.
+  "config.crewLevels": cell({
+    ADMINISTRATOR: RW,
+    DELIVERY_LEAD: RW,
+    FINANCE: R,
+  }),
   "config.users": cell({
     ADMINISTRATOR: RW,
   }),
@@ -347,6 +356,7 @@ export const PATH_FEATURES: { prefix: string; feature: FeatureId; mode: "R" | "R
   { prefix: "/admin/complexity-dimensions", feature: "config.mappings", mode: "R" },
   { prefix: "/admin/complexity-mapping", feature: "config.mappings", mode: "R" },
   { prefix: "/admin/resource-mapping", feature: "config.mappings", mode: "R" },
+  { prefix: "/admin/crew-resource-levels", feature: "config.crewLevels", mode: "R" },
   { prefix: "/admin/estimation-config", feature: "config.mappings", mode: "R" },
   { prefix: "/what-if", feature: "whatIf", mode: "R" },
   { prefix: "/calibration", feature: "calibration.view", mode: "R" },

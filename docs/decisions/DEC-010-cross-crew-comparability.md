@@ -1,9 +1,14 @@
 # DEC-010 Cross-crew comparability (normalisation & analytics)
 
-**Status: ACCEPTED (decisions) — 2026-09-01. Implementation pending (its own governed increments).**
+**Status: ACCEPTED (principle) — 2026-09-01. Implementation deferred LONGER than DEC-009.**
 Opened as the read-side consequence of DEC-009. This is an **analytics / reporting layer only**. It
 **must not** change how any crew estimates, nor any engine formula, threshold, mapping, or rounding.
 Golden Case A/B remain **byte-for-byte unchanged**.
+
+**Deliberately not built yet.** DEC-010 only pays off with **multiple calibrated crews** and a real
+cross-crew reporting ask; building it now (the seed has one crew) would be speculative. The *principle*
+is locked here — chiefly so nobody ever hand-types pairwise ratios — but implementation waits until the
+demand is concrete. DEC-009 (per-crew config) proceeds first and independently.
 
 ## Why this exists
 
@@ -27,17 +32,23 @@ pairs to maintain by hand). Calibration already computes the objective, data-der
 **refreshes as new work completes** — that is the source of truth. (Analogy: currencies are held
 against one base and every pair is derived, not stored pair-by-pair.)
 
-**D2 — Derived ratios carry calibration confidence.**
+**D2 — Derived ratios carry calibration confidence, and are de-emphasised vs the neutral unit.**
 A derived crew↔crew ratio inherits the **confidence of the underlying calibration** (DEC-007
 `n_min`, `cv_flag`). Where a crew's factor is a thin-data parent/global inheritance or is flagged
 low-confidence, the derived comparison is **surfaced as low-confidence**, never presented as precise.
+Note the **pairwise ratio is the noisiest artifact** — it divides two noisy calibration factors, so
+error compounds. The **robust primary view is "everything in person-days"**; the "1 SP A = 3 SP C"
+readout is secondary, always confidence-badged, and never shown as a bare precise number.
 
 **D3 — Optional manual override, thin-data fallback only, clearly labelled and audited.**
 Where a crew has **too little delivered data to calibrate**, an authorised user may enter a **manual
 normalisation factor/ratio** for that crew. It is **explicitly labelled "manually asserted — not
 data-derived,"** carries actor + reason + timestamp in the audit trail, and is **superseded
 automatically** once the crew accrues enough data to calibrate (data-derived wins). Manual overrides
-are the **exception**, never the primary mechanism.
+are the **exception**, never the primary mechanism. To avoid a crew **yo-yoing** between manual and
+data-derived at exactly the `n_min` boundary, the switch uses **hysteresis** (data-derived takes over
+only once comfortably past the floor, e.g. `n_min + margin`) or an explicit one-way switch — never a
+per-run flip at the boundary.
 
 **D4 — Read-side only; zero effect on estimation or the engine.**
 Normalisation and its analytics live entirely in the **reporting/analytics layer**. No crew's estimate

@@ -52,6 +52,13 @@ global template and then edit it. The copy is a **snapshot, not a link**: after 
 config is fully independent and future global changes do **not** propagate. This is deliberately
 **not** the override model.
 
+*Trade-off (recorded honestly):* full-copy buys crew isolation at the cost of **propagation** — a
+legitimate org-wide correction has **no automatic path** to crews that already copied; it becomes an
+N-crew manual campaign or silent drift. Future mitigation to consider (still not the override model):
+store per-field **provenance** ("changed from template" vs "untouched") so a global correction can be
+*offered* to crews that never diverged on that field. Out of scope for the first increment, noted so the
+cost is a conscious choice.
+
 **D3 — CRUD: New / Edit / Modify / Delete / Save, per crew, RBAC-gated, audited.**
 Crew config pages support create, edit, delete, and save on the crew's own copy. Every mutation is
 **audited** (actor, crew, domain, previous → new value) consistent with existing config audit
@@ -80,11 +87,50 @@ that crew's **version-pinned** config, so the estimate-vs-actual comparison is i
 No calibration formula, constant, or rounding changes here — this is a wiring and consistency
 requirement only.
 
+*Caveat (recorded honestly):* per-crew config also **weakens the global shrinkage anchor** — when crews
+have different resource levels/mappings, the global/parent baseline a thin-data crew is shrunk toward is
+an average over crews that no longer share a point scale, so the prior means less than under shared
+config. Conceptual, not a formula change: the parent prior is more defensible expressed in the
+**normalised unit (person-days)** — exactly DEC-010's unit. DEC-009 and DEC-010 are more coupled than a
+first reading suggests; revisit the anchor's unit when DEC-010 is built.
+
+**D7 — Field partition: crew-tunable vs governed-global (BLOCKER for implementation).**
+"Resource Levels / Size Mappings / Estimation Config" are **not** homogeneous — they are slices of one
+monolithic governed `EstimationConfig`. Verified against the real model (`src/domain/estimation/types.ts`)
+and RBAC (`src/lib/rbac.ts`), the fields partition into two classes, and **only Class A may be
+crew-editable**:
+
+**Class A — crew-tunable** (legitimately local to a crew; safe to vary per crew):
+- `resourceLevels[].daysPerPoint` — already a golden-safe per-crew override (`crewDaysPerPoint`,
+  DEC-007 A5, resolved by `resolveCrewConfig`). **This is the safe first slice.**
+- `resourceLevels[].capacitySpPerSprint` — crew capacity; can follow the same empty-default override
+  pattern (golden-safe).
+- Commercial **rate/cost** inputs that are already team/location-scoped (`teamCostMappings`,
+  `costMappings`, `locationDailyRates`) — note these are `config.rates`, a *separate* concern, and are
+  already effectively per-team; not opened further here.
+
+**Class B — GOVERNED-GLOBAL, NOT crew-editable** (the governed domain model; CLAUDE.md forbids
+per-crew mutation): `complexityDimensions`, `complexityBands`, `complexityMappings`,
+`complexityMultipliers`, `issueStoryPointMappings`, `issueMappings`, `epicRomMappings`,
+`epicMappings`, `allowedIssueStoryPoints`, and the governance **thresholds** (`issueReviewSp`,
+`issueSplitSp`, `epicDecomposeSp`, `epicSplitSp`, `indexReviewMin`, `indexSplitMin`,
+`sprintWorkingDays`, Dev/QA split, rounding, costing semantics). All of these live under RBAC
+`config.mappings` ("Mappings & thresholds"). Letting each crew redefine them independently **fractures
+the governed model** and is out of scope. On crew config pages they are shown **read-only, labelled
+"Governed globally."** Opening any Class-B field to per-crew variation requires its **own governed
+decision** (an approval-gated, versioned override — never free CRUD) and is **not** authorised by
+DEC-009.
+
+Consequence: DEC-009 implementation begins with **Class A only** (per-crew Resource Levels). "Size
+Mappings" and "Estimation Config" are surfaced per crew as **governed-global read-only** until a
+separate decision says otherwise.
+
 ### Governance guardrails
 
 - **No formula / threshold / mapping-semantics change.** DEC-009 changes *where config lives and how
   it is resolved*, not how any formula computes. Any deviation is a discrepancy to STOP and document
   (CLAUDE.md), not to code around.
+- **Class-B is locked.** Governed mappings/thresholds (D7) are never made freely per-crew editable.
 - **Golden-first.** Every increment ships with the golden regression green and Golden Case A/B
   unchanged. A no-override crew seeded from today's global must resolve **identically** to today.
 - **Version-pinned immutability.** Historical estimates and applied calibration versions are never

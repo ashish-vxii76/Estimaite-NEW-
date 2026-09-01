@@ -132,6 +132,12 @@ const PDF: Record<FeatureId, Partial<Record<AppRole, Access>>> = {
     APPROVER: "R",
     DELIVERY_LEAD: "R",
   },
+  // DEC-009 D7 Class-A additive feature (not in the original PDF): per-crew Days/Point.
+  "config.crewLevels": {
+    ADMINISTRATOR: "RW",
+    DELIVERY_LEAD: "RW",
+    FINANCE: "R",
+  },
   "config.users": { ADMINISTRATOR: "RW" },
   "config.rbac": { ADMINISTRATOR: "RW" },
   "org.setup": { ADMINISTRATOR: "RW", DELIVERY_LEAD: "R" },
