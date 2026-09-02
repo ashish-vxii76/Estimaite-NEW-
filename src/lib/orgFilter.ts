@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { seesAllTeams } from "@/lib/access";
-import { descendantIds, getPrimarySeat } from "@/services/orgService";
+import { adminOrgScope, descendantIds, getPrimarySeat } from "@/services/orgService";
 import { resolveEstimateScope, type ScopeUser } from "@/lib/scope";
 import type { Prisma } from "@prisma/client";
 
@@ -22,14 +22,23 @@ export type OrgFilterData = {
  *  - has an org seat → Company…seat-level locked, subtree below the seat selectable, Pod open.
  *  - team only (no seat) → pod-level: Company…Crew AND the Pod all locked to the user's team.
  */
-export async function getOrgFilterData(user: ScopeUser): Promise<OrgFilterData> {
+export async function getOrgFilterData(
+  user: ScopeUser,
+  opts: { adminScoped?: boolean } = {},
+): Promise<OrgFilterData> {
   const allUnits = await prisma.orgUnit.findMany({
     where: { active: true },
     select: { id: true, type: true, name: true, parentId: true },
     orderBy: [{ type: "asc" }, { name: "asc" }],
   });
 
-  if (seesAllTeams(user.role)) {
+  // DEC-016: for administration scope panels, "unrestricted" and the anchor are seat/grant-driven
+  // (an Administrator seated at a crew is scoped to it). Estimate filter bars keep the role-driven
+  // sees-all behaviour so admins still see every team's records.
+  const adminScope = opts.adminScoped ? await adminOrgScope(user) : null;
+  const unrestricted = opts.adminScoped ? adminScope!.appLevel : seesAllTeams(user.role);
+
+  if (unrestricted) {
     const teams = await prisma.team.findMany({
       where: { active: true },
       select: { id: true, name: true, crewId: true },
@@ -40,8 +49,9 @@ export async function getOrgFilterData(user: ScopeUser): Promise<OrgFilterData> 
 
   const byId = new Map(allUnits.map((u) => [u.id, u]));
   // Leadership scope comes from the active role grant, else the DB primary seat.
-  const seatOrgUnitId =
-    user.activeGrantId != null
+  const seatOrgUnitId = opts.adminScoped
+    ? adminScope!.anchorId
+    : user.activeGrantId != null
       ? user.seatOrgUnitId ?? null
       : (await getPrimarySeat(user.id))?.orgUnitId ?? null;
 

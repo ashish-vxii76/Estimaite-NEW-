@@ -245,6 +245,12 @@ export function canCreateUnderParent(scope: OrgAdminScope, parentId: string | nu
   return scope.visibleIds.has(parentId);
 }
 
+/** Org units the actor administers (seat/grant-driven). null = all (App admin). */
+export async function adminVisibleOrgUnitIds(user: ScopeInput): Promise<string[] | null> {
+  const scope = await adminOrgScope(user);
+  return scope.appLevel ? null : [...scope.visibleIds];
+}
+
 /** Crews the actor administers (seat/grant-driven). null = all (App admin). */
 export async function adminVisibleCrewIds(user: ScopeInput): Promise<string[] | null> {
   const scope = await adminOrgScope(user);

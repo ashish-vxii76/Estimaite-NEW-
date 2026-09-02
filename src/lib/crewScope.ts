@@ -28,7 +28,7 @@ export async function resolveCrewScope(
   user: ScopeUser,
   requestedScopeId?: string | null,
 ): Promise<CrewScope> {
-  const { units, lockedUnitIds } = await getOrgFilterData(user);
+  const { units, lockedUnitIds } = await getOrgFilterData(user, { adminScoped: true });
   const byId = new Map(units.map((u) => [u.id, u]));
 
   const crews = units

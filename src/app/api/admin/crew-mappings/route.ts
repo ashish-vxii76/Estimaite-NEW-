@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireFeature, requireUser } from "@/lib/api-auth";
 import { can } from "@/lib/access";
 import { fromSession } from "@/lib/scope";
-import { visibleCrewIds, visibleOrgUnitIds } from "@/services/orgService";
+import { adminVisibleCrewIds, adminVisibleOrgUnitIds } from "@/services/orgService";
 import { getActiveConfig } from "@/services/configService";
 import { appendAuditEvent } from "@/services/auditService";
 import { prisma } from "@/lib/prisma";
@@ -19,12 +19,13 @@ type Table = keyof typeof MAPPING_TABLE_META;
 const TABLES = new Set<Table>(Object.keys(MAPPING_TABLE_META) as Table[]);
 
 async function inScope(user: ReturnType<typeof fromSession>, unitId: string, unitType: string) {
+  // DEC-016: per-crew/company config authority is seat/grant-driven — a crew-anchored admin may only
+  // configure their own crew, even if their role would otherwise see all teams.
   if (unitType === "COMPANY") {
-    // DEC-015: company-scoped config — the actor must be able to see that company (admins: all).
-    const visible = await visibleOrgUnitIds(user);
+    const visible = await adminVisibleOrgUnitIds(user);
     return visible == null || visible.includes(unitId);
   }
-  const visible = await visibleCrewIds(user);
+  const visible = await adminVisibleCrewIds(user);
   return visible == null || visible.includes(unitId);
 }
 

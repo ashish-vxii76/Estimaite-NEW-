@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireFeature, requireUser } from "@/lib/api-auth";
 import { fromSession } from "@/lib/scope";
-import { visibleCrewIds } from "@/services/orgService";
+import { adminVisibleCrewIds } from "@/services/orgService";
 import { getActiveConfig, patchActiveConfig } from "@/services/configService";
 import { prisma } from "@/lib/prisma";
 
@@ -10,7 +10,7 @@ import { prisma } from "@/lib/prisma";
 // Golden Case A/B are unaffected. Governed Class-B mappings/thresholds are NOT touched here.
 
 async function crewOptions(userScope: ReturnType<typeof fromSession>) {
-  const ids = await visibleCrewIds(userScope);
+  const ids = await adminVisibleCrewIds(userScope);
   const crews = await prisma.orgUnit.findMany({
     where: { type: "CREW", active: true, ...(ids == null ? {} : { id: { in: ids } }) },
     select: { id: true, name: true },
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
   const incomingCap = (body.capacityOverrides ?? {}) as Record<string, number | null>;
 
   // Scope: the crew must be one the actor can see.
-  const visible = await visibleCrewIds(fromSession(session!.user));
+  const visible = await adminVisibleCrewIds(fromSession(session!.user));
   if (visible && !visible.includes(crewId)) {
     return NextResponse.json({ error: "Crew outside your org scope" }, { status: 403 });
   }
