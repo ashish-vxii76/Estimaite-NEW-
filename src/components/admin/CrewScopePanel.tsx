@@ -114,7 +114,7 @@ export function CrewScopePanel({
             <div key={type} className={`min-w-0 ${disabled ? "opacity-45" : ""}`}>
               <div className="mb-1 text-[11px] text-[var(--muted)]">{label}</div>
               {isLocked ? (
-                <LockedScopeField className="h-8 px-2.5 text-[13px]" value={displayName} />
+                <LockedScopeField className="min-h-8 px-2.5 py-1 text-[13px]" value={displayName} />
               ) : (
                 <select
                   className={`h-8 w-full truncate rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-2 text-[13px] text-[var(--navy)] ${disabled ? "cursor-not-allowed" : ""}`}

@@ -63,7 +63,7 @@ export function OrgPodPicker({
     return (
       <div className="rounded-lg border border-[var(--line)] bg-[var(--panel-2)] p-3">
         <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Organisation</p>
-        <p className="mt-1 truncate text-sm text-[var(--navy)]" title={path}>{path || "—"}</p>
+        <p className="mt-1 break-words text-sm text-[var(--navy)]" title={path}>{path || "—"}</p>
         <p className="mt-1 text-xs text-[var(--muted)]">Locked to your role. The Crew sets the config that applies.</p>
       </div>
     );

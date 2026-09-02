@@ -143,9 +143,9 @@ export function ScopeFilterBar(props: Props) {
         {lockedPath ? (
           <span
             title={lockedPath}
-            className="inline-flex max-w-[22rem] items-center gap-1.5 truncate rounded-full border border-[var(--line)] bg-[var(--panel-2)] px-2.5 py-1 text-xs font-medium text-[var(--muted)]"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-2.5 py-1 text-xs font-medium text-[var(--muted)]"
           >
-            <LockIcon /> <span className="truncate">{lockedPath}</span>
+            <LockIcon /> <span className="break-words">{lockedPath}</span>
           </span>
         ) : null}
 

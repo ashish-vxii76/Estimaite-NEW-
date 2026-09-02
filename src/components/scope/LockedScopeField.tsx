@@ -21,9 +21,9 @@ export function LockedScopeField({
     <div
       title={title ?? value}
       aria-readonly="true"
-      className={`flex items-center justify-between gap-1.5 rounded-lg border border-dashed border-[var(--line)] bg-transparent text-[var(--muted)] ${className}`}
+      className={`flex items-start justify-between gap-1.5 rounded-lg border border-dashed border-[var(--line)] bg-transparent text-[var(--navy)] ${className}`}
     >
-      <span className="truncate">{value || "—"}</span>
+      <span className="min-w-0 break-words leading-snug">{value || "—"}</span>
       <LockGlyph />
     </div>
   );
