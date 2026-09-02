@@ -31,6 +31,7 @@ export const FEATURES = [
   { id: "estimates.archive", group: "Estimate lifecycle", label: "Archive / soft-delete" },
   { id: "estimates.delete", group: "Estimate lifecycle", label: "Delete (hard)" },
   { id: "estimates.export", group: "Estimate lifecycle", label: "Export estimate / data" },
+  { id: "audit.export", group: "Estimate lifecycle", label: "Export audit trail (tamper-evident log)" },
   { id: "portfolio.view", group: "Portfolio, tools & analytics", label: "Portfolio roll-up & CR register" },
   { id: "portfolio.budget", group: "Portfolio, tools & analytics", label: "Crew budgets (legacy portfolio budget grant)" },
   { id: "whatIf", group: "Portfolio, tools & analytics", label: "What-If / Scenarios tab" },
@@ -168,6 +169,11 @@ export const DEFAULT_RBAC: Record<FeatureId, Record<AppRole, Access>> = {
     ADMINISTRATOR: RW,
     DELIVERY_LEAD: RW,
     FINANCE: RW,
+  }),
+  // Tamper-evident audit-trail export. Admin-only by default (was a hardcoded role check); an admin
+  // can widen this to oversight roles via the matrix if desired.
+  "audit.export": cell({
+    ADMINISTRATOR: RW,
   }),
   "portfolio.view": cell({
     ADMINISTRATOR: R,
@@ -426,6 +432,12 @@ export function canAccessPath(
     );
   }
   const mapped = featureForPath(pathname);
-  if (!mapped) return can(role, "home", "R", matrix);
+  if (!mapped) {
+    // Deny by default under /admin: an admin route that isn't explicitly mapped in PATH_FEATURES is
+    // treated as forbidden (not fallen back to open "home" access). Adding a new /admin/* page
+    // therefore requires adding its PATH_FEATURES entry — a missing one fails safe, not open.
+    if (pathname === "/admin" || pathname.startsWith("/admin/")) return false;
+    return can(role, "home", "R", matrix);
+  }
   return can(role, mapped.feature, mapped.mode, matrix);
 }

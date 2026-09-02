@@ -144,6 +144,8 @@ const PDF: Record<FeatureId, Partial<Record<AppRole, Access>>> = {
     DELIVERY_LEAD: "RW",
     FINANCE: "R",
   },
+  // Additive feature: tamper-evident audit-trail export (was a hardcoded ADMINISTRATOR check).
+  "audit.export": { ADMINISTRATOR: "RW" },
   "config.users": { ADMINISTRATOR: "RW" },
   "config.rbac": { ADMINISTRATOR: "RW" },
   "org.setup": { ADMINISTRATOR: "RW", DELIVERY_LEAD: "R" },
@@ -213,6 +215,14 @@ describe("RBAC matrix", () => {
     expect(canAccessPath("ADMINISTRATOR", "/admin/rbac")).toBe(true);
     expect(canAccessPath("APPROVER", "/admin/rbac")).toBe(false);
     expect(canAccessPath("APPROVER", "/admin/issue-mapping")).toBe(true);
+  });
+
+  it("denies unlisted /admin/* paths by default, even for Administrator (a)", () => {
+    // A new admin route not yet mapped in PATH_FEATURES must fail safe, not fall back to open.
+    expect(canAccessPath("ADMINISTRATOR", "/admin/not-yet-mapped")).toBe(false);
+    expect(canAccessPath("REQUESTER", "/admin/not-yet-mapped")).toBe(false);
+    // A non-admin unlisted path still falls back to home access (unchanged).
+    expect(canAccessPath("VIEWER", "/some-future-page")).toBe(true);
   });
 
   it("limits write-own roles", () => {

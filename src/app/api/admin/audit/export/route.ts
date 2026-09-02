@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireRole, requireUser } from "@/lib/api-auth";
+import { requireFeature, requireUser } from "@/lib/api-auth";
 import { verifyAuditChain } from "@/services/auditService";
 
 function csvCell(v: unknown): string {
@@ -16,7 +16,7 @@ function csvCell(v: unknown): string {
 export async function GET(request: Request) {
   const { session, error } = await requireUser();
   if (error) return error;
-  const forbidden = requireRole(session!.user.role, ["ADMINISTRATOR"]);
+  const forbidden = requireFeature(session!.user.role, "audit.export", "RW");
   if (forbidden) return forbidden;
 
   const url = new URL(request.url);

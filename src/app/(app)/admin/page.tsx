@@ -133,7 +133,7 @@ export default async function AdminHomePage() {
             </ul>
           </section>
         ))}
-        {role === "ADMINISTRATOR" ? (
+        {can(role, "audit.export", "RW") ? (
           <section className="card p-5">
             <p className="kicker">Governance</p>
             <p className="mt-2 text-sm text-[var(--muted)]">
