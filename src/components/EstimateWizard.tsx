@@ -186,7 +186,7 @@ export function EstimateWizard({
     planningMode: (initial?.planningMode as string) ?? "",
     costingModel: "RESOURCE_SPRINT",
     costingBasis: (initial?.costingBasis as string) ?? "",
-    costMethod: "Resource Cost per Sprint",
+    costMethod: (initial?.costMethod as string) ?? "",
     projectOverrideRate: 0,
     currency: (initial?.currency as string) ?? teams[0]?.currency ?? "CHF",
     devResourceLevel: (initial?.devResourceLevel as string) ?? "",
@@ -195,7 +195,7 @@ export function EstimateWizard({
     qaAiProductivity: Number(initial?.qaAiProductivity ?? 0),
     availableDev: Number(initial?.availableDev ?? 0),
     availableQa: Number(initial?.availableQa ?? 0),
-    targetSprints: Number(initial?.targetSprints ?? 1),
+    targetSprints: Number(initial?.targetSprints ?? 0),
     otherFixedCost: Number(initial?.otherFixedCost ?? 0),
     scores: Array.isArray(initial?.complexityScores)
       ? Object.fromEntries(
@@ -514,13 +514,18 @@ export function EstimateWizard({
     dorCriteria.every((c) => form.readiness[c.id] === "YES" || form.readiness[c.id] === "NO");
   const sizeComplete = sizeDimensions.every((d) => Number(form.scores[d.id]) >= 1);
   // Required Plan & cost selections before the engine may run (they default to "Select a value").
+  const staffingReady =
+    form.planningMode === "RESOURCE_CONSTRAINED"
+      ? form.availableDev > 0 && form.availableQa > 0
+      : form.planningMode === "SPRINT_CONSTRAINED"
+        ? form.targetSprints > 0
+        : false;
   const planInputsReady =
     Boolean(form.crewId) &&
     Boolean(form.teamId) &&
     Boolean(form.devResourceLevel) &&
     Boolean(form.qaResourceLevel) &&
-    Boolean(form.planningMode) &&
-    (isEpic || Boolean(form.costingBasis));
+    (isEpic || (Boolean(form.planningMode) && Boolean(form.costingBasis) && staffingReady));
   const planComplete = Boolean(result);
   const governComplete = Boolean(result);
   const finalUnlocked = readyComplete && sizeComplete && planComplete && governComplete;
@@ -691,9 +696,7 @@ export function EstimateWizard({
                       workItemType: e.target.value,
                       ...(e.target.value === "EPIC"
                         ? { otherFixedCost: 0, projectOverrideRate: 0, costMethod: "", costingBasis: "" }
-                        : e.target.value === "ISSUE"
-                          ? { costMethod: "Resource Cost per Sprint" }
-                          : {}),
+                        : {}),
                     })
                   }
                 >
@@ -951,12 +954,15 @@ export function EstimateWizard({
                       value={form.costingBasis || ""}
                       onChange={(e) => {
                         const costingBasis = e.target.value;
+                        // Cost method is derived once a basis is chosen; blank until then.
+                        const costMethod = costingBasis ? "Resource Cost per Sprint" : "";
                         if (costingBasis === "TEAM") {
                           const team = teams.find((t) => t.id === form.teamId);
                           const loc = locations.find((l) => l.name === team?.mappedLocation);
                           setForm({
                             ...form,
                             costingBasis,
+                            costMethod,
                             locationName: team?.mappedLocation ?? "",
                             locationId: loc?.id ?? "",
                             currency: team?.currency ?? form.currency,
@@ -966,6 +972,8 @@ export function EstimateWizard({
                         setForm({
                           ...form,
                           costingBasis,
+                          costMethod,
+                          ...(costingBasis === "" ? { locationName: "", locationId: "" } : {}),
                         });
                       }}
                     >
@@ -975,9 +983,13 @@ export function EstimateWizard({
                     </select>
                   </Field>
                   <Field label="Cost method">
-                    <input value={form.costMethod} readOnly />
+                    <input value={form.costMethod} readOnly placeholder="Select a value" />
                   </Field>
-                  {teamCosting ? (
+                  {!form.costingBasis ? (
+                    <Field label="Location rate card">
+                      <input readOnly value="" placeholder="Select a cost basis first" />
+                    </Field>
+                  ) : teamCosting ? (
                     <Field label="Location (from team)">
                       <input
                         readOnly
@@ -1073,7 +1085,7 @@ export function EstimateWizard({
                       ...(planningMode === "SPRINT_CONSTRAINED"
                         ? { availableDev: 0, availableQa: 0 }
                         : planningMode === "RESOURCE_CONSTRAINED"
-                          ? { targetSprints: 1 }
+                          ? { targetSprints: 0 }
                           : {}),
                     });
                   }}
@@ -1127,7 +1139,7 @@ export function EstimateWizard({
                 <input
                   type="number"
                   min={1}
-                  value={resourceConstrained ? "" : form.targetSprints}
+                  value={resourceConstrained ? "" : form.targetSprints || ""}
                   disabled={resourceConstrained}
                   className={resourceConstrained ? "cursor-not-allowed opacity-60" : undefined}
                   onChange={(e) => setForm({ ...form, targetSprints: Number(e.target.value) })}
