@@ -87,6 +87,7 @@ export function EstimateWizard({
   locations,
   orgUnits = [],
   requesterName = "",
+  nextReference = "",
   complexityDimensions = DEFAULT_CONFIG.complexityDimensions,
   releaseQuarters = DEFAULT_CONFIG.releaseQuarters,
   readinessCriteria = DEFAULT_CONFIG.readinessCriteria,
@@ -116,6 +117,7 @@ export function EstimateWizard({
   locations: Location[];
   orgUnits?: OrgUnitRow[];
   requesterName?: string;
+  nextReference?: string;
   /** Hydrated Size-step dimensions (labels score 1–5). Defaults to DEFAULT_CONFIG. */
   complexityDimensions?: ComplexityDimensionConfig[];
   releaseQuarters?: string[];
@@ -166,8 +168,8 @@ export function EstimateWizard({
     savedScenario ?? null,
   );
   const [form, setForm] = useState({
-    workItemType: (initial?.workItemType as string) ?? "ISSUE",
-    reference: (initial?.reference as string) ?? `CR-${Date.now().toString().slice(-6)}`,
+    workItemType: (initial?.workItemType as string) ?? "",
+    reference: (initial?.reference as string) ?? nextReference ?? "",
     title: (initial?.title as string) ?? "New work item",
     description: (initial?.description as string) ?? "",
     teamId: (initial?.teamId as string) ?? "",
@@ -181,9 +183,9 @@ export function EstimateWizard({
     release: (initial?.release as string) ?? "",
     jiraId: (initial?.jiraId as string) ?? "",
     stance: (initial?.stance as string) ?? "NEUTRAL",
-    planningMode: (initial?.planningMode as string) ?? "RESOURCE_CONSTRAINED",
+    planningMode: (initial?.planningMode as string) ?? "",
     costingModel: "RESOURCE_SPRINT",
-    costingBasis: "TEAM",
+    costingBasis: (initial?.costingBasis as string) ?? "",
     costMethod: "Resource Cost per Sprint",
     projectOverrideRate: 0,
     currency: (initial?.currency as string) ?? teams[0]?.currency ?? "CHF",
@@ -191,8 +193,8 @@ export function EstimateWizard({
     qaResourceLevel: (initial?.qaResourceLevel as string) ?? "",
     devAiProductivity: Number(initial?.devAiProductivity ?? 0),
     qaAiProductivity: Number(initial?.qaAiProductivity ?? 0),
-    availableDev: Number(initial?.availableDev ?? 1),
-    availableQa: Number(initial?.availableQa ?? 1),
+    availableDev: Number(initial?.availableDev ?? 0),
+    availableQa: Number(initial?.availableQa ?? 0),
     targetSprints: Number(initial?.targetSprints ?? 1),
     otherFixedCost: Number(initial?.otherFixedCost ?? 0),
     scores: Array.isArray(initial?.complexityScores)
@@ -203,10 +205,11 @@ export function EstimateWizard({
           ]),
         )
       : defaultScores,
-    readiness: Object.fromEntries(dorCriteria.map((c) => [c.id, "YES"])) as Record<
-      string,
-      string
-    >,
+    readiness: (Array.isArray(initial?.readiness)
+      ? Object.fromEntries(
+          (initial.readiness as { criterionId: string; answer: string }[]).map((r) => [r.criterionId, r.answer]),
+        )
+      : Object.fromEntries(dorCriteria.map((c) => [c.id, ""]))) as Record<string, string>,
     locationId: locations.find((l) => l.name === (teams[0]?.mappedLocation ?? ""))?.id ?? locations[0]?.id ?? "",
     locationName: teams[0]?.mappedLocation ?? locations[0]?.name ?? "",
   });
@@ -503,7 +506,9 @@ export function EstimateWizard({
     }
   }
 
+  const isEpic = form.workItemType === "EPIC";
   const readyComplete =
+    Boolean(form.workItemType) &&
     Boolean(form.reference.trim()) &&
     Boolean(form.title.trim()) &&
     dorCriteria.every((c) => form.readiness[c.id] === "YES" || form.readiness[c.id] === "NO");
@@ -513,7 +518,9 @@ export function EstimateWizard({
     Boolean(form.crewId) &&
     Boolean(form.teamId) &&
     Boolean(form.devResourceLevel) &&
-    Boolean(form.qaResourceLevel);
+    Boolean(form.qaResourceLevel) &&
+    Boolean(form.planningMode) &&
+    (isEpic || Boolean(form.costingBasis));
   const planComplete = Boolean(result);
   const governComplete = Boolean(result);
   const finalUnlocked = readyComplete && sizeComplete && planComplete && governComplete;
@@ -677,20 +684,20 @@ export function EstimateWizard({
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Work item type">
                 <select
-                  value={form.workItemType}
+                  value={form.workItemType || ""}
                   onChange={(e) =>
                     setForm({
                       ...form,
                       workItemType: e.target.value,
                       ...(e.target.value === "EPIC"
                         ? { otherFixedCost: 0, projectOverrideRate: 0, costMethod: "", costingBasis: "" }
-                        : {
-                            costingBasis: form.costingBasis || "TEAM",
-                            costMethod: "Resource Cost per Sprint",
-                          }),
+                        : e.target.value === "ISSUE"
+                          ? { costMethod: "Resource Cost per Sprint" }
+                          : {}),
                     })
                   }
                 >
+                  <option value="">Select a value</option>
                   <option value="ISSUE">Issue / Story</option>
                   <option value="EPIC">Epic ROM</option>
                 </select>
@@ -814,11 +821,12 @@ export function EstimateWizard({
                 {dorCriteria.map((c) => (
                   <Field key={c.id} label={c.label}>
                     <select
-                      value={form.readiness[c.id] ?? "YES"}
+                      value={form.readiness[c.id] || ""}
                       onChange={(e) =>
                         setForm({ ...form, readiness: { ...form.readiness, [c.id]: e.target.value } })
                       }
                     >
+                      <option value="">Select a value</option>
                       <option value="YES">Yes</option>
                       <option value="NO">No</option>
                     </select>
@@ -940,7 +948,7 @@ export function EstimateWizard({
                 <>
                   <Field label="Costing basis">
                     <select
-                      value={form.costingBasis}
+                      value={form.costingBasis || ""}
                       onChange={(e) => {
                         const costingBasis = e.target.value;
                         if (costingBasis === "TEAM") {
@@ -961,6 +969,7 @@ export function EstimateWizard({
                         });
                       }}
                     >
+                      <option value="">Select a value</option>
                       <option value="TEAM">Team</option>
                       <option value="LOCATION">Location</option>
                     </select>
@@ -1053,7 +1062,7 @@ export function EstimateWizard({
               </Field>
               <Field label="Planning mode">
                 <select
-                  value={form.planningMode}
+                  value={form.planningMode || ""}
                   onChange={(e) => {
                     const planningMode = e.target.value;
                     // PRD UX: greyed inputs must be cleared, not left stale — reset the
@@ -1062,11 +1071,14 @@ export function EstimateWizard({
                       ...form,
                       planningMode,
                       ...(planningMode === "SPRINT_CONSTRAINED"
-                        ? { availableDev: 1, availableQa: 1 }
-                        : { targetSprints: 1 }),
+                        ? { availableDev: 0, availableQa: 0 }
+                        : planningMode === "RESOURCE_CONSTRAINED"
+                          ? { targetSprints: 1 }
+                          : {}),
                     });
                   }}
                 >
+                  <option value="">Select a value</option>
                   <option value="RESOURCE_CONSTRAINED">Resource-constrained</option>
                   <option value="SPRINT_CONSTRAINED">Sprint-constrained</option>
                 </select>
