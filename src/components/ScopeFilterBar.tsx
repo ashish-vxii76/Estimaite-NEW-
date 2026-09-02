@@ -12,6 +12,7 @@ import {
 } from "@/lib/releasePeriod";
 import type { OrgFilterUnit, OrgFilterTeam } from "@/lib/orgFilter";
 import type { ExtraFilter } from "@/components/OrgScopeFilters";
+import { LockedScopeField } from "@/components/scope/LockedScopeField";
 
 // DEC-UI: SharePoint-style collapsible filters. A slim always-visible chip bar shows the active
 // filters (RBAC-locked scope = one read-only breadcrumb chip; user selections = removable chips),
@@ -35,8 +36,6 @@ const ALL_LABEL: Record<OrgType, string> = {
 
 const SEL =
   "mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2 text-sm text-[var(--navy)]";
-const SEL_LOCKED =
-  "mt-1 w-full cursor-not-allowed rounded-lg border border-[var(--line)] bg-[var(--bg)] px-3 py-2 text-sm text-[var(--navy)] opacity-75";
 
 type Props = {
   basePath: string;
@@ -315,9 +314,7 @@ function FilterDrawer({
                 <label key={levelType} className={`mb-2 block text-sm ${needsParent ? "opacity-60" : ""}`}>
                   {ORG_TYPE_LABEL[levelType]}
                   {locked ? (
-                    <select className={SEL_LOCKED} value={value} disabled aria-readonly="true">
-                      <option value={value}>{byId.get(value)?.name ?? "—"}</option>
-                    </select>
+                    <LockedScopeField className="mt-1 px-3 py-2 text-sm" value={byId.get(value)?.name ?? "—"} />
                   ) : needsParent ? (
                     <select className={SEL} value="" disabled aria-readonly="true">
                       <option value="">{ALL_LABEL[levelType]}</option>
@@ -338,9 +335,7 @@ function FilterDrawer({
             <label className={`mb-2 block text-sm ${!crewSel && !lockedTeamId ? "opacity-60" : ""}`}>
               Pod / Team
               {lockedTeamId ? (
-                <select className={SEL_LOCKED} value={lockedTeamId} disabled aria-readonly="true">
-                  <option value={lockedTeamId}>{teams.find((t) => t.id === lockedTeamId)?.name ?? "—"}</option>
-                </select>
+                <LockedScopeField className="mt-1 px-3 py-2 text-sm" value={teams.find((t) => t.id === lockedTeamId)?.name ?? "—"} />
               ) : !crewSel ? (
                 <select className={SEL} value="" disabled aria-readonly="true">
                   <option value="">All pods</option>

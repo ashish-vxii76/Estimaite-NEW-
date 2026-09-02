@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatMoney } from "@/lib/utils";
+import { LockedScopeField } from "@/components/scope/LockedScopeField";
 
 type Unit = { id: string; type: string; name: string; parentId: string | null; active: boolean };
 type BudgetRow = {
@@ -46,6 +47,8 @@ export function CrewBudgetManager({
     return m;
   }, [lockedUnitIds, units]);
   const isLocked = (type: string) => lockedByType[type] != null;
+  const nameById = useMemo(() => new Map(units.map((u) => [u.id, u.name])), [units]);
+  const lockedName = (type: string) => nameById.get(lockedByType[type]) ?? "—";
 
   const [budgets, setBudgets] = useState(initialBudgets);
   const [year, setYear] = useState(defaultYear);
@@ -185,38 +188,58 @@ export function CrewBudgetManager({
             </label>
             <label className="text-sm">
               Company
-              <select className={SEL} value={companyId} disabled={isLocked("COMPANY")} onChange={(e) => { setCompanyId(e.target.value); setDivisionId(""); setSubId(""); setStreamId(""); setCrewId(""); }}>
-                <option value="">Select</option>
-                {companies.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
-              </select>
+              {isLocked("COMPANY") ? (
+                <LockedScopeField className="mt-1 px-3 py-2 text-sm" value={lockedName("COMPANY")} />
+              ) : (
+                <select className={SEL} value={companyId} onChange={(e) => { setCompanyId(e.target.value); setDivisionId(""); setSubId(""); setStreamId(""); setCrewId(""); }}>
+                  <option value="">Select</option>
+                  {companies.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                </select>
+              )}
             </label>
             <label className="text-sm">
               Division
-              <select className={SEL} value={divisionId} disabled={isLocked("DIVISION") || !companyId} onChange={(e) => { setDivisionId(e.target.value); setSubId(""); setStreamId(""); setCrewId(""); }}>
-                <option value="">Select</option>
-                {divisions.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
-              </select>
+              {isLocked("DIVISION") ? (
+                <LockedScopeField className="mt-1 px-3 py-2 text-sm" value={lockedName("DIVISION")} />
+              ) : (
+                <select className={SEL} value={divisionId} disabled={!companyId} onChange={(e) => { setDivisionId(e.target.value); setSubId(""); setStreamId(""); setCrewId(""); }}>
+                  <option value="">Select</option>
+                  {divisions.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                </select>
+              )}
             </label>
             <label className="text-sm">
               Sub-Division
-              <select className={SEL} value={subId} disabled={isLocked("SUB_DIVISION") || !divisionId} onChange={(e) => { setSubId(e.target.value); setStreamId(""); setCrewId(""); }}>
-                <option value="">Select</option>
-                {subs.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
-              </select>
+              {isLocked("SUB_DIVISION") ? (
+                <LockedScopeField className="mt-1 px-3 py-2 text-sm" value={lockedName("SUB_DIVISION")} />
+              ) : (
+                <select className={SEL} value={subId} disabled={!divisionId} onChange={(e) => { setSubId(e.target.value); setStreamId(""); setCrewId(""); }}>
+                  <option value="">Select</option>
+                  {subs.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                </select>
+              )}
             </label>
             <label className="text-sm">
               Stream
-              <select className={SEL} value={streamId} disabled={isLocked("STREAM") || !subId} onChange={(e) => { setStreamId(e.target.value); setCrewId(""); }}>
-                <option value="">Select</option>
-                {streams.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
-              </select>
+              {isLocked("STREAM") ? (
+                <LockedScopeField className="mt-1 px-3 py-2 text-sm" value={lockedName("STREAM")} />
+              ) : (
+                <select className={SEL} value={streamId} disabled={!subId} onChange={(e) => { setStreamId(e.target.value); setCrewId(""); }}>
+                  <option value="">Select</option>
+                  {streams.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                </select>
+              )}
             </label>
             <label className="text-sm">
               Crew
-              <select className={SEL} value={crewId} disabled={isLocked("CREW") || !streamId} onChange={(e) => setCrewId(e.target.value)}>
-                <option value="">Select</option>
-                {crews.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
-              </select>
+              {isLocked("CREW") ? (
+                <LockedScopeField className="mt-1 px-3 py-2 text-sm" value={lockedName("CREW")} />
+              ) : (
+                <select className={SEL} value={crewId} disabled={!streamId} onChange={(e) => setCrewId(e.target.value)}>
+                  <option value="">Select</option>
+                  {crews.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                </select>
+              )}
             </label>
           </div>
           <label className="block text-sm">

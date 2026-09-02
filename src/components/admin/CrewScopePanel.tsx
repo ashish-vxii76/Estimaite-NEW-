@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { LockedScopeField } from "@/components/scope/LockedScopeField";
 
 type Unit = { id: string; type: string; name: string; parentId: string | null };
 
@@ -113,13 +114,7 @@ export function CrewScopePanel({
             <div key={type} className={`min-w-0 ${disabled ? "opacity-45" : ""}`}>
               <div className="mb-1 text-[11px] text-[var(--muted)]">{label}</div>
               {isLocked ? (
-                <div className="flex h-8 items-center justify-between gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-2.5" title={displayName}>
-                  <span className="truncate text-[13px] text-[var(--navy)]">{displayName}</span>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[var(--muted)]" aria-hidden="true">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                  </svg>
-                </div>
+                <LockedScopeField className="h-8 px-2.5 text-[13px]" value={displayName} />
               ) : (
                 <select
                   className={`h-8 w-full truncate rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-2 text-[13px] text-[var(--navy)] ${disabled ? "cursor-not-allowed" : ""}`}
