@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { appendAuditEvent } from "@/services/auditService";
 import type { OrgPath, OrgSeatType, OrgType } from "@/lib/orgTypes";
 import { ORG_TYPES } from "@/lib/orgTypes";
-import { seesAllTeams } from "@/lib/access";
+import { can, seesAllTeams } from "@/lib/access";
 
 export type OrgUnitRow = {
   id: string;
@@ -336,12 +336,60 @@ export async function listCrewBudgets(year?: number | null, crewIds?: string[] |
   });
 }
 
+/**
+ * Budget approval authority (governed). A budget change is approved by: an App admin; a higher-tier
+ * budget admin (holds org.budget RW, anchored strictly ABOVE the crew); or the crew's own Crew Tech
+ * Lead / deputy (a CREW_TECH_LEAD seat, or a leadership role grant scoped to the crew). A plain
+ * crew-level admin is a SUBMITTER, not an approver — their changes go PENDING.
+ */
+/** Pure governance rule for who may approve a crew budget (DB facts gathered by canApproveBudget). */
+export function decideBudgetApprover(input: {
+  hasBudgetRW: boolean;
+  appLevel: boolean;
+  anchorId: string | null;
+  crewId: string;
+  crewInScope: boolean;
+  hasCtlSeat: boolean;
+  hasDeputyGrant: boolean;
+}): boolean {
+  if (!input.hasBudgetRW) return false; // must hold the budget grant at all
+  if (input.appLevel) return true; // App admin
+  if (!input.crewInScope) return false; // crew must be in the actor's scope
+  if (input.anchorId !== input.crewId) return true; // anchored ABOVE the crew → higher tier
+  // Anchored AT the crew: only the Crew Tech Lead / deputy approves, not a plain crew admin.
+  return input.hasCtlSeat || input.hasDeputyGrant;
+}
+
+export async function canApproveBudget(user: ScopeInput, crewId: string): Promise<boolean> {
+  const hasBudgetRW = can(user.role, "org.budget", "RW");
+  if (!hasBudgetRW) return false;
+  const scope = await adminOrgScope(user);
+  if (scope.appLevel) return true;
+  const crewInScope = scope.visibleIds.has(crewId);
+  if (!crewInScope) return false;
+  if (scope.anchorId !== crewId) return true;
+  const [ctl, deputy] = await Promise.all([
+    prisma.orgSeat.findFirst({ where: { userId: user.id, orgUnitId: crewId, seatType: "CREW_TECH_LEAD" } }),
+    prisma.roleGrant.findFirst({ where: { userId: user.id, orgUnitId: crewId } }),
+  ]);
+  return decideBudgetApprover({
+    hasBudgetRW,
+    appLevel: scope.appLevel,
+    anchorId: scope.anchorId,
+    crewId,
+    crewInScope,
+    hasCtlSeat: Boolean(ctl),
+    hasDeputyGrant: Boolean(deputy),
+  });
+}
+
 export async function saveCrewBudget(input: {
   crewId: string;
   year: number;
   amount: number;
   allowUpdate: boolean;
   actorUserId?: string;
+  actor?: ScopeInput;
 }) {
   const crew = await prisma.orgUnit.findUnique({ where: { id: input.crewId } });
   if (!crew || crew.type !== "CREW") throw new Error("Budget is only allowed at Crew level");
@@ -355,33 +403,129 @@ export async function saveCrewBudget(input: {
     throw new Error("Budget already exists for this Crew and year — please update the existing record");
   }
 
-  const saved = existing
-    ? await prisma.crewBudget.update({
+  const selfApprove = input.actor ? await canApproveBudget(input.actor, input.crewId) : false;
+  const now = new Date();
+  const approvedFields = selfApprove
+    ? { approvedById: input.actorUserId ?? null, approvedAt: now }
+    : { approvedById: null, approvedAt: null };
+
+  let saved;
+  let action: string;
+  if (!existing) {
+    // New budget: PENDING unless the actor may self-approve. Only APPROVED budgets count in roll-ups.
+    saved = await prisma.crewBudget.create({
+      data: {
+        crewId: input.crewId,
+        year: input.year,
+        amount: input.amount,
+        currency: "CHF",
+        status: selfApprove ? "APPROVED" : "PENDING",
+        requestedById: input.actorUserId ?? null,
+        requestedAt: now,
+        ...approvedFields,
+      },
+      include: { crew: true },
+    });
+    action = selfApprove ? "CREW_BUDGET_CREATED" : "CREW_BUDGET_CREATE_REQUESTED";
+  } else if (existing.status === "PENDING") {
+    // Still awaiting its first approval → just revise the proposed amount.
+    saved = await prisma.crewBudget.update({
+      where: { id: existing.id },
+      data: {
+        amount: input.amount,
+        status: selfApprove ? "APPROVED" : "PENDING",
+        requestedById: input.actorUserId ?? null,
+        requestedAt: now,
+        ...approvedFields,
+      },
+      include: { crew: true },
+    });
+    action = selfApprove ? "CREW_BUDGET_UPDATED" : "CREW_BUDGET_UPDATE_REQUESTED";
+  } else {
+    // APPROVED: self-approve applies immediately; otherwise park the proposal in pendingAmount so the
+    // approved amount stays effective in roll-ups until an approver promotes it.
+    if (selfApprove) {
+      saved = await prisma.crewBudget.update({
         where: { id: existing.id },
-        data: { amount: input.amount, currency: "CHF" },
-        include: { crew: true },
-      })
-    : await prisma.crewBudget.create({
-        data: {
-          crewId: input.crewId,
-          year: input.year,
-          amount: input.amount,
-          currency: "CHF",
-        },
+        data: { amount: input.amount, pendingAmount: null, requestedById: input.actorUserId ?? null, requestedAt: now, approvedById: input.actorUserId ?? null, approvedAt: now },
         include: { crew: true },
       });
+      action = "CREW_BUDGET_UPDATED";
+    } else {
+      saved = await prisma.crewBudget.update({
+        where: { id: existing.id },
+        data: { pendingAmount: input.amount, requestedById: input.actorUserId ?? null, requestedAt: now },
+        include: { crew: true },
+      });
+      action = "CREW_BUDGET_UPDATE_REQUESTED";
+    }
+  }
 
   await appendAuditEvent({
-      userId: input.actorUserId,
-      action: existing ? "CREW_BUDGET_UPDATED" : "CREW_BUDGET_CREATED",
-      previousValue: existing ? JSON.stringify(existing) : "",
-      newValue: JSON.stringify({
-        crewId: saved.crewId,
-        year: saved.year,
-        amount: saved.amount,
-        currency: saved.currency,
-      }),
+    userId: input.actorUserId,
+    action,
+    previousValue: existing ? JSON.stringify(existing) : "",
+    newValue: JSON.stringify({
+      crewId: saved.crewId,
+      year: saved.year,
+      amount: saved.amount,
+      pendingAmount: saved.pendingAmount,
+      status: saved.status,
+      currency: saved.currency,
+    }),
   });
+  return saved;
+}
+
+/** Promote a PENDING new budget, or a parked pendingAmount on an approved one, to APPROVED. */
+export async function approveCrewBudget(id: string, actor: ScopeInput) {
+  const existing = await prisma.crewBudget.findUnique({ where: { id }, include: { crew: true } });
+  if (!existing) throw new Error("Budget not found");
+  if (!(await canApproveBudget(actor, existing.crewId))) {
+    throw new Error("You are not an approver for this crew's budget");
+  }
+  if (existing.status === "APPROVED" && existing.pendingAmount == null) {
+    throw new Error("Nothing to approve — this budget has no pending change");
+  }
+  const now = new Date();
+  const saved = await prisma.crewBudget.update({
+    where: { id },
+    data:
+      existing.pendingAmount != null
+        ? { amount: existing.pendingAmount, pendingAmount: null, status: "APPROVED", approvedById: actor.id, approvedAt: now }
+        : { status: "APPROVED", approvedById: actor.id, approvedAt: now },
+    include: { crew: true },
+  });
+  await appendAuditEvent({
+    userId: actor.id,
+    action: "CREW_BUDGET_APPROVED",
+    previousValue: JSON.stringify(existing),
+    newValue: JSON.stringify({ crewId: saved.crewId, year: saved.year, amount: saved.amount, status: saved.status }),
+  });
+  return saved;
+}
+
+/** Discard a pending change: delete a never-approved PENDING row, or clear a parked pendingAmount.
+ *  Allowed for an approver OR the person who requested it. */
+export async function discardPendingBudget(id: string, actor: ScopeInput) {
+  const existing = await prisma.crewBudget.findUnique({ where: { id }, include: { crew: true } });
+  if (!existing) throw new Error("Budget not found");
+  const isRequester = existing.requestedById === actor.id;
+  if (!isRequester && !(await canApproveBudget(actor, existing.crewId))) {
+    throw new Error("Not allowed to discard this pending change");
+  }
+  const now = new Date();
+  if (existing.status === "PENDING") {
+    await prisma.crewBudget.delete({ where: { id } });
+    await appendAuditEvent({ userId: actor.id, action: "CREW_BUDGET_REQUEST_DISCARDED", previousValue: JSON.stringify(existing), newValue: "" });
+    return null;
+  }
+  const saved = await prisma.crewBudget.update({
+    where: { id },
+    data: { pendingAmount: null, requestedById: existing.approvedById, requestedAt: now },
+    include: { crew: true },
+  });
+  await appendAuditEvent({ userId: actor.id, action: "CREW_BUDGET_PENDING_DISCARDED", previousValue: JSON.stringify(existing), newValue: JSON.stringify({ crewId: saved.crewId, year: saved.year, amount: saved.amount }) });
   return saved;
 }
 
@@ -403,7 +547,8 @@ export async function deleteCrewBudget(id: string, actorUserId?: string) {
   return existing;
 }
 
+/** Roll-up sum — only APPROVED budgets count (a PENDING new budget is excluded until approved). */
 export async function sumCrewBudgets(year?: number | null, crewIds?: string[] | null) {
   const rows = await listCrewBudgets(year, crewIds);
-  return rows.reduce((sum, row) => sum + row.amount, 0);
+  return rows.filter((row) => row.status === "APPROVED").reduce((sum, row) => sum + row.amount, 0);
 }

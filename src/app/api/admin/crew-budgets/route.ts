@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import { requireFeature, requireUser } from "@/lib/api-auth";
 import {
+  adminVisibleCrewIds,
+  approveCrewBudget,
   deleteCrewBudget,
+  discardPendingBudget,
   listCrewBudgets,
   saveCrewBudget,
-  adminVisibleCrewIds,
 } from "@/services/orgService";
 import { can } from "@/lib/access";
+import { fromSession } from "@/lib/scope";
 import { listOrgUnits } from "@/services/orgService";
 import { prisma } from "@/lib/prisma";
 
@@ -36,18 +39,38 @@ export async function POST(request: Request) {
   const forbidden = requireFeature(session!.user.role, "org.budget", "RW");
   if (forbidden) return forbidden;
   const body = await request.json();
+  const action = String(body.action ?? "save");
+  const actor = fromSession(session!.user);
   const crewIds = await adminVisibleCrewIds(session!.user);
-  const crewId = String(body.crewId ?? "");
-  if (crewIds && !crewIds.includes(crewId)) {
-    return NextResponse.json({ error: "Crew outside your org scope" }, { status: 403 });
-  }
+  const inScope = (crewId: string) => crewIds == null || crewIds.includes(crewId);
+
   try {
+    if (action === "approve" || action === "discard") {
+      const id = String(body.id ?? "");
+      const row = await prisma.crewBudget.findUnique({ where: { id }, select: { crewId: true } });
+      if (!row) return NextResponse.json({ error: "Budget not found" }, { status: 404 });
+      if (!inScope(row.crewId)) {
+        return NextResponse.json({ error: "Crew outside your org scope" }, { status: 403 });
+      }
+      const budget =
+        action === "approve"
+          ? await approveCrewBudget(id, actor)
+          : await discardPendingBudget(id, actor);
+      return NextResponse.json({ budget });
+    }
+
+    // default: save (create or edit) — routed through the approval lifecycle inside the service.
+    const crewId = String(body.crewId ?? "");
+    if (!inScope(crewId)) {
+      return NextResponse.json({ error: "Crew outside your org scope" }, { status: 403 });
+    }
     const budget = await saveCrewBudget({
       crewId,
       year: Number(body.year),
       amount: Number(body.amount),
       allowUpdate: Boolean(body.allowUpdate),
       actorUserId: session!.user.id,
+      actor,
     });
     return NextResponse.json({ budget });
   } catch (e) {

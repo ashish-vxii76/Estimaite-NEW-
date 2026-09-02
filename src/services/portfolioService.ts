@@ -93,7 +93,7 @@ export async function getPortfolio(options: PortfolioOptions | Prisma.EstimateWh
       orderBy: { updatedAt: "desc" },
     }),
     sumCrewBudgets(year, crewIds),
-    listCrewBudgets(year, crewIds),
+    listCrewBudgets(year, crewIds).then((rows) => rows.filter((r) => r.status === "APPROVED")),
   ]);
 
   const register = estimates.map((estimate) => {
