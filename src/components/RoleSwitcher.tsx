@@ -28,6 +28,11 @@ export function RoleSwitcher({ options }: { options: RoleOption[] }) {
       try {
         await switchRole(id);
       } catch (e) {
+        // A successful switch redirects, which Next signals by throwing a
+        // NEXT_REDIRECT control-flow error. Re-throw it so the framework
+        // performs the navigation instead of surfacing it as an error.
+        const digest = (e as { digest?: string })?.digest;
+        if (typeof digest === "string" && digest.startsWith("NEXT_REDIRECT")) throw e;
         setError((e as Error).message);
       }
     });

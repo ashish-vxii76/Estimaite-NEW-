@@ -1,6 +1,7 @@
 import {
   can as canWithMatrix,
   canAccessPath as pathWithMatrix,
+  isAdminTier as isAdminTierWithMatrix,
   seesAllTeams as seesAllTeamsWithMatrix,
   writesOwnRecordsOnly as writesOwnRecordsOnlyWithMatrix,
   type FeatureId,
@@ -18,6 +19,11 @@ export function canAccessPath(role: string | null | undefined, pathname: string)
 
 export function seesAllTeams(role: string | null | undefined) {
   return seesAllTeamsWithMatrix(role, getCachedRbacMatrix());
+}
+
+/** DEC-016: is the role an admin of some tier (App/Org/Crew)? Gates the Administration section. */
+export function isAdminTier(role: string | null | undefined) {
+  return isAdminTierWithMatrix(role, getCachedRbacMatrix());
 }
 
 export function writesOwnRecordsOnly(role: string | null | undefined) {

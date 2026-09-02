@@ -53,6 +53,17 @@ describe("left navigation tree", () => {
     expect(canSeeNav(admin, "ADMINISTRATOR")).toBe(true);
   });
 
+  it("restricts Administration to admin tiers — pure config-readers cannot see it (DEC-016)", () => {
+    const admin = find("administration")!;
+    // Estimator/Reviewer/Approver hold config.mappings *read* only → not an admin tier.
+    expect(canSeeNav(admin, "ESTIMATOR")).toBe(false);
+    expect(canSeeNav(admin, "REVIEWER")).toBe(false);
+    expect(canSeeNav(admin, "APPROVER")).toBe(false);
+    expect(canSeeNav(admin, "VIEWER")).toBe(false);
+    // Delivery Lead administers its crew (config.crewMappings/crewLevels RW) → Crew admin tier.
+    expect(canSeeNav(admin, "DELIVERY_LEAD")).toBe(true);
+  });
+
   it("puts RBAC under Access and hides it from Approver", () => {
     expect(find("admin-rbac")?.href).toBe("/admin/rbac");
     expect(canSeeNav(find("admin-rbac")!, "ADMINISTRATOR")).toBe(true);

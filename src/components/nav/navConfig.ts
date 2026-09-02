@@ -1,4 +1,4 @@
-import { can, type FeatureId, type RbacMatrix } from "@/lib/rbac";
+import { can, isAdminTier, type FeatureId, type RbacMatrix } from "@/lib/rbac";
 import { ESTIMATE_CREATE_ROLES } from "@/lib/roles";
 
 export type NavNode = {
@@ -179,6 +179,9 @@ export const NAV_TREE: NavNode[] = [
 ];
 
 export function canSeeNav(node: NavNode, role: string, matrix?: RbacMatrix): boolean {
+  // DEC-016: the Administration section is for admin tiers only (App/Org/Crew) — a role that merely
+  // *reads* a config surface (e.g. Estimator with config.mappings R) must not see it.
+  if (node.id === "administration") return isAdminTier(role, matrix);
   if (node.feature) return can(role, node.feature, "R", matrix);
   if (node.children?.length) return node.children.some((child) => canSeeNav(child, role, matrix));
   if (node.href === "/admin") {

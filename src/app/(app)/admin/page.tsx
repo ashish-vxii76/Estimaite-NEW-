@@ -1,6 +1,9 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { can } from "@/lib/access";
+import { can, isAdminTier } from "@/lib/access";
+import { fromSession } from "@/lib/scope";
+import { resolveCrewScope } from "@/lib/crewScope";
 
 const CLUSTERS = [
   {
@@ -60,6 +63,22 @@ const CLUSTERS = [
 export default async function AdminHomePage() {
   const session = await auth();
   const role = session?.user.role;
+  // DEC-016: the Administration section is admin-only (App/Org/Crew tier). Deny by default.
+  if (!isAdminTier(role)) redirect("/home");
+
+  // Which tier is this admin operating at? Driven by the scope of their active role grant, not a
+  // separate role: App = sees everything; otherwise the Company/Crew their grant is locked to.
+  const scope = await resolveCrewScope(fromSession(session!.user));
+  const isAppAdmin = can(role, "config.rbac", "RW") && scope.adminAll;
+  const tierLabel = isAppAdmin
+    ? "App Admin"
+    : scope.activeScopeType === "COMPANY"
+      ? "Org Admin"
+      : scope.crews.length > 0 || scope.activeScopeType === "CREW"
+        ? "Crew Admin"
+        : "Admin";
+  const scopeLabel = scope.adminAll ? "all companies & crews" : scope.activeScopeName;
+
   const visible = CLUSTERS.filter((cluster) => {
     if (cluster.feature === "config.users") return can(role, "config.users") || can(role, "config.rbac");
     if (cluster.title === "Organisation") {
@@ -75,7 +94,12 @@ export default async function AdminHomePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-2xl font-semibold text-[var(--navy)]">Administration</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="font-display text-2xl font-semibold text-[var(--navy)]">Administration</h1>
+          <span className="rounded-full bg-[var(--panel-2)] px-2.5 py-0.5 text-xs font-medium text-[var(--navy)]">
+            {tierLabel} · {scopeLabel}
+          </span>
+        </div>
         <p className="mt-1 max-w-2xl text-sm text-[var(--muted)]">
           Mapping studio plus access control. Open <Link href="/admin/rbac" className="underline">RBAC</Link>{" "}
           to edit RW / R / blank per role. Lists &amp; catalogues hold the dropdown values estimators see

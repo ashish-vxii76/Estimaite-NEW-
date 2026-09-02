@@ -1,7 +1,12 @@
+import { redirect } from "next/navigation";
 import { getActiveConfig } from "@/services/configService";
 import { GuardedMapping } from "@/components/admin/GuardedMapping";
+import { auth } from "@/auth";
+import { can } from "@/lib/access";
 
 export default async function ResourceMappingPage() {
+  const session = await auth();
+  if (!can(session?.user.role, "config.mappings")) redirect("/home");
   const config = await getActiveConfig();
   return (
     <GuardedMapping

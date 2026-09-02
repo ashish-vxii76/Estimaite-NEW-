@@ -328,6 +328,32 @@ export function can(
   return access === "RW";
 }
 
+/**
+ * DEC-016 scope-driven admin tiers. A user is an admin of *some* tier (App / Org / Crew) when they
+ * can WRITE at least one administration surface. Which tier they are is decided by the org-unit scope
+ * of their active role grant (App = unscoped, Company = Org admin, Crew = Crew admin) and enforced by
+ * the existing inScope/visibleOrgUnitIds checks — not by a separate role. Pure config *readers*
+ * (e.g. Estimator with config.mappings R) are NOT admins and must not see the Administration section.
+ */
+export const ADMIN_SURFACES: FeatureId[] = [
+  "config.users",
+  "config.rbac",
+  "org.setup",
+  "org.budget",
+  "config.teams",
+  "config.rates",
+  "config.mappings",
+  "config.crewMappings",
+  "config.crewLevels",
+];
+
+export function isAdminTier(
+  role: string | null | undefined,
+  matrix: RbacMatrix = DEFAULT_RBAC,
+): boolean {
+  return ADMIN_SURFACES.some((feature) => can(role, feature, "RW", matrix));
+}
+
 /** True when the role may see estimates/teams across every team (matrix: scope.allTeams). */
 export function seesAllTeams(
   role: string | null | undefined,
