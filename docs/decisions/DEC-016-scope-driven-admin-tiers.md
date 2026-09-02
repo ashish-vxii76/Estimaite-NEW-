@@ -56,6 +56,33 @@ the DEC-015 config cascade (App → Company → Crew).
 - Also fixed: role switcher leaked Next's `NEXT_REDIRECT` control-flow error into
   the UI — re-thrown so navigation happens instead of showing an error string.
 
+## Scope enforcement (added — org tree & budgets)
+
+The first slice named the tiers but did not *constrain admin writes by scope* — a crew-seated
+ADMINISTRATOR could still create Companies/Divisions/Crews, delete any crew, seat anyone, and the
+crew-budget form showed the whole tree editable. Root cause: scope came from `seesAllTeams(role)`
+(an ADMINISTRATOR is blanket sees-all) rather than the seat/grant.
+
+Fix — seat/grant-driven admin scope (`adminOrgScope` in `orgService.ts`), independent of the role
+sees-all flag:
+- `appLevel` (unseated sees-all admin) = unrestricted; otherwise authority is anchored to the seat/
+  grant org unit and its subtree (`visibleIds`).
+- Policy helpers: `canCreateUnderParent` (parent in scope; top-level Company is App-only),
+  `canWriteUnit` (anchor + descendants), `canArchiveUnit` (strict descendant only — never your own
+  anchor or above). Encoded rule: **you create/delete the level below you and edit within your
+  subtree; delete-crew belongs to the Stream admin one rung up.**
+- Enforced server-side in `POST /api/admin/organisation` (every action) and `POST /api/teams` (pod
+  creation), and in `crew-budgets` (now uses `adminVisibleCrewIds`).
+- UI: `OrgNodeSetup` filters to the visible subtree, offers create only for creatable levels, and
+  shows archive only on strict descendants. `CrewBudgetManager` pre-selects + locks the fixed
+  ancestor chain read-only and restricts the crew list to scope.
+- Seed: the top admin (`admin@estimaite.local`) is now **unseated** = App admin (can create
+  companies). Seat an admin at a Company/Crew to scope them. (Running DBs need a reseed — or removing
+  the admin's UBS seat — to regain App-level; a Company-anchored admin still manages all of UBS.)
+- Pure policy proven in `tests/unit/orgAdminScope.test.ts`.
+- Also fixed: the "Amount (CHF)" label overlapped its input (inline label + input) — label is now a
+  block above the field.
+
 ## Not done (deferred / needs owner confirmation)
 
 - Fully blocking global mapping-page *reads* for Estimator/Reviewer/Approver would

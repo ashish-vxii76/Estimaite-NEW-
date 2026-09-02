@@ -4,7 +4,7 @@ import {
   deleteCrewBudget,
   listCrewBudgets,
   saveCrewBudget,
-  visibleCrewIds,
+  adminVisibleCrewIds,
 } from "@/services/orgService";
 import { can } from "@/lib/access";
 import { listOrgUnits } from "@/services/orgService";
@@ -17,7 +17,7 @@ export async function GET(request: Request) {
   if (forbidden) return forbidden;
   const yearParam = new URL(request.url).searchParams.get("year");
   const year = yearParam ? Number(yearParam) : undefined;
-  const crewIds = await visibleCrewIds(session!.user);
+  const crewIds = await adminVisibleCrewIds(session!.user);
   const [budgets, units] = await Promise.all([
     listCrewBudgets(year, crewIds),
     listOrgUnits(true),
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
   const forbidden = requireFeature(session!.user.role, "org.budget", "RW");
   if (forbidden) return forbidden;
   const body = await request.json();
-  const crewIds = await visibleCrewIds(session!.user);
+  const crewIds = await adminVisibleCrewIds(session!.user);
   const crewId = String(body.crewId ?? "");
   if (crewIds && !crewIds.includes(crewId)) {
     return NextResponse.json({ error: "Crew outside your org scope" }, { status: 403 });
@@ -63,7 +63,7 @@ export async function DELETE(request: Request) {
   const id = new URL(request.url).searchParams.get("id") ?? "";
   const budget = await prisma.crewBudget.findUnique({ where: { id }, select: { crewId: true } });
   if (!budget) return NextResponse.json({ error: "Budget not found" }, { status: 404 });
-  const crewIds = await visibleCrewIds(session!.user);
+  const crewIds = await adminVisibleCrewIds(session!.user);
   if (crewIds && !crewIds.includes(budget.crewId)) {
     return NextResponse.json({ error: "Crew outside your org scope" }, { status: 403 });
   }

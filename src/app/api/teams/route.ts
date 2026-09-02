@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireFeature, requireUser } from "@/lib/api-auth";
 import { fromSession, teamsForUser } from "@/lib/scope";
-import { resolveOrgCurrency } from "@/services/orgService";
+import { adminOrgScope, canWriteUnit, resolveOrgCurrency } from "@/services/orgService";
 
 export async function GET() {
   const { session, error } = await requireUser();
@@ -24,6 +24,14 @@ export async function POST(request: Request) {
   const existing = await prisma.team.findUnique({ where: { name } });
   if (existing) return NextResponse.json({ error: "A team with that name already exists" }, { status: 400 });
   const crewId = body.crewId ? String(body.crewId) : null;
+  // DEC-016: a scoped admin may only add pods under a crew inside their administration subtree.
+  const scope = await adminOrgScope(session!.user);
+  if (crewId && !canWriteUnit(scope, crewId)) {
+    return NextResponse.json({ error: "Outside your administration scope" }, { status: 403 });
+  }
+  if (!crewId && !scope.appLevel) {
+    return NextResponse.json({ error: "Pick a crew within your scope" }, { status: 403 });
+  }
   // New pods inherit the organisation (Company) currency of their crew unless one is given.
   const currency = body.currency
     ? String(body.currency)

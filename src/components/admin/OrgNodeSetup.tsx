@@ -60,6 +60,13 @@ async function post(body: Record<string, unknown>) {
   return res.json();
 }
 
+export type OrgScope = {
+  appLevel: boolean;
+  anchorId: string | null;
+  anchorType: string | null;
+  visibleIds: string[];
+};
+
 export function OrgNodeSetup({
   units,
   teams,
@@ -69,6 +76,7 @@ export function OrgNodeSetup({
   locations,
   levels,
   canEdit,
+  scope,
 }: {
   units: Unit[];
   teams: TeamRow[];
@@ -78,8 +86,31 @@ export function OrgNodeSetup({
   locations: string[];
   levels: string[];
   canEdit: boolean;
+  scope: OrgScope;
 }) {
   const router = useRouter();
+
+  // DEC-016 scope gating. A scoped admin only administers their seat/grant subtree: they see their
+  // subtree (+ ancestor context read-only), may create levels strictly below their anchor, and may
+  // never archive their own anchor or anything above it. App admins are unrestricted.
+  const visibleSet = useMemo(() => new Set(scope.visibleIds), [scope.visibleIds]);
+  const ancestorSet = useMemo(() => {
+    const s = new Set<string>();
+    const byId = new Map(units.map((u) => [u.id, u]));
+    let cur = scope.anchorId ? byId.get(scope.anchorId) : undefined;
+    cur = cur?.parentId ? byId.get(cur.parentId) : undefined;
+    while (cur) {
+      s.add(cur.id);
+      cur = cur.parentId ? byId.get(cur.parentId) : undefined;
+    }
+    return s;
+  }, [scope.anchorId, units]);
+  const inScope = (id: string) => scope.appLevel || visibleSet.has(id);
+  const showNode = (id: string) => scope.appLevel || visibleSet.has(id) || ancestorSet.has(id);
+  const anchorIdx = scope.appLevel ? -1 : LEVELS.indexOf((scope.anchorType as Level) ?? "COMPANY");
+  const canCreateLevel = (lvl: Level) => scope.appLevel || LEVELS.indexOf(lvl) > anchorIdx;
+  const canArchiveNode = (id: string) => scope.appLevel || (visibleSet.has(id) && id !== scope.anchorId);
+
   const [level, setLevel] = useState<Level>("COMPANY");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -101,7 +132,9 @@ export function OrgNodeSetup({
   const parents = PARENTS[level];
   function chainOptions(i: number): Unit[] {
     const lvl = parents[i];
-    return units.filter((u) => u.active && u.type === lvl && (i === 0 || u.parentId === chain[i - 1]));
+    return units.filter(
+      (u) => u.active && u.type === lvl && (i === 0 || u.parentId === chain[i - 1]) && inScope(u.id),
+    );
   }
   const parentId = parents.length === 0 ? null : chain[parents.length - 1] ?? null;
   const canAdd = name.trim().length > 0 && (parents.length === 0 || !!parentId);
@@ -135,8 +168,10 @@ export function OrgNodeSetup({
     }
   }
 
-  const orgNodes = units.filter((u) => u.active && u.type === level);
-  const podNodes = teams.filter((t) => t.active);
+  const orgNodes = units.filter((u) => u.active && u.type === level && showNode(u.id));
+  const podNodes = teams.filter(
+    (t) => t.active && (scope.appLevel || (t.crewId != null && inScope(t.crewId))),
+  );
 
   return (
     <div className="space-y-6">
@@ -183,8 +218,15 @@ export function OrgNodeSetup({
         </div>
       )}
 
-      {/* Add form */}
-      {canEdit && (
+      {/* Add form — only for levels the admin may create under their scope */}
+      {canEdit && !canCreateLevel(level) && (
+        <div className="rounded-lg border border-dashed border-[var(--line)] bg-[var(--panel-2)] px-3 py-2 text-sm text-[var(--muted)]">
+          Your administration scope ({ORG_TYPE_LABEL[(scope.anchorType as OrgType) ?? "COMPANY"] ?? "—"})
+          does not allow creating {LEVEL_TITLE[level]} units. You can manage Pods and details within
+          your subtree.
+        </div>
+      )}
+      {canEdit && canCreateLevel(level) && (
         <form onSubmit={handleAdd} className="card p-5">
           <div className="flex flex-wrap items-end gap-3">
             {parents.map((lvl, i) => (
@@ -253,7 +295,8 @@ export function OrgNodeSetup({
               childCount={childCount[n.id] ?? 0}
               seats={seats.filter((s) => s.orgUnitId === n.id)}
               users={users}
-              canEdit={canEdit}
+              canEdit={canEdit && inScope(n.id)}
+              canArchive={canEdit && canArchiveNode(n.id)}
               onChanged={refresh}
             />
           ))}
@@ -279,6 +322,7 @@ function OrgCard({
   seats,
   users,
   canEdit,
+  canArchive,
   onChanged,
 }: {
   node: Unit;
@@ -288,6 +332,7 @@ function OrgCard({
   seats: SeatRow[];
   users: UserOption[];
   canEdit: boolean;
+  canArchive: boolean;
   onChanged: () => Promise<void>;
 }) {
   const seatTypes = SEATS_FOR[level] ?? [];
@@ -331,7 +376,7 @@ function OrgCard({
             {childCount > 0 && ` · ${childCount} child unit${childCount === 1 ? "" : "s"}`}
           </p>
         </div>
-        {canEdit && (
+        {canArchive && (
           <button
             onClick={archive}
             className="rounded p-1.5 text-[var(--muted)] hover:text-[var(--danger)]"

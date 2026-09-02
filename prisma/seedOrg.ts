@@ -42,17 +42,12 @@ export async function seedOrgHierarchy(prisma: PrismaClient) {
     });
   }
 
+  // DEC-016: the top administrator is App-level (unseated). Administration authority is anchored to a
+  // seat/grant, so leaving Ashish unseated makes them the unrestricted App admin who can create
+  // companies and manage every tier. Seat an admin at a Company/Crew to scope them to that subtree.
   const admin = await prisma.user.findUnique({ where: { email: "admin@estimaite.local" } });
   if (admin) {
     await prisma.orgSeat.deleteMany({ where: { userId: admin.id } });
-    await prisma.orgSeat.create({
-      data: {
-        userId: admin.id,
-        orgUnitId: company.id,
-        seatType: "ORG_ADMIN",
-        isPrimary: true,
-      },
-    });
   }
 
   // Casey Delivery Lead is a Pod-level user (team Centurions) — no org seat.

@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { OrgNodeSetup } from "@/components/admin/OrgNodeSetup";
 import { getActiveConfig } from "@/services/configService";
+import { adminOrgScope } from "@/services/orgService";
+import { fromSession } from "@/lib/scope";
 
 export default async function OrganisationAdminPage() {
   const session = await auth();
@@ -35,10 +37,18 @@ export default async function OrganisationAdminPage() {
     getActiveConfig(),
   ]);
 
+  const scope = await adminOrgScope(fromSession(session!.user));
+
   return (
     <OrgNodeSetup
       units={units}
       teams={teams}
+      scope={{
+        appLevel: scope.appLevel,
+        anchorId: scope.anchorId,
+        anchorType: scope.anchorType,
+        visibleIds: [...scope.visibleIds],
+      }}
       seats={seats.map((s) => ({
         id: s.id,
         seatType: s.seatType,

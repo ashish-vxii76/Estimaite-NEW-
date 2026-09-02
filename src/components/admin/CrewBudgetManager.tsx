@@ -22,22 +22,39 @@ export function CrewBudgetManager({
   canWrite,
   defaultYear,
   releaseYears,
+  lockedUnitIds = [],
+  scopeCrewIds = null,
 }: {
   initialBudgets: BudgetRow[];
   units: Unit[];
   canWrite: boolean;
   defaultYear: number;
   releaseYears: number[];
+  /** DEC-016: ancestor chain (anchor + above) that is fixed & read-only for a scoped admin. */
+  lockedUnitIds?: string[];
+  /** Crews this admin may budget for; null = all (App admin). */
+  scopeCrewIds?: string[] | null;
 }) {
   const router = useRouter();
+  // Pre-selected fixed values from the locked chain, keyed by org level.
+  const lockedByType = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const id of lockedUnitIds) {
+      const u = units.find((x) => x.id === id);
+      if (u) m[u.type] = id;
+    }
+    return m;
+  }, [lockedUnitIds, units]);
+  const isLocked = (type: string) => lockedByType[type] != null;
+
   const [budgets, setBudgets] = useState(initialBudgets);
   const [year, setYear] = useState(defaultYear);
   const [showForm, setShowForm] = useState(false);
-  const [companyId, setCompanyId] = useState("");
-  const [divisionId, setDivisionId] = useState("");
-  const [subId, setSubId] = useState("");
-  const [streamId, setStreamId] = useState("");
-  const [crewId, setCrewId] = useState("");
+  const [companyId, setCompanyId] = useState(lockedByType.COMPANY ?? "");
+  const [divisionId, setDivisionId] = useState(lockedByType.DIVISION ?? "");
+  const [subId, setSubId] = useState(lockedByType.SUB_DIVISION ?? "");
+  const [streamId, setStreamId] = useState(lockedByType.STREAM ?? "");
+  const [crewId, setCrewId] = useState(lockedByType.CREW ?? "");
   const [amount, setAmount] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -45,11 +62,14 @@ export function CrewBudgetManager({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editAmount, setEditAmount] = useState("");
 
+  const inScopeCrew = (id: string) => scopeCrewIds == null || scopeCrewIds.includes(id);
   const companies = units.filter((u) => u.type === "COMPANY" && u.active);
   const divisions = units.filter((u) => u.type === "DIVISION" && u.active && u.parentId === companyId);
   const subs = units.filter((u) => u.type === "SUB_DIVISION" && u.active && u.parentId === divisionId);
   const streams = units.filter((u) => u.type === "STREAM" && u.active && u.parentId === subId);
-  const crews = units.filter((u) => u.type === "CREW" && u.active && u.parentId === streamId);
+  const crews = units.filter(
+    (u) => u.type === "CREW" && u.active && u.parentId === streamId && inScopeCrew(u.id),
+  );
 
   const yearBudgets = useMemo(
     () => budgets.filter((b) => b.year === year).sort((a, b) => a.crew.name.localeCompare(b.crew.name)),
@@ -64,11 +84,11 @@ export function CrewBudgetManager({
   }
 
   function resetForm() {
-    setCompanyId("");
-    setDivisionId("");
-    setSubId("");
-    setStreamId("");
-    setCrewId("");
+    setCompanyId(lockedByType.COMPANY ?? "");
+    setDivisionId(lockedByType.DIVISION ?? "");
+    setSubId(lockedByType.SUB_DIVISION ?? "");
+    setStreamId(lockedByType.STREAM ?? "");
+    setCrewId(lockedByType.CREW ?? "");
     setAmount("");
   }
 
@@ -165,43 +185,43 @@ export function CrewBudgetManager({
             </label>
             <label className="text-sm">
               Company
-              <select className={SEL} value={companyId} onChange={(e) => { setCompanyId(e.target.value); setDivisionId(""); setSubId(""); setStreamId(""); setCrewId(""); }}>
+              <select className={SEL} value={companyId} disabled={isLocked("COMPANY")} onChange={(e) => { setCompanyId(e.target.value); setDivisionId(""); setSubId(""); setStreamId(""); setCrewId(""); }}>
                 <option value="">Select</option>
                 {companies.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
               </select>
             </label>
             <label className="text-sm">
               Division
-              <select className={SEL} value={divisionId} disabled={!companyId} onChange={(e) => { setDivisionId(e.target.value); setSubId(""); setStreamId(""); setCrewId(""); }}>
+              <select className={SEL} value={divisionId} disabled={isLocked("DIVISION") || !companyId} onChange={(e) => { setDivisionId(e.target.value); setSubId(""); setStreamId(""); setCrewId(""); }}>
                 <option value="">Select</option>
                 {divisions.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
               </select>
             </label>
             <label className="text-sm">
               Sub-Division
-              <select className={SEL} value={subId} disabled={!divisionId} onChange={(e) => { setSubId(e.target.value); setStreamId(""); setCrewId(""); }}>
+              <select className={SEL} value={subId} disabled={isLocked("SUB_DIVISION") || !divisionId} onChange={(e) => { setSubId(e.target.value); setStreamId(""); setCrewId(""); }}>
                 <option value="">Select</option>
                 {subs.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
               </select>
             </label>
             <label className="text-sm">
               Stream
-              <select className={SEL} value={streamId} disabled={!subId} onChange={(e) => { setStreamId(e.target.value); setCrewId(""); }}>
+              <select className={SEL} value={streamId} disabled={isLocked("STREAM") || !subId} onChange={(e) => { setStreamId(e.target.value); setCrewId(""); }}>
                 <option value="">Select</option>
                 {streams.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
               </select>
             </label>
             <label className="text-sm">
               Crew
-              <select className={SEL} value={crewId} disabled={!streamId} onChange={(e) => setCrewId(e.target.value)}>
+              <select className={SEL} value={crewId} disabled={isLocked("CREW") || !streamId} onChange={(e) => setCrewId(e.target.value)}>
                 <option value="">Select</option>
                 {crews.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
               </select>
             </label>
           </div>
           <label className="block text-sm">
-            Amount (CHF)
-            <input type="number" min={0} className="mt-1 w-full max-w-xs rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            <span className="mb-1 block">Amount (CHF)</span>
+            <input type="number" min={0} className="block w-full max-w-xs rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2" value={amount} onChange={(e) => setAmount(e.target.value)} />
           </label>
           <button type="button" className="btn-primary" disabled={busy || !crewId || amount === ""} onClick={addBudget}>
             Save budget

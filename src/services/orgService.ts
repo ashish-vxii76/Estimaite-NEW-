@@ -198,6 +198,64 @@ export async function visibleOrgUnitIds(user: ScopeInput): Promise<string[] | nu
   return descendantIds(seat.orgUnitId);
 }
 
+/**
+ * DEC-016 admin scope. Unlike `visibleOrgUnitIds` (role-driven: an ADMINISTRATOR is blanket sees-all),
+ * administration authority is anchored to the actor's SEAT/GRANT org unit — so an admin seated at a
+ * Crew administers only that crew's subtree, even if their role would otherwise see all teams.
+ *  - appLevel  → unseated sees-all admin: unrestricted App authority.
+ *  - anchorId  → the org unit their authority is anchored to (seat/grant).
+ *  - visibleIds → anchor + all descendants (the subtree they may touch).
+ * Creation/deletion is gated one level at a time by the helpers below.
+ */
+export type OrgAdminScope = {
+  appLevel: boolean;
+  anchorId: string | null;
+  anchorType: string | null;
+  visibleIds: Set<string>;
+};
+
+export async function adminOrgScope(user: ScopeInput): Promise<OrgAdminScope> {
+  const anchorId =
+    user.activeGrantId != null
+      ? user.seatOrgUnitId ?? null
+      : (await getPrimarySeat(user.id))?.orgUnitId ?? null;
+  if (!anchorId) {
+    // No seat/grant anchor: a sees-all role is the App admin; anyone else has no admin scope.
+    return { appLevel: seesAllTeams(user.role), anchorId: null, anchorType: null, visibleIds: new Set() };
+  }
+  const ids = await descendantIds(anchorId); // includes the anchor itself
+  const anchor = await prisma.orgUnit.findUnique({ where: { id: anchorId }, select: { type: true } });
+  return { appLevel: false, anchorId, anchorType: anchor?.type ?? null, visibleIds: new Set(ids) };
+}
+
+/** May the actor edit this unit's details (name/currency/seats/members)? Anchor + descendants. */
+export function canWriteUnit(scope: OrgAdminScope, unitId: string): boolean {
+  return scope.appLevel || scope.visibleIds.has(unitId);
+}
+
+/** May the actor archive/deactivate this unit? A strict descendant only — never their own anchor or above. */
+export function canArchiveUnit(scope: OrgAdminScope, unitId: string): boolean {
+  return scope.appLevel || (scope.visibleIds.has(unitId) && unitId !== scope.anchorId);
+}
+
+/** May the actor create a child under this parent? Parent must be in scope; top-level (Company) is App-only. */
+export function canCreateUnderParent(scope: OrgAdminScope, parentId: string | null): boolean {
+  if (scope.appLevel) return true;
+  if (parentId == null) return false;
+  return scope.visibleIds.has(parentId);
+}
+
+/** Crews the actor administers (seat/grant-driven). null = all (App admin). */
+export async function adminVisibleCrewIds(user: ScopeInput): Promise<string[] | null> {
+  const scope = await adminOrgScope(user);
+  if (scope.appLevel) return null;
+  const crews = await prisma.orgUnit.findMany({
+    where: { id: { in: [...scope.visibleIds] }, type: "CREW", active: true },
+    select: { id: true },
+  });
+  return crews.map((c) => c.id);
+}
+
 export async function visibleCrewIds(user: ScopeInput): Promise<string[] | null> {
   const ids = await visibleOrgUnitIds(user);
   if (ids == null) {
