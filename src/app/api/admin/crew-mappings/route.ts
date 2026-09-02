@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireFeature, requireUser } from "@/lib/api-auth";
 import { can } from "@/lib/access";
 import { fromSession } from "@/lib/scope";
-import { visibleCrewIds } from "@/services/orgService";
+import { visibleCrewIds, visibleOrgUnitIds } from "@/services/orgService";
 import { getActiveConfig } from "@/services/configService";
 import { appendAuditEvent } from "@/services/auditService";
 import { prisma } from "@/lib/prisma";
@@ -18,9 +18,14 @@ import { MAPPING_TABLE_META } from "@/components/admin/crewMappingTables";
 type Table = keyof typeof MAPPING_TABLE_META;
 const TABLES = new Set<Table>(Object.keys(MAPPING_TABLE_META) as Table[]);
 
-async function inScope(user: ReturnType<typeof fromSession>, crewId: string) {
+async function inScope(user: ReturnType<typeof fromSession>, unitId: string, unitType: string) {
+  if (unitType === "COMPANY") {
+    // DEC-015: company-scoped config — the actor must be able to see that company (admins: all).
+    const visible = await visibleOrgUnitIds(user);
+    return visible == null || visible.includes(unitId);
+  }
   const visible = await visibleCrewIds(user);
-  return visible == null || visible.includes(crewId);
+  return visible == null || visible.includes(unitId);
 }
 
 function seedPayload(table: Table, config: Awaited<ReturnType<typeof getActiveConfig>>) {
@@ -41,8 +46,11 @@ export async function POST(request: Request) {
   if (!TABLES.has(table)) return NextResponse.json({ error: "Unknown table" }, { status: 400 });
 
   const scope = fromSession(session!.user);
+  // DEC-015: the override "scope unit" may be a CREW or a COMPANY (an OrgUnit either way).
   const crew = await prisma.orgUnit.findUnique({ where: { id: crewId }, select: { type: true, name: true } });
-  if (!crew || crew.type !== "CREW") return NextResponse.json({ error: "Not a crew" }, { status: 400 });
+  if (!crew || (crew.type !== "CREW" && crew.type !== "COMPANY")) {
+    return NextResponse.json({ error: "Config scope must be a Crew or a Company" }, { status: 400 });
+  }
 
   const existing = await prisma.crewMappingOverride.findUnique({
     where: { crewId_table: { crewId, table } },
@@ -71,7 +79,7 @@ export async function POST(request: Request) {
   // All remaining actions require crew-mappings RW + the crew in the actor's scope.
   const forbidden = requireFeature(session!.user.role, "config.crewMappings", "RW");
   if (forbidden) return forbidden;
-  if (!(await inScope(scope, crewId))) {
+  if (!(await inScope(scope, crewId, crew.type))) {
     return NextResponse.json({ error: "Crew outside your org scope" }, { status: 403 });
   }
   const meta = MAPPING_TABLE_META[table];

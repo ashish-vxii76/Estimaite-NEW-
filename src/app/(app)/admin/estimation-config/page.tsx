@@ -42,6 +42,8 @@ export default async function EstimationConfigPage({
         lockedUnitIds={scope.lockedUnitIds}
         crews={scope.crews}
         activeCrewId={scope.activeCrewId}
+        scopeType={scope.activeScopeType}
+        scopeName={scope.activeScopeName}
         override={override}
         canEditGlobal={can(role, "config.mappings", "RW")}
         canWriteCrew={can(role, "config.crewMappings", "RW")}

@@ -40,6 +40,8 @@ export function EstimationConfigCrewShell({
   lockedUnitIds,
   crews,
   activeCrewId,
+  scopeType = "CREW",
+  scopeName,
   override,
   canEditGlobal,
   canWriteCrew,
@@ -50,6 +52,8 @@ export function EstimationConfigCrewShell({
   lockedUnitIds: string[];
   crews: { id: string; name: string }[];
   activeCrewId: string | null;
+  scopeType?: "APP" | "COMPANY" | "CREW";
+  scopeName?: string;
   override: { status: string; version: number; fields: Record<string, unknown> } | null;
   canEditGlobal: boolean;
   canWriteCrew: boolean;
@@ -59,7 +63,8 @@ export function EstimationConfigCrewShell({
   const editingGlobal = !activeCrewId;
   const isApproved = override?.status === "APPROVED";
   const isRequested = override?.status === "REQUESTED";
-  const crewName = crews.find((c) => c.id === activeCrewId)?.name ?? "—";
+  const crewName = scopeName ?? crews.find((c) => c.id === activeCrewId)?.name ?? "—";
+  const scopeLabel = scopeType === "COMPANY" ? `Company · ${crewName}` : crewName;
 
   const globalScalars = Object.fromEntries(SCALAR_KEYS.map((k) => [k, config[k as keyof EstimationConfig] as number]));
   const globalMult = config.complexityMultipliers;
@@ -159,7 +164,7 @@ export function EstimationConfigCrewShell({
           <div className="flex items-center gap-2 text-sm">
             <span className="text-[var(--muted)]">Editing:</span>
             <span className="rounded-full bg-[var(--panel-2)] px-2.5 py-0.5 font-medium text-[var(--navy)]">
-              {editingGlobal ? "Global · all crews" : `${crewName}${isApproved ? " · crew-specific" : ""}`}
+              {editingGlobal ? "Application · all" : `${scopeLabel}${isApproved ? " · specific" : ""}`}
             </span>
           </div>
 

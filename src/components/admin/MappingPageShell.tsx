@@ -24,6 +24,8 @@ export function MappingPageShell({
   lockedUnitIds,
   crews,
   activeCrewId,
+  scopeType = "CREW",
+  scopeName,
   override,
   canEditGlobal,
   canWriteCrew,
@@ -39,6 +41,8 @@ export function MappingPageShell({
   lockedUnitIds: string[];
   crews: { id: string; name: string }[];
   activeCrewId: string | null;
+  scopeType?: "APP" | "COMPANY" | "CREW";
+  scopeName?: string;
   override: { status: string; version: number; rows: Row[] } | null;
   canEditGlobal: boolean;
   canWriteCrew: boolean;
@@ -50,7 +54,8 @@ export function MappingPageShell({
   const isRequested = override?.status === "REQUESTED";
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const crewName = crews.find((c) => c.id === activeCrewId)?.name ?? "—";
+  const crewName = scopeName ?? crews.find((c) => c.id === activeCrewId)?.name ?? "—";
+  const scopeLabel = scopeType === "COMPANY" ? `Company · ${crewName}` : crewName;
 
   async function call(action: string) {
     if (!activeCrewId) return;
@@ -91,9 +96,9 @@ export function MappingPageShell({
           <div className="flex items-center gap-2 text-sm">
             <span className="text-[var(--muted)]">Editing:</span>
             {editingGlobal ? (
-              <span className="rounded-full bg-[var(--panel-2)] px-2.5 py-0.5 font-medium text-[var(--navy)]">Global · all crews</span>
+              <span className="rounded-full bg-[var(--panel-2)] px-2.5 py-0.5 font-medium text-[var(--navy)]">Application · all</span>
             ) : (
-              <span className="rounded-full bg-[var(--panel-2)] px-2.5 py-0.5 font-medium text-[var(--navy)]">{crewName}{isApproved ? " · crew-specific" : ""}</span>
+              <span className="rounded-full bg-[var(--panel-2)] px-2.5 py-0.5 font-medium text-[var(--navy)]">{scopeLabel}{isApproved ? " · specific" : ""}</span>
             )}
           </div>
 

@@ -29,11 +29,25 @@ export async function getApprovedMappingOverrides(
   crewId: string | null | undefined,
 ): Promise<CrewConfigOverrides> {
   if (!crewId) return {};
+  // DEC-015 cascade: an estimate on a crew resolves App (base config) < Company < Crew, field-level
+  // last-wins. Find the crew's Company ancestor, then merge Company payloads first, Crew payloads on
+  // top (so a field set at Crew beats Company, and an unset field falls back up the chain).
+  const units = await prisma.orgUnit.findMany({ select: { id: true, type: true, parentId: true } });
+  const byId = new Map(units.map((u) => [u.id, u]));
+  let companyId: string | null = null;
+  let cur = byId.get(crewId);
+  while (cur) {
+    if (cur.type === "COMPANY") companyId = cur.id;
+    cur = cur.parentId ? byId.get(cur.parentId) : undefined;
+  }
+  const scopeIds = [companyId, crewId].filter(Boolean) as string[];
   const rows = await prisma.crewMappingOverride.findMany({
-    where: { crewId, status: "APPROVED" },
+    where: { crewId: { in: scopeIds }, status: "APPROVED" },
   });
+  // Company rows first, then crew rows → crew wins per field.
+  const ordered = rows.sort((a, b) => (a.crewId === companyId ? 0 : 1) - (b.crewId === companyId ? 0 : 1));
   const out: Record<string, unknown> = {};
-  for (const row of rows) {
+  for (const row of ordered) {
     Object.assign(out, safeJsonParse<Record<string, unknown>>(row.payload, {}));
   }
   return out as CrewConfigOverrides;

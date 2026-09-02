@@ -85,8 +85,10 @@ export function CrewScopePanel({
     const next: Record<string, string> = { ...selected, [LEVELS[levelIndex][0]]: value };
     for (let i = levelIndex + 1; i < LEVELS.length; i++) next[LEVELS[i][0]] = ALL;
     setSelected(next);
-    const resolvedCrew = next.CREW === ALL ? null : next.CREW;
-    if (resolvedCrew !== (activeCrewId ?? null)) navigateCrew(resolvedCrew ?? "");
+    // DEC-015: edit scope = deepest CONFIG-bearing selection — Crew, else Company, else App.
+    // Div/Sub/Stream carry no config, so they keep the scope at their Company.
+    const resolvedScope = next.CREW !== ALL ? next.CREW : next.COMPANY !== ALL ? next.COMPANY : null;
+    if (resolvedScope !== (activeCrewId ?? null)) navigateCrew(resolvedScope ?? "");
   }
 
   return (
