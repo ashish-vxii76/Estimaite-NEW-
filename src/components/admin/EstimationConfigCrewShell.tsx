@@ -130,16 +130,18 @@ export function EstimationConfigCrewShell({
     const diverged = scalars[key] !== global;
     return (
       <label key={key} className="text-sm">
-        {label}
-        <input
-          type="number"
-          step="any"
-          className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2"
-          value={scalars[key] ?? 0}
-          disabled={!canWriteCrew}
-          onChange={(e) => setScalars((v) => ({ ...v, [key]: Number(e.target.value) }))}
-        />
-        <span className="mt-1 block text-[11px] text-[var(--muted)]">
+        <span className="flex items-center justify-between gap-3">
+          <span className="text-[var(--muted)]">{label}</span>
+          <input
+            type="number"
+            step="any"
+            className="w-24 shrink-0 rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-2 py-1.5 text-right tabular-nums"
+            value={scalars[key] ?? 0}
+            disabled={!canWriteCrew}
+            onChange={(e) => setScalars((v) => ({ ...v, [key]: Number(e.target.value) }))}
+          />
+        </span>
+        <span className="mt-0.5 block text-right text-[11px] text-[var(--muted)]">
           global: {global}{diverged ? " · overridden" : ""}
         </span>
       </label>
@@ -201,16 +203,18 @@ export function EstimationConfigCrewShell({
                 {TIER3_SCALAR.map((f) => numInput(f.key as string, f.label, globalScalars[f.key as string]))}
                 {TSHIRTS.map((t) => (
                   <label key={t} className="text-sm">
-                    Complexity multiplier {t}
-                    <input
-                      type="number"
-                      step="any"
-                      className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2"
-                      value={mult[t] ?? 0}
-                      disabled={!canWriteCrew}
-                      onChange={(e) => setMult((m) => ({ ...m, [t]: Number(e.target.value) }))}
-                    />
-                    <span className="mt-1 block text-[11px] text-[var(--muted)]">
+                    <span className="flex items-center justify-between gap-3">
+                      <span className="text-[var(--muted)]">Complexity multiplier {t}</span>
+                      <input
+                        type="number"
+                        step="any"
+                        className="w-24 shrink-0 rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-2 py-1.5 text-right tabular-nums"
+                        value={mult[t] ?? 0}
+                        disabled={!canWriteCrew}
+                        onChange={(e) => setMult((m) => ({ ...m, [t]: Number(e.target.value) }))}
+                      />
+                    </span>
+                    <span className="mt-0.5 block text-right text-[11px] text-[var(--muted)]">
                       global: {globalMult[t]}{mult[t] !== globalMult[t] ? " · overridden" : ""}
                     </span>
                   </label>

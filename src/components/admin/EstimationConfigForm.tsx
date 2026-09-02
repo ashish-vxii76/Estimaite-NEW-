@@ -71,12 +71,12 @@ export function EstimationConfigForm({
 
   function num(key: keyof typeof form, label: string, step = "any") {
     return (
-      <label className="text-sm">
-        {label}
+      <label className="flex items-center justify-between gap-3 text-sm">
+        <span className="text-[var(--muted)]">{label}</span>
         <input
           type="number"
           step={step}
-          className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2"
+          className="w-24 shrink-0 rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-2 py-1.5 text-right tabular-nums"
           value={form[key] as number}
           disabled={readOnly}
           onChange={(e) => setForm({ ...form, [key]: Number(e.target.value) })}

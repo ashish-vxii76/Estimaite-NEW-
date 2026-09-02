@@ -122,15 +122,15 @@ export function ComplexityDimensionsEditor({
         {weightOk ? " (OK)" : " — must equal 1.00 before save"}
       </div>
 
-      <div className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {rows.map((row, index) => (
-          <section key={row.id} className="card space-y-4 p-5">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div>
+          <section key={row.id} className={`card space-y-3 p-4 ${row.active ? "" : "opacity-60"}`}>
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
                 <p className="kicker">Dimension {index + 1}</p>
-                <p className="text-xs text-[var(--muted)]">Id: {row.id}</p>
+                <p className="truncate text-[11px] text-[var(--muted)]" title={row.id}>{row.id}</p>
               </div>
-              <label className="flex items-center gap-2 text-sm">
+              <label className="flex shrink-0 items-center gap-1.5 text-xs text-[var(--muted)]">
                 <input
                   type="checkbox"
                   checked={row.active}
@@ -140,45 +140,44 @@ export function ComplexityDimensionsEditor({
                 Active
               </label>
             </div>
-            <div className="grid gap-3 md:grid-cols-[1fr_140px]">
-              <label className="text-sm">
-                Display name
-                <input
-                  className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2"
-                  value={row.name}
-                  disabled={readOnly}
-                  onChange={(e) => update(index, { name: e.target.value })}
-                />
-              </label>
-              <label className="text-sm">
-                Weight
-                <input
-                  type="number"
-                  min={0}
-                  max={1}
-                  step="0.01"
-                  className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2"
-                  value={row.weight}
-                  disabled={readOnly}
-                  onChange={(e) => update(index, { weight: Number(e.target.value) })}
-                />
-              </label>
-            </div>
-            <div>
-              <p className="mb-2 text-sm font-medium text-[var(--navy)]">Dropdown labels (score 1–5)</p>
-              <div className="grid gap-2 md:grid-cols-5">
-                {row.options.map((opt, optIndex) => (
-                  <label key={optIndex} className="text-xs text-[var(--muted)]">
-                    Score {optIndex + 1}
-                    <input
-                      className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-2 py-2 text-sm text-[var(--text)]"
-                      value={opt}
-                      disabled={readOnly}
-                      onChange={(e) => updateOption(index, optIndex, e.target.value)}
-                    />
-                  </label>
-                ))}
-              </div>
+
+            <label className="block text-sm">
+              <span className="mb-1 block text-xs text-[var(--muted)]">Display name</span>
+              <input
+                className="w-full rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-1.5 text-sm"
+                value={row.name}
+                disabled={readOnly}
+                onChange={(e) => update(index, { name: e.target.value })}
+              />
+            </label>
+
+            <label className="flex items-center justify-between gap-3 text-sm">
+              <span className="text-xs text-[var(--muted)]">Weight</span>
+              <input
+                type="number"
+                min={0}
+                max={1}
+                step="0.01"
+                className="w-20 shrink-0 rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-2 py-1.5 text-right tabular-nums"
+                value={row.weight}
+                disabled={readOnly}
+                onChange={(e) => update(index, { weight: Number(e.target.value) })}
+              />
+            </label>
+
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-[var(--navy)]">Dropdown labels (score 1–5)</p>
+              {row.options.map((opt, optIndex) => (
+                <label key={optIndex} className="flex items-center gap-2 text-sm">
+                  <span className="w-4 shrink-0 text-center text-xs text-[var(--muted)]">{optIndex + 1}</span>
+                  <input
+                    className="w-full rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-2 py-1.5 text-sm text-[var(--text)]"
+                    value={opt}
+                    disabled={readOnly}
+                    onChange={(e) => updateOption(index, optIndex, e.target.value)}
+                  />
+                </label>
+              ))}
             </div>
           </section>
         ))}
