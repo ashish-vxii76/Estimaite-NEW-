@@ -581,6 +581,26 @@ describe("per-crew mapping override resolution (DEC-011)", () => {
     expect(resolved.resourceLevels.find((l) => l.id === "senior")?.daysPerPoint).toBe(1.5);
     expect(resolved.complexityBands).toBe(customBands);
   });
+
+  it("resource-levels override sets the table; calibration Days/Point overlays on top", async () => {
+    const { resolveCrewConfig } = await import("@/domain/estimation/crewCalibration");
+    const { DEFAULT_CONFIG } = await import("@/domain/estimation");
+    // Crew override replaces the resource-level table (bump every capacity, base Days/Point = 9)…
+    const customLevels = DEFAULT_CONFIG.resourceLevels.map((l) => ({
+      ...l,
+      capacitySpPerSprint: l.capacitySpPerSprint + 5,
+      daysPerPoint: 9,
+    }));
+    // …while calibration has tuned Days/Point for one level.
+    const cfg = { ...DEFAULT_CONFIG, crewDaysPerPoint: { crewX: { senior: 1.5 } } };
+    const resolved = resolveCrewConfig(cfg, "crewX", { resourceLevels: customLevels });
+    const senior = resolved.resourceLevels.find((l) => l.id === "senior");
+    const other = resolved.resourceLevels.find((l) => l.id !== "senior");
+    const seniorGlobalCap = DEFAULT_CONFIG.resourceLevels.find((l) => l.id === "senior")!.capacitySpPerSprint;
+    expect(senior?.capacitySpPerSprint).toBe(seniorGlobalCap + 5); // capacity from the override table
+    expect(senior?.daysPerPoint).toBe(1.5); // calibration tunes Days/Point on top of the override
+    expect(other?.daysPerPoint).toBe(9); // uncalibrated level keeps the override's base
+  });
 });
 
 describe("variance", () => {

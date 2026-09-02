@@ -7,6 +7,7 @@ export type OverrideDomain =
   | "ISSUE"
   | "EPIC"
   | "COMPLEXITY"
+  | "RESOURCE_LEVELS"
   | "LOCATION_SPRINT_RATES"
   | "LOCATION_DAILY_RATES"
   | "TEAM_SPRINT_RATES"
@@ -70,6 +71,23 @@ export const MAPPING_TABLE_META: Record<OverrideDomain, MappingTableMeta> = {
       { key: "complexity", label: "Complexity" },
       { key: "governance", label: "Governance" },
       { key: "interpretation", label: "Interpretation", wide: true },
+    ],
+  },
+  // Resource levels get the full global+crew treatment (like Issue/Epic). The crew override replaces
+  // the resourceLevels table; calibration/manual crewDaysPerPoint & capacity (DEC-007/009) still
+  // overlay Days/Point on top (see resolveCrewConfig), so the two compose rather than conflict.
+  RESOURCE_LEVELS: {
+    table: "RESOURCE_LEVELS",
+    label: "Resource levels",
+    fields: ["resourceLevels"],
+    rowsField: "resourceLevels",
+    columns: [
+      { key: "id", label: "Level ID" },
+      { key: "name", label: "Resource level" },
+      { key: "capacitySpPerSprint", label: "SP capacity / sprint", num: true },
+      { key: "daysPerPoint", label: "Days / point", num: true },
+      { key: "definition", label: "Definition", wide: true },
+      { key: "rule", label: "Rule", wide: true },
     ],
   },
   // DEC-013 crew-scoped rate domains (row-based, same editor as mappings).

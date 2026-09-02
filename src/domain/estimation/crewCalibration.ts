@@ -33,17 +33,20 @@ export function resolveCrewConfig(
   if (!hasDpp && !hasCap && !hasFields) return config;
 
   const next: EstimationConfig = { ...config };
+  // 1) Overlay the approved override fields first (arrays replaced wholesale, scalars replaced) — this
+  //    is where a RESOURCE_LEVELS override replaces the crew's resource-level table. The service only
+  //    ever includes governed-safe fields here.
+  if (hasFields) Object.assign(next, fields);
+  // 2) Then the calibrated / manual Days/Point & Capacity overlay applies ON TOP of the (possibly
+  //    overridden) levels, so calibration (DEC-007) keeps tuning Days/Point over any table override.
   if (hasDpp || hasCap) {
-    next.resourceLevels = config.resourceLevels.map((lvl) => {
+    next.resourceLevels = next.resourceLevels.map((lvl) => {
       const nextDpp = hasDpp && dpp![lvl.id] != null ? dpp![lvl.id] : lvl.daysPerPoint;
       const nextCap = hasCap && cap![lvl.id] != null ? cap![lvl.id] : lvl.capacitySpPerSprint;
       if (nextDpp === lvl.daysPerPoint && nextCap === lvl.capacitySpPerSprint) return lvl;
       return { ...lvl, daysPerPoint: nextDpp, capacitySpPerSprint: nextCap };
     });
   }
-  // Overlay the approved override fields (arrays replaced wholesale, scalars replaced). The service
-  // only ever includes governed-safe fields here.
-  if (hasFields) Object.assign(next, fields);
   return next;
 }
 
