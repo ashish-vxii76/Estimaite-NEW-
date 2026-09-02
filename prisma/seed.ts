@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { DEFAULT_CONFIG } from "../src/domain/estimation/defaultConfig";
 import { seedDemoRegister } from "./seedDemo";
 import { seedOrgHierarchy } from "./seedOrg";
+import { seedMultiOrg } from "./seedMultiOrg";
 import { DEFAULT_RBAC } from "../src/lib/rbac";
 
 const prisma = new PrismaClient();
@@ -167,6 +168,7 @@ async function main() {
 
   await seedDemoRegister(prisma);
   await seedOrgHierarchy(prisma);
+  await seedMultiOrg(prisma, passwordHash);
   console.log("Seeded PRD mappings, teams, UBS org tree, Crew budgets, and demo users.");
 }
 
