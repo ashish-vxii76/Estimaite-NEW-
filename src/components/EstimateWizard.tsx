@@ -75,7 +75,7 @@ type ActualsPayload = {
 } | null;
 
 const defaultScores = Object.fromEntries(
-  DEFAULT_CONFIG.complexityDimensions.map((d) => [d.id, 3]),
+  DEFAULT_CONFIG.complexityDimensions.map((d) => [d.id, 0]), // 0 = unselected ("Select a value")
 );
 
 const CanEditFields = createContext(true);
@@ -86,6 +86,7 @@ export function EstimateWizard({
   teams,
   locations,
   orgUnits = [],
+  requesterName = "",
   complexityDimensions = DEFAULT_CONFIG.complexityDimensions,
   releaseQuarters = DEFAULT_CONFIG.releaseQuarters,
   readinessCriteria = DEFAULT_CONFIG.readinessCriteria,
@@ -114,6 +115,7 @@ export function EstimateWizard({
   teams: Team[];
   locations: Location[];
   orgUnits?: OrgUnitRow[];
+  requesterName?: string;
   /** Hydrated Size-step dimensions (labels score 1–5). Defaults to DEFAULT_CONFIG. */
   complexityDimensions?: ComplexityDimensionConfig[];
   releaseQuarters?: string[];
@@ -168,8 +170,12 @@ export function EstimateWizard({
     reference: (initial?.reference as string) ?? `CR-${Date.now().toString().slice(-6)}`,
     title: (initial?.title as string) ?? "New work item",
     description: (initial?.description as string) ?? "",
-    teamId: (initial?.teamId as string) ?? teams[0]?.id ?? "",
-    requester: (initial?.requester as string) ?? "Alex Requester",
+    teamId: (initial?.teamId as string) ?? "",
+    crewId:
+      (initial?.teamId
+        ? teams.find((t) => t.id === (initial.teamId as string))?.crewId ?? ""
+        : "") as string,
+    requester: (initial?.requester as string) ?? requesterName ?? "",
     project: (initial?.project as string) ?? "",
     programme: (initial?.programme as string) ?? "",
     release: (initial?.release as string) ?? "",
@@ -181,8 +187,8 @@ export function EstimateWizard({
     costMethod: "Resource Cost per Sprint",
     projectOverrideRate: 0,
     currency: (initial?.currency as string) ?? teams[0]?.currency ?? "CHF",
-    devResourceLevel: (initial?.devResourceLevel as string) ?? "intermediate",
-    qaResourceLevel: (initial?.qaResourceLevel as string) ?? "experienced",
+    devResourceLevel: (initial?.devResourceLevel as string) ?? "",
+    qaResourceLevel: (initial?.qaResourceLevel as string) ?? "",
     devAiProductivity: Number(initial?.devAiProductivity ?? 0),
     qaAiProductivity: Number(initial?.qaAiProductivity ?? 0),
     availableDev: Number(initial?.availableDev ?? 1),
@@ -502,6 +508,12 @@ export function EstimateWizard({
     Boolean(form.title.trim()) &&
     dorCriteria.every((c) => form.readiness[c.id] === "YES" || form.readiness[c.id] === "NO");
   const sizeComplete = sizeDimensions.every((d) => Number(form.scores[d.id]) >= 1);
+  // Required Plan & cost selections before the engine may run (they default to "Select a value").
+  const planInputsReady =
+    Boolean(form.crewId) &&
+    Boolean(form.teamId) &&
+    Boolean(form.devResourceLevel) &&
+    Boolean(form.qaResourceLevel);
   const planComplete = Boolean(result);
   const governComplete = Boolean(result);
   const finalUnlocked = readyComplete && sizeComplete && planComplete && governComplete;
@@ -708,9 +720,8 @@ export function EstimateWizard({
               <div className="md:col-span-2">
                 <OrgPodPicker
                   orgUnits={orgUnits}
-                  teams={teams}
-                  value={form.teamId}
-                  onChange={applyTeam}
+                  value={form.crewId}
+                  onChange={(crewId) => setForm((f) => ({ ...f, crewId, teamId: "" }))}
                   locked={capabilities.teamLocked || !capabilities.canEdit}
                 />
               </div>
@@ -849,11 +860,12 @@ export function EstimateWizard({
               {sizeDimensions.map((d) => (
                 <Field key={d.id} label={`${d.name} (weight ${d.weight})`}>
                   <select
-                    value={form.scores[d.id]}
+                    value={form.scores[d.id] || ""}
                     onChange={(e) =>
                       setForm({ ...form, scores: { ...form.scores, [d.id]: Number(e.target.value) } })
                     }
                   >
+                    <option value="">Select a value</option>
                     {(d.options ?? []).map((label, index) => (
                       <option key={label} value={index + 1}>
                         {index + 1} — {label}
@@ -891,28 +903,33 @@ export function EstimateWizard({
               </p>
             </header>
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Team name">
+              <Field label="Team / Pod">
                 <select
-                  value={form.teamId}
+                  value={form.teamId || ""}
                   disabled={
                     (form.workItemType !== "EPIC" && !teamCosting) ||
                     capabilities.teamLocked ||
-                    !capabilities.canEdit
+                    !capabilities.canEdit ||
+                    !form.crewId
                   }
                   className={
                     (form.workItemType !== "EPIC" && !teamCosting) ||
                     capabilities.teamLocked ||
-                    !capabilities.canEdit
+                    !capabilities.canEdit ||
+                    !form.crewId
                       ? "cursor-not-allowed opacity-60"
                       : undefined
                   }
                   onChange={(e) => applyTeam(e.target.value)}
                 >
-                  {teams.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
+                  <option value="">{form.crewId ? "Select a Team/Pod" : "Select a Crew on tab 1 first"}</option>
+                  {teams
+                    .filter((t) => t.crewId === form.crewId)
+                    .map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
                 </select>
               </Field>
               {form.workItemType === "EPIC" ? (
@@ -1003,9 +1020,10 @@ export function EstimateWizard({
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Dev seniority">
                 <select
-                  value={form.devResourceLevel}
+                  value={form.devResourceLevel || ""}
                   onChange={(e) => setForm({ ...form, devResourceLevel: e.target.value })}
                 >
+                  <option value="">Select a value</option>
                   {levels.map((l) => (
                     <option key={l.id} value={l.id}>
                       {l.name} ({l.capacitySpPerSprint} SP/sprint)
@@ -1015,9 +1033,10 @@ export function EstimateWizard({
               </Field>
               <Field label="QA seniority">
                 <select
-                  value={form.qaResourceLevel}
+                  value={form.qaResourceLevel || ""}
                   onChange={(e) => setForm({ ...form, qaResourceLevel: e.target.value })}
                 >
+                  <option value="">Select a value</option>
                   {levels.map((l) => (
                     <option key={l.id} value={l.id}>
                       {l.name} ({l.capacitySpPerSprint} SP/sprint)
@@ -1111,11 +1130,25 @@ export function EstimateWizard({
                 type="button"
                 className="btn-primary"
                 onClick={calculate}
-                disabled={busy || !capabilities.canEdit}
+                disabled={busy || !capabilities.canEdit || !planInputsReady || !sizeComplete}
+                title={
+                  !sizeComplete
+                    ? "Score every Size dimension first"
+                    : !planInputsReady
+                      ? "Select a Crew (tab 1), a Team/Pod, and Dev & QA seniority first"
+                      : undefined
+                }
               >
                 Calculate & govern
               </button>
             </div>
+            {!planInputsReady || !sizeComplete ? (
+              <p className="text-right text-xs text-[var(--muted)]">
+                {!sizeComplete
+                  ? "Score every Size dimension to continue."
+                  : "Select a Crew (tab 1), a Team/Pod, and Dev & QA seniority to continue."}
+              </p>
+            ) : null}
           </section>
         )}
 

@@ -24,6 +24,7 @@ export default async function NewEstimatePage() {
       teams={teams}
       locations={locations}
       orgUnits={orgUnits}
+      requesterName={session?.user.name ?? session?.user.email ?? ""}
       complexityDimensions={config.complexityDimensions}
       releaseQuarters={config.releaseQuarters}
       readinessCriteria={config.readinessCriteria}
