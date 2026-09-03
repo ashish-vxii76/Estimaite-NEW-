@@ -24,6 +24,7 @@ const TOP_ICONS: Record<string, typeof Home> = {
 export function SideNav({
   role,
   matrix,
+  seatLevel,
   userName,
   userRole,
   signOut,
@@ -31,6 +32,7 @@ export function SideNav({
 }: {
   role: string;
   matrix?: RbacMatrix;
+  seatLevel?: number;
   userName?: string | null;
   userRole?: string | null;
   // Elements (not functions): AppShell is a Server Component, so only serializable React elements
@@ -57,7 +59,7 @@ export function SideNav({
     setMobileOpen(false);
   }, [pathname, search, hash]);
 
-  const tree = useMemo(() => filterTree(NAV_TREE, role, matrix), [role, matrix]);
+  const tree = useMemo(() => filterTree(NAV_TREE, role, matrix, seatLevel), [role, matrix, seatLevel]);
 
   useEffect(() => {
     setOpen((current) => {
@@ -333,12 +335,12 @@ function NavBranch({
   );
 }
 
-function filterTree(nodes: NavNode[], role: string, matrix?: RbacMatrix): NavNode[] {
+function filterTree(nodes: NavNode[], role: string, matrix?: RbacMatrix, level?: number): NavNode[] {
   return nodes
-    .filter((node) => canSeeNav(node, role, matrix))
+    .filter((node) => canSeeNav(node, role, matrix, level))
     .map((node) => ({
       ...node,
-      children: node.children ? filterTree(node.children, role, matrix) : undefined,
+      children: node.children ? filterTree(node.children, role, matrix, level) : undefined,
     }))
     .filter((node) => node.href || (node.children && node.children.length > 0));
 }

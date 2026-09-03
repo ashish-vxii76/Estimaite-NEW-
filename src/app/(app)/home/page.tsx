@@ -14,7 +14,8 @@ import { getActiveConfig } from "@/services/configService";
 import { getPortfolio } from "@/services/portfolioService";
 import { buildHomeActions } from "@/lib/homeInbox";
 import { releaseWhere, parseRelease } from "@/lib/releasePeriod";
-import { descendantIds } from "@/services/orgService";
+import { descendantIds, resolveSeatLevel } from "@/services/orgService";
+import { CREW_LEVEL } from "@/lib/orgLevel";
 
 const ACTION_FLAGS = ["SPLIT", "SPLIT EPIC", "SPIKE REQUIRED", "DISCOVERY REQUIRED", "DECOMPOSE"];
 
@@ -29,6 +30,10 @@ export default async function HomePage({
 
   const { team: teamFilter = "", workItemType = "", release = "", org = "" } = await searchParams;
   const scopeUser = fromSession(session.user);
+  // Crew-leadership surfaces (budget strip, roll-up/calibration shortcuts) need a Crew-or-above
+  // seat — a Pod-level Delivery Lead sees estimates in scope but not the crew-economics panels.
+  const seatLevel = await resolveSeatLevel(scopeUser);
+  const isCrewLevelOrAbove = seatLevel >= CREW_LEVEL;
   const homeScope = await resolveHomeScope(scopeUser, org, teamFilter);
   const filter = {
     ...homeScope.where,
@@ -227,7 +232,7 @@ export default async function HomePage({
     ? `Welcome ${session.user.name?.trim() || "there"} (Application Admin)`
     : welcomeLine(session.user.name, session.user.role, teamName);
   const showActions = can(session.user.role, "home.actions");
-  const actions = showActions ? buildHomeActions(session.user.role) : [];
+  const actions = showActions ? buildHomeActions(session.user.role, seatLevel) : [];
 
   return (
     <div className="space-y-6">
@@ -285,6 +290,7 @@ export default async function HomePage({
           needsAction: needsActionTotal,
           year: releaseYear,
         }}
+        showBudget={isCrewLevelOrAbove}
       />
 
       {showActions ? <HomeActionsPanel actions={actions} /> : null}

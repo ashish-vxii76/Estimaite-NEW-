@@ -13,8 +13,12 @@ export function can(role: string | null | undefined, feature: FeatureId, mode: "
   return canWithMatrix(role, feature, mode, getCachedRbacMatrix());
 }
 
-export function canAccessPath(role: string | null | undefined, pathname: string) {
-  return pathWithMatrix(role, pathname, getCachedRbacMatrix());
+export function canAccessPath(
+  role: string | null | undefined,
+  pathname: string,
+  levelRankValue?: number,
+) {
+  return pathWithMatrix(role, pathname, getCachedRbacMatrix(), levelRankValue);
 }
 
 export function seesAllTeams(role: string | null | undefined) {

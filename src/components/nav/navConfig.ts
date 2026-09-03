@@ -1,4 +1,5 @@
 import { can, isAdminTier, type FeatureId, type RbacMatrix } from "@/lib/rbac";
+import { levelRank, APP_LEVEL } from "@/lib/orgLevel";
 import { ESTIMATE_CREATE_ROLES } from "@/lib/roles";
 
 export type NavNode = {
@@ -6,6 +7,8 @@ export type NavNode = {
   label: string;
   href?: string;
   feature?: FeatureId;
+  /** Minimum seat LEVEL (POD/CREW/...) required in addition to the feature grant. */
+  minLevel?: string;
   createHref?: string;
   createLabel?: string;
   createRoles?: string[];
@@ -66,18 +69,21 @@ export const NAV_TREE: NavNode[] = [
         label: "Roll-up & CR register",
         href: "/portfolio",
         feature: "portfolio.view",
+        minLevel: "CREW",
       },
       {
         id: "crew-budgets",
         label: "Crew budgets",
         href: "/admin/crew-budgets",
         feature: "org.budget",
+        minLevel: "CREW",
       },
       {
         id: "calibration",
         label: "Calibration",
         href: "/calibration",
         feature: "calibration.view",
+        minLevel: "CREW",
       },
     ],
   },
@@ -184,12 +190,20 @@ export const NAV_TREE: NavNode[] = [
   },
 ];
 
-export function canSeeNav(node: NavNode, role: string, matrix?: RbacMatrix): boolean {
-  // DEC-016: the Administration section is for admin tiers only (App/Org/Crew) — a role that merely
-  // *reads* a config surface (e.g. Estimator with config.mappings R) must not see it.
+export function canSeeNav(
+  node: NavNode,
+  role: string,
+  matrix?: RbacMatrix,
+  levelRankValue: number = APP_LEVEL,
+): boolean {
+  // Level gate: crew-leadership surfaces (Roll-up / Crew budgets / Calibration) need a Crew-or-above
+  // seat, not just the feature grant — a Pod-level Delivery Lead holds the grant but not the level.
+  if (node.minLevel && levelRankValue < levelRank(node.minLevel)) return false;
+  // The Administration section is for admin tiers only (App/Org/Crew) — a role that merely *reads* a
+  // config surface must not see it.
   if (node.id === "administration") return isAdminTier(role, matrix);
   if (node.feature) return can(role, node.feature, "R", matrix);
-  if (node.children?.length) return node.children.some((child) => canSeeNav(child, role, matrix));
+  if (node.children?.length) return node.children.some((child) => canSeeNav(child, role, matrix, levelRankValue));
   if (node.href === "/admin") {
     return (
       can(role, "config.teams", "R", matrix) ||

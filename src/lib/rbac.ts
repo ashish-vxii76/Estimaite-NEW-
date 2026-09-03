@@ -1,3 +1,5 @@
+import { LEVEL_ORDER } from "@/lib/orgLevel";
+
 export const ROLES = [
   "ADMINISTRATOR",
   "REQUESTER",
@@ -400,12 +402,36 @@ export function featureForPath(pathname: string): { feature: FeatureId; mode: "R
   return hit ? { feature: hit.feature, mode: hit.mode } : null;
 }
 
+/**
+ * Minimum seat LEVEL (see @/lib/orgLevel) required for a path, on top of the feature grant.
+ * Crew-leadership surfaces: a Pod-level lead can hold the role grant but not the level.
+ */
+export const PATH_MIN_LEVEL: { prefix: string; minLevel: string }[] = [
+  { prefix: "/portfolio", minLevel: "CREW" },
+  { prefix: "/calibration", minLevel: "CREW" },
+  { prefix: "/admin/crew-budgets", minLevel: "CREW" },
+];
+
+export function minLevelForPath(pathname: string): string | null {
+  const hit = PATH_MIN_LEVEL.find(
+    (row) => pathname === row.prefix || pathname.startsWith(`${row.prefix}/`),
+  );
+  return hit ? hit.minLevel : null;
+}
+
 export function canAccessPath(
   role: string | null | undefined,
   pathname: string,
   matrix: RbacMatrix = DEFAULT_RBAC,
+  levelRankValue?: number,
 ): boolean {
   if (!role) return false;
+  // Level gate: crew-leadership surfaces need a Crew-or-above seat, not just the feature grant.
+  const minLevel = minLevelForPath(pathname);
+  if (minLevel != null && levelRankValue != null) {
+    const need = LEVEL_ORDER.indexOf(minLevel as (typeof LEVEL_ORDER)[number]);
+    if (levelRankValue < need) return false;
+  }
   if (pathname === "/admin" || pathname === "/admin/") {
     // The Administration overview is a config-admin surface. Crew budgets live under Analytics now,
     // so org.budget is intentionally NOT a key to the overview (leadership must not land here).

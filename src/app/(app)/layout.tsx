@@ -7,14 +7,16 @@ import { getRbacMatrix } from "@/services/rbacService";
 import { can, canAccessPath, seesAllTeams } from "@/lib/access";
 import { buildNotifications } from "@/lib/homeInbox";
 import { fromSession } from "@/lib/scope";
+import { resolveSeatLevel } from "@/services/orgService";
 import { roleLabel } from "@/lib/roles";
 
 export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
   const matrix = await getRbacMatrix();
+  const seatLevel = await resolveSeatLevel(fromSession(session.user));
   const pathname = (await headers()).get("x-estimaite-pathname") ?? "/home";
-  if (pathname !== "/home" && !canAccessPath(session.user.role, pathname)) {
+  if (pathname !== "/home" && !canAccessPath(session.user.role, pathname, seatLevel)) {
     redirect("/home");
   }
   if (pathname === "/home" && !can(session.user.role, "home")) {
@@ -55,6 +57,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
       teamName={teamName}
       roleOptions={roleOptions}
       matrix={matrix}
+      seatLevel={seatLevel}
       showNotifications={showNotifications}
       notifications={notifications}
     >

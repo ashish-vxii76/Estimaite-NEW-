@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/access";
 import { fromSession, resolveEstimateScope, type ScopeUser } from "@/lib/scope";
+import { CREW_LEVEL, APP_LEVEL } from "@/lib/orgLevel";
 
 export type AppNotification = {
   id: string;
@@ -101,8 +102,9 @@ export async function buildNotifications(
 }
 
 /** Role-aware shortcut panel under Home charts. */
-export function buildHomeActions(role: string | undefined): HomeAction[] {
+export function buildHomeActions(role: string | undefined, seatLevel: number = APP_LEVEL): HomeAction[] {
   const actions: HomeAction[] = [];
+  const crewLevelOrAbove = seatLevel >= CREW_LEVEL;
   if (can(role, "estimates.create", "RW")) {
     actions.push({
       id: "new-estimate",
@@ -139,7 +141,7 @@ export function buildHomeActions(role: string | undefined): HomeAction[] {
       feature: "estimates.approve",
     });
   }
-  if (can(role, "portfolio.view")) {
+  if (crewLevelOrAbove && can(role, "portfolio.view")) {
     actions.push({
       id: "portfolio",
       label: "Roll-up & CR register",
@@ -148,7 +150,7 @@ export function buildHomeActions(role: string | undefined): HomeAction[] {
       feature: "portfolio.view",
     });
   }
-  if (can(role, "calibration.view")) {
+  if (crewLevelOrAbove && can(role, "calibration.view")) {
     actions.push({
       id: "calibration",
       label: "Calibration",

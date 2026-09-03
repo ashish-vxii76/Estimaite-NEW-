@@ -14,6 +14,7 @@ export function AppShell({
   teamName,
   roleOptions,
   matrix,
+  seatLevel,
   notifications = [],
   showNotifications = false,
 }: {
@@ -22,6 +23,7 @@ export function AppShell({
   teamName?: string | null;
   roleOptions: RoleOption[];
   matrix?: RbacMatrix;
+  seatLevel?: number;
   notifications?: AppNotification[];
   showNotifications?: boolean;
 }) {
@@ -38,6 +40,7 @@ export function AppShell({
         <SideNav
           role={user.role ?? "VIEWER"}
           matrix={matrix}
+          seatLevel={seatLevel}
           userName={user.name}
           userRole={roleLine}
           signOut={<SignOutButton key="signout" />}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { canAccessPath } from "@/lib/rbac";
+import { levelRank } from "@/lib/orgLevel";
 import { NAV_TREE, canSeeNav, type NavNode } from "@/components/nav/navConfig";
 
 /**
@@ -71,6 +72,34 @@ describe("RBAC access matrix (route × role)", () => {
       });
     }
   }
+});
+
+describe("seat-LEVEL gating — Delivery Lead at Pod vs Crew", () => {
+  const POD = levelRank("POD");
+  const CREW = levelRank("CREW");
+  const LEVEL_PATHS = ["/portfolio", "/calibration", "/admin/crew-budgets"];
+  const LEVEL_NODES = ["portfolio-rollup", "crew-budgets", "calibration"];
+
+  for (const path of LEVEL_PATHS) {
+    it(`Pod-level Delivery Lead cannot access ${path}`, () => {
+      expect(canAccessPath("DELIVERY_LEAD", path, undefined, POD)).toBe(false);
+    });
+    it(`Crew-level Delivery Lead can access ${path}`, () => {
+      expect(canAccessPath("DELIVERY_LEAD", path, undefined, CREW)).toBe(true);
+    });
+  }
+  for (const nodeId of LEVEL_NODES) {
+    const node = findNode(nodeId)!;
+    it(`Pod-level Delivery Lead cannot see nav "${nodeId}"`, () => {
+      expect(canSeeNav(node, "DELIVERY_LEAD", undefined, POD)).toBe(false);
+    });
+    it(`Crew-level Delivery Lead sees nav "${nodeId}"`, () => {
+      expect(canSeeNav(node, "DELIVERY_LEAD", undefined, CREW)).toBe(true);
+    });
+  }
+  it("estimates stay visible to a Pod-level lead (not level-gated)", () => {
+    expect(canAccessPath("DELIVERY_LEAD", "/estimates", undefined, POD)).toBe(true);
+  });
 });
 
 describe("RBAC nav visibility (node × role)", () => {

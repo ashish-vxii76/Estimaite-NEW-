@@ -104,6 +104,7 @@ function Kpi({ label, value, series, color }: { label: string; value: number; se
 
 export function HomeDashboard({
   counts, byStatus, byTeam, byFlag, byConfidence, avgReadiness, spark, trend, attention, health,
+  showBudget = true,
 }: {
   counts: { total: number; drafts: number; inReview: number; approved: number; completed: number; reviewed: number; readyForReview: number };
   byStatus: Named[]; byTeam: Named[]; byFlag: Named[]; byConfidence: Named[];
@@ -112,6 +113,8 @@ export function HomeDashboard({
   trend: { period: string; created: number; approved: number }[];
   attention: { id: string; reference: string; title: string; tag: string }[];
   health: Health;
+  /** Crew budgets & delivery economics are a Crew-and-above surface — hidden for Pod-level leads. */
+  showBudget?: boolean;
 }) {
   const statusTotal = byStatus.reduce((s, r) => s + r.count, 0);
   const dorPct = Math.round((avgReadiness / 5) * 100);
@@ -129,28 +132,36 @@ export function HomeDashboard({
 
   return (
     <div className="space-y-4">
-      {/* Health strip */}
+      {/* Health strip — budget/committed/variance are Crew-and-above (crew economics). */}
       <div
         className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-4 shadow-[var(--shadow)]"
-        style={{ borderLeft: `5px solid ${RAG_TEXT[health.budgetRag] ?? "var(--muted)"}` }}
+        style={{ borderLeft: `5px solid ${showBudget ? RAG_TEXT[health.budgetRag] ?? "var(--muted)" : "var(--muted)"}` }}
       >
-        <span
-          className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-bold"
-          style={{ color: RAG_TEXT[health.budgetRag], background: "color-mix(in srgb, currentColor 12%, transparent)" }}
-        >
-          ● {health.budgetLabel}
-        </span>
-        <Stat label={`Committed vs budget · ${health.year}`}>
-          {formatMoney(health.utilised, health.currency)}
-          <span className="text-[var(--muted)]"> / {health.budget != null ? formatMoney(health.budget, health.currency) : "no budget"}</span>
-          {health.utilizationPct != null ? <span className="text-[var(--muted)]"> · {Math.round(health.utilizationPct * 100)}%</span> : null}
-        </Stat>
-        <div className="hidden h-8 w-px bg-[var(--line)] sm:block" />
+        {showBudget ? (
+          <>
+            <span
+              className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-bold"
+              style={{ color: RAG_TEXT[health.budgetRag], background: "color-mix(in srgb, currentColor 12%, transparent)" }}
+            >
+              ● {health.budgetLabel}
+            </span>
+            <Stat label={`Committed vs budget · ${health.year}`}>
+              {formatMoney(health.utilised, health.currency)}
+              <span className="text-[var(--muted)]"> / {health.budget != null ? formatMoney(health.budget, health.currency) : "no budget"}</span>
+              {health.utilizationPct != null ? <span className="text-[var(--muted)]"> · {Math.round(health.utilizationPct * 100)}%</span> : null}
+            </Stat>
+            <div className="hidden h-8 w-px bg-[var(--line)] sm:block" />
+          </>
+        ) : null}
         <Stat label="Definition of Ready">{dorPct}%</Stat>
-        <div className="hidden h-8 w-px bg-[var(--line)] sm:block" />
-        <Stat label="Delivery vs estimate">
-          {health.deliveryVariancePct == null ? "—" : `${health.deliveryVariancePct > 0 ? "+" : ""}${(health.deliveryVariancePct * 100).toFixed(1)}%`}
-        </Stat>
+        {showBudget ? (
+          <>
+            <div className="hidden h-8 w-px bg-[var(--line)] sm:block" />
+            <Stat label="Delivery vs estimate">
+              {health.deliveryVariancePct == null ? "—" : `${health.deliveryVariancePct > 0 ? "+" : ""}${(health.deliveryVariancePct * 100).toFixed(1)}%`}
+            </Stat>
+          </>
+        ) : null}
         <div className="hidden h-8 w-px bg-[var(--line)] sm:block" />
         <Stat label="CRs need action">
           <span className={health.needsAction > 0 ? "text-[var(--danger)]" : ""}>{health.needsAction}</span>
@@ -287,7 +298,12 @@ export function HomeDashboard({
                   isAnimationActive={false}
                   content={<TeamTile />}
                 >
-                  <Tooltip contentStyle={TT} formatter={(v) => [`${v}`, "CRs"]} />
+                  <Tooltip
+                    contentStyle={TT}
+                    itemStyle={{ color: "var(--text)" }}
+                    labelStyle={{ color: "var(--text)" }}
+                    formatter={(v) => [`${v}`, "CRs"]}
+                  />
                 </Treemap>
               </ResponsiveContainer>
             )}

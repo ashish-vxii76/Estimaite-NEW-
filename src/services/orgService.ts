@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { appendAuditEvent } from "@/services/auditService";
 import type { OrgPath, OrgSeatType, OrgType } from "@/lib/orgTypes";
 import { ORG_TYPES } from "@/lib/orgTypes";
+import { levelRank } from "@/lib/orgLevel";
 import { can, seesAllTeams } from "@/lib/access";
 
 export type OrgUnitRow = {
@@ -198,6 +199,22 @@ export async function isAppLevelAdmin(user: ScopeInput): Promise<boolean> {
   if (user.activeGrantId != null) return user.seatOrgUnitId == null;
   const seat = await getPrimarySeat(user.id);
   return seat == null;
+}
+
+/**
+ * Rank of the viewer's ACTIVE seat/grant level (POD..APP). App admin = APP; a grant/seat carries the
+ * type of its org unit; a pod-only user (team, or a grant with no org unit) = POD. Used to gate
+ * crew-leadership surfaces so a Pod-level Delivery Lead does not get Roll-up / Crew budgets.
+ */
+export async function resolveSeatLevel(user: ScopeInput): Promise<number> {
+  if (await isAppLevelAdmin(user)) return levelRank("APP");
+  const anchorId =
+    user.activeGrantId != null
+      ? user.seatOrgUnitId ?? null
+      : (await getPrimarySeat(user.id))?.orgUnitId ?? null;
+  if (!anchorId) return levelRank("POD"); // pod-level grant (no org unit) or team-only user
+  const unit = await prisma.orgUnit.findUnique({ where: { id: anchorId }, select: { type: true } });
+  return levelRank(unit?.type ?? "POD");
 }
 
 export async function visibleOrgUnitIds(user: ScopeInput): Promise<string[] | null> {
