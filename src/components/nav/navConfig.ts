@@ -197,8 +197,7 @@ export function canSeeNav(node: NavNode, role: string, matrix?: RbacMatrix): boo
       can(role, "config.mappings", "R", matrix) ||
       can(role, "config.users", "R", matrix) ||
       can(role, "config.rbac", "R", matrix) ||
-      can(role, "org.setup", "R", matrix) ||
-      can(role, "org.budget", "R", matrix)
+      can(role, "org.setup", "R", matrix)
     );
   }
   return true;

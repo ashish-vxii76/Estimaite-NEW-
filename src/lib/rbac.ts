@@ -407,14 +407,15 @@ export function canAccessPath(
 ): boolean {
   if (!role) return false;
   if (pathname === "/admin" || pathname === "/admin/") {
+    // The Administration overview is a config-admin surface. Crew budgets live under Analytics now,
+    // so org.budget is intentionally NOT a key to the overview (leadership must not land here).
     return (
       can(role, "config.teams", "R", matrix) ||
       can(role, "config.rates", "R", matrix) ||
       can(role, "config.mappings", "R", matrix) ||
       can(role, "config.users", "R", matrix) ||
       can(role, "config.rbac", "R", matrix) ||
-      can(role, "org.setup", "R", matrix) ||
-      can(role, "org.budget", "R", matrix)
+      can(role, "org.setup", "R", matrix)
     );
   }
   const mapped = featureForPath(pathname);
