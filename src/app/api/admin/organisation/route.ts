@@ -100,6 +100,18 @@ export async function POST(request: Request) {
       const team = await setTeamCrew(teamId, newCrewId);
       return NextResponse.json({ team });
     }
+    if (action === "renameTeam") {
+      const teamId = String(body.teamId);
+      const name = String(body.name ?? "").trim();
+      if (name.length < 2) return NextResponse.json({ error: "Name too short" }, { status: 400 });
+      // The pod's crew must be within the actor's administration scope (App admin: unrestricted,
+      // may also rename a pod that isn't attached to a crew yet).
+      const currentCrewId = await crewIdOfTeam(teamId);
+      if (currentCrewId ? !canWriteUnit(scope, currentCrewId) : !scope.appLevel) return deny();
+      const team = await prisma.team.update({ where: { id: teamId }, data: { name } });
+      await appendAuditEvent({ userId: session!.user.id, action: "TEAM_RENAMED", newValue: JSON.stringify({ teamId, name }) });
+      return NextResponse.json({ team });
+    }
     if (action === "setPrimarySeat") {
       const seatType = String(body.seatType) as OrgSeatType;
       if (!ORG_SEAT_TYPES.includes(seatType)) {

@@ -6,12 +6,15 @@ import { ScopeFilterBar } from "@/components/ScopeFilterBar";
 import { HomeActionsPanel } from "@/components/HomeActionsPanel";
 import { can } from "@/lib/access";
 import { fromSession, teamsForUser } from "@/lib/scope";
-import { getOrgFilterData, resolveOrgSelectionWhere } from "@/lib/orgFilter";
+import { resolveHomeScope } from "@/lib/orgFilter";
+import { computeHomeSplit } from "@/lib/homeSplit";
+import { HomeOrgSplit, type OrgSplitRow } from "@/components/HomeOrgSplit";
 import { welcomeLine } from "@/lib/roles";
 import { getActiveConfig } from "@/services/configService";
 import { getPortfolio } from "@/services/portfolioService";
 import { buildHomeActions } from "@/lib/homeInbox";
-import { releaseWhere } from "@/lib/releasePeriod";
+import { releaseWhere, parseRelease } from "@/lib/releasePeriod";
+import { descendantIds } from "@/services/orgService";
 
 const ACTION_FLAGS = ["SPLIT", "SPLIT EPIC", "SPIKE REQUIRED", "DISCOVERY REQUIRED", "DECOMPOSE"];
 
@@ -26,17 +29,43 @@ export default async function HomePage({
 
   const { team: teamFilter = "", workItemType = "", release = "", org = "" } = await searchParams;
   const scopeUser = fromSession(session.user);
-  const orgWhere = await resolveOrgSelectionWhere(scopeUser, org, teamFilter);
+  const homeScope = await resolveHomeScope(scopeUser, org, teamFilter);
   const filter = {
-    ...orgWhere,
+    ...homeScope.where,
     ...(workItemType ? { workItemType } : {}),
     ...releaseWhere(release),
+  };
+
+  // Portfolio (budget / delivery variance) must follow the same org/team/release selection as
+  // the rest of the dashboard. Budget is an annual, per-crew figure, so it responds to scope
+  // (org/team) and the release YEAR — but not workItemType, which is a register-composition
+  // filter (rescoping the annual budget by work-item type would make committed-vs-budget
+  // incoherent). Year: the selected release's year, else the current year.
+  const yearStr = release ? parseRelease(release).year : "";
+  const releaseYear = /^\d{4}$/.test(yearStr) ? Number(yearStr) : new Date().getFullYear();
+  let pfCrewIds: string[] | null = homeScope.crewIds;
+  let pfTeamId: string | undefined;
+  if (teamFilter) {
+    const selTeam = await prisma.team.findUnique({ where: { id: teamFilter }, select: { crewId: true } });
+    pfTeamId = teamFilter;
+    pfCrewIds = selTeam?.crewId ? [selTeam.crewId] : []; // budget stays at the pod's crew
+  } else if (org) {
+    const ids = await descendantIds(org);
+    const orgCrews = (
+      await prisma.orgUnit.findMany({ where: { id: { in: ids }, type: "CREW", active: true }, select: { id: true } })
+    ).map((c) => c.id);
+    pfCrewIds = homeScope.crewIds == null ? orgCrews : homeScope.crewIds.filter((id) => orgCrews.includes(id));
+  }
+
+  const attentionWhere = {
+    ...filter,
+    OR: [{ deliveryFlag: { in: ACTION_FLAGS } }, { status: { in: ["RETURNED", "REJECTED"] } }],
   };
 
   const [
     total, drafts, pendingReview, pendingApprove, approved, completed,
     byTeamRows, byStatusRows, byFlagRows, byConfidenceRows, readinessAgg,
-    activityRows, attentionRows, team, config, teams, orgFilter, portfolio,
+    activityRows, attentionRows, needsActionTotal, team, config, teams, orgFilter, portfolio,
   ] = await Promise.all([
     prisma.estimate.count({ where: filter }),
     prisma.estimate.count({ where: { ...filter, status: { in: ["DRAFT", "RETURNED"] } } }),
@@ -51,18 +80,19 @@ export default async function HomePage({
     prisma.estimate.aggregate({ where: { ...filter, readinessScore: { gt: 0 } }, _avg: { readinessScore: true } }),
     prisma.estimate.findMany({ where: filter, select: { createdAt: true, status: true } }),
     prisma.estimate.findMany({
-      where: { ...filter, OR: [{ deliveryFlag: { in: ACTION_FLAGS } }, { status: { in: ["RETURNED", "REJECTED"] } }] },
+      where: attentionWhere,
       select: { id: true, reference: true, title: true, deliveryFlag: true, status: true, updatedAt: true },
       orderBy: { updatedAt: "desc" },
       take: 6,
     }),
+    prisma.estimate.count({ where: attentionWhere }),
     session.user.teamId
       ? prisma.team.findUnique({ where: { id: session.user.teamId }, select: { name: true } })
       : Promise.resolve(null),
     getActiveConfig(),
     teamsForUser(scopeUser),
-    getOrgFilterData(scopeUser),
-    getPortfolio({ user: scopeUser, year: new Date().getFullYear() }),
+    Promise.resolve(homeScope.orgFilter),
+    getPortfolio({ user: scopeUser, crewIds: pfCrewIds ?? undefined, teamId: pfTeamId, year: releaseYear }),
   ]);
 
   const teamNames = Object.fromEntries(teams.map((t) => [t.id, t.name]));
@@ -109,8 +139,93 @@ export default async function HomePage({
     tag: ACTION_FLAGS.includes(r.deliveryFlag) ? r.deliveryFlag : r.status,
   }));
 
+  // --- Cross-organization split: group visuals by the viewer's org level (DEC-016 aligned).
+  // Renders only when the viewer can see more than one org at that level. Counts use the
+  // viewer's full visible scope (stable across drill-downs), not the current org selection.
+  const split = computeHomeSplit(orgFilter.units, orgFilter.teams);
+  let orgSplitRows: OrgSplitRow[] = [];
+  if (split.units.length > 1) {
+    const splitFilter = {
+      ...homeScope.base,
+      ...(workItemType ? { workItemType } : {}),
+      ...releaseWhere(release),
+    };
+    const year = releaseYear;
+    const [statusByTeam, readinessByTeam, needsByTeam, portfolios] = await Promise.all([
+      prisma.estimate.groupBy({ by: ["teamId", "status"], where: splitFilter, _count: { _all: true } }),
+      prisma.estimate.groupBy({
+        by: ["teamId"],
+        where: { ...splitFilter, readinessScore: { gt: 0 } },
+        _sum: { readinessScore: true },
+        _count: { _all: true },
+      }),
+      prisma.estimate.groupBy({
+        by: ["teamId"],
+        where: { ...splitFilter, OR: [{ deliveryFlag: { in: ACTION_FLAGS } }, { status: { in: ["RETURNED", "REJECTED"] } }] },
+        _count: { _all: true },
+      }),
+      Promise.all(
+        split.units.map((u) =>
+          getPortfolio({ user: scopeUser, crewIds: split.unitCrewIds[u.id] ?? [], year })
+            .then((p) => ({ id: u.id, p }))
+            .catch(() => ({ id: u.id, p: null as Awaited<ReturnType<typeof getPortfolio>> | null })),
+        ),
+      ),
+    ]);
+
+    const unitOf = (teamId: string) => split.teamToUnitId[teamId] ?? null;
+    const acc: Record<string, OrgSplitRow> = {};
+    for (const u of split.units) {
+      acc[u.id] = { id: u.id, name: u.name, total: 0, drafts: 0, inReview: 0, approved: 0, completed: 0, avgReadiness: 0, needsAction: 0, money: null };
+    }
+    for (const r of statusByTeam) {
+      const uid = unitOf(r.teamId);
+      if (!uid || !acc[uid]) continue;
+      const c = r._count._all;
+      acc[uid].total += c;
+      if (["DRAFT", "RETURNED"].includes(r.status)) acc[uid].drafts += c;
+      else if (["READY_FOR_REVIEW", "REVIEWED"].includes(r.status)) acc[uid].inReview += c;
+      else if (r.status === "APPROVED") acc[uid].approved += c;
+      else if (r.status === "COMPLETED") acc[uid].completed += c;
+    }
+    const readinessSum: Record<string, { sum: number; n: number }> = {};
+    for (const r of readinessByTeam) {
+      const uid = unitOf(r.teamId);
+      if (!uid || !acc[uid]) continue;
+      const e = readinessSum[uid] ?? { sum: 0, n: 0 };
+      e.sum += r._sum.readinessScore ?? 0;
+      e.n += r._count._all;
+      readinessSum[uid] = e;
+    }
+    for (const uid of Object.keys(readinessSum)) {
+      const e = readinessSum[uid];
+      if (acc[uid]) acc[uid].avgReadiness = e.n > 0 ? e.sum / e.n : 0;
+    }
+    for (const r of needsByTeam) {
+      const uid = unitOf(r.teamId);
+      if (uid && acc[uid]) acc[uid].needsAction += r._count._all;
+    }
+    for (const { id, p } of portfolios) {
+      if (!p || !acc[id]) continue;
+      acc[id].money = {
+        utilizationPct: p.budgetUtilisation.utilizationPct,
+        utilised: p.budgetUtilisation.utilizedAiCost,
+        budget: p.budgetUtilisation.budget,
+        currency: p.currency,
+        variancePct: p.deliveryVariance.variancePct,
+        rag: p.budgetUtilisation.utilizedRag,
+      };
+    }
+    orgSplitRows = split.units.map((u) => acc[u.id]);
+  }
+
   const quarters = config.releaseQuarters ?? [];
-  const teamName = session.user.role === "ADMINISTRATOR" ? "All teams" : team?.name;
+  const isAppAdmin = session.user.role === "ADMINISTRATOR" && !homeScope.scopeLabel;
+  // App admin → "(Application Admin)"; scoped admin → "(Citi · Admin)"; others → their team.
+  const teamName = homeScope.scopeLabel ?? (session.user.role === "ADMINISTRATOR" ? null : team?.name);
+  const welcome = isAppAdmin
+    ? `Welcome ${session.user.name?.trim() || "there"} (Application Admin)`
+    : welcomeLine(session.user.name, session.user.role, teamName);
   const showActions = can(session.user.role, "home.actions");
   const actions = showActions ? buildHomeActions(session.user.role) : [];
 
@@ -119,13 +234,9 @@ export default async function HomePage({
       <div>
         <p className="kicker">Home</p>
         <h1 className="font-display text-2xl font-semibold text-[var(--navy)]">
-          {welcomeLine(session.user.name, session.user.role, teamName)}
+          {welcome}
         </h1>
-        <p className="mt-1 text-sm text-[var(--muted)]">
-          Signed in as {session.user.email}. Menus, numbers and actions follow this profile
-          {teamName ? ` for ${teamName}` : ""}. Alerts appear in the bell (top right) when granted
-          in Access → RBAC.
-        </p>
+        <p className="mt-1 text-sm text-[var(--muted)]">Signed in as {session.user.email}.</p>
       </div>
 
       <ScopeFilterBar
@@ -140,6 +251,10 @@ export default async function HomePage({
         release={release}
         quarters={quarters}
       />
+
+      {orgSplitRows.length > 1 ? (
+        <HomeOrgSplit splitLabel={split.splitLabel} rows={orgSplitRows} />
+      ) : null}
 
       <HomeDashboard
         counts={{
@@ -167,8 +282,8 @@ export default async function HomePage({
           utilised: portfolio.budgetUtilisation.utilizedAiCost,
           budget: portfolio.budgetUtilisation.budget,
           deliveryVariancePct: portfolio.deliveryVariance.variancePct,
-          needsAction: attention.length,
-          year: new Date().getFullYear(),
+          needsAction: needsActionTotal,
+          year: releaseYear,
         }}
       />
 

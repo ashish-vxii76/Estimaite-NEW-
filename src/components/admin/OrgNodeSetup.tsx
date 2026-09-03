@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, Plus, Users } from "lucide-react";
+import { Trash2, Plus, Users, Pencil, Check, X } from "lucide-react";
 import { ORG_SEAT_LABEL, ORG_TYPE_LABEL, type OrgSeatType, type OrgType } from "@/lib/orgTypes";
 
 /** RefineIQ-style per-level organisation workspace: Company → Pod, seats + composition folded in. */
@@ -340,6 +340,29 @@ function OrgCard({
   const [userId, setUserId] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(node.name);
+
+  async function rename() {
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === node.name) {
+      setEditing(false);
+      setName(node.name);
+      return;
+    }
+    setErr(null);
+    setBusy(true);
+    try {
+      await post({ action: "updateUnit", id: node.id, name: trimmed });
+      setEditing(false);
+      await onChanged();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not rename");
+      setName(node.name);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function assign() {
     if (!userId) return setErr("Pick a user");
@@ -368,9 +391,44 @@ function OrgCard({
 
   return (
     <div className="card p-5">
-      <div className="flex items-start justify-between">
-        <div>
-          <h3 className="font-semibold text-[var(--navy)]">{node.name}</h3>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          {editing ? (
+            <div className="flex items-center gap-1.5">
+              <input
+                autoFocus
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") rename();
+                  if (e.key === "Escape") { setEditing(false); setName(node.name); }
+                }}
+                disabled={busy}
+                className="w-full max-w-xs rounded-md border border-[var(--line)] bg-[var(--panel-2)] px-2 py-1 text-sm font-semibold text-[var(--navy)]"
+                aria-label={`Rename ${LEVEL_TITLE[level].toLowerCase()}`}
+              />
+              <button onClick={rename} disabled={busy} className="rounded p-1 text-[var(--ok)] hover:bg-[var(--panel-2)]" title="Save" aria-label="Save name">
+                <Check size={16} />
+              </button>
+              <button onClick={() => { setEditing(false); setName(node.name); }} disabled={busy} className="rounded p-1 text-[var(--muted)] hover:bg-[var(--panel-2)]" title="Cancel" aria-label="Cancel rename">
+                <X size={16} />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <h3 className="truncate font-semibold text-[var(--navy)]">{node.name}</h3>
+              {canEdit && (
+                <button
+                  onClick={() => { setName(node.name); setEditing(true); }}
+                  className="shrink-0 rounded p-1 text-[var(--muted)] hover:text-[var(--navy)]"
+                  title="Rename"
+                  aria-label={`Rename ${node.name}`}
+                >
+                  <Pencil size={14} />
+                </button>
+              )}
+            </div>
+          )}
           <p className="text-xs text-[var(--muted)]">
             {parentName ? `under ${parentName}` : "root"}
             {childCount > 0 && ` · ${childCount} child unit${childCount === 1 ? "" : "s"}`}
@@ -379,7 +437,7 @@ function OrgCard({
         {canArchive && (
           <button
             onClick={archive}
-            className="rounded p-1.5 text-[var(--muted)] hover:text-[var(--danger)]"
+            className="shrink-0 rounded p-1.5 text-[var(--muted)] hover:text-[var(--danger)]"
             title="Archive"
             aria-label="Archive"
           >
@@ -500,6 +558,29 @@ function PodCard({
   const [location, setLocation] = useState(locations[0] ?? "India");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [podName, setPodName] = useState(team.name);
+
+  async function renameTeam() {
+    const trimmed = podName.trim();
+    if (trimmed.length < 2 || trimmed === team.name) {
+      setEditing(false);
+      setPodName(team.name);
+      return;
+    }
+    setErr(null);
+    setBusy(true);
+    try {
+      await post({ action: "renameTeam", teamId: team.id, name: trimmed });
+      setEditing(false);
+      await onChanged();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not rename pod");
+      setPodName(team.name);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function addMember() {
     if (name.trim().length < 2) return setErr("Enter a member name");
@@ -530,15 +611,50 @@ function PodCard({
 
   return (
     <div className="card p-5">
-      <div className="flex items-start justify-between">
-        <div>
-          <h3 className="font-semibold text-[var(--navy)]">{team.name}</h3>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          {editing ? (
+            <div className="flex items-center gap-1.5">
+              <input
+                autoFocus
+                value={podName}
+                onChange={(e) => setPodName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") renameTeam();
+                  if (e.key === "Escape") { setEditing(false); setPodName(team.name); }
+                }}
+                disabled={busy}
+                className="w-full max-w-xs rounded-md border border-[var(--line)] bg-[var(--panel-2)] px-2 py-1 text-sm font-semibold text-[var(--navy)]"
+                aria-label="Rename pod"
+              />
+              <button onClick={renameTeam} disabled={busy} className="rounded p-1 text-[var(--ok)] hover:bg-[var(--panel-2)]" title="Save" aria-label="Save name">
+                <Check size={16} />
+              </button>
+              <button onClick={() => { setEditing(false); setPodName(team.name); }} disabled={busy} className="rounded p-1 text-[var(--muted)] hover:bg-[var(--panel-2)]" title="Cancel" aria-label="Cancel rename">
+                <X size={16} />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <h3 className="truncate font-semibold text-[var(--navy)]">{team.name}</h3>
+              {canEdit && (
+                <button
+                  onClick={() => { setPodName(team.name); setEditing(true); }}
+                  className="shrink-0 rounded p-1 text-[var(--muted)] hover:text-[var(--navy)]"
+                  title="Rename"
+                  aria-label={`Rename ${team.name}`}
+                >
+                  <Pencil size={14} />
+                </button>
+              )}
+            </div>
+          )}
           <p className="text-xs text-[var(--muted)]">
             {crewName ? `under ${crewName}` : "no crew"}
             {` · ${members.length} member${members.length === 1 ? "" : "s"}`}
           </p>
         </div>
-        <span className="inline-flex items-center gap-1 text-xs text-[var(--muted)]">
+        <span className="inline-flex shrink-0 items-center gap-1 text-xs text-[var(--muted)]">
           <Users size={13} /> Composition
         </span>
       </div>

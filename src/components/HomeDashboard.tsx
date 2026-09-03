@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import {
-  Bar, BarChart, CartesianGrid, Cell, Label, Legend, Line, LineChart,
-  Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  CartesianGrid, Cell, Label, Legend, Line, LineChart,
+  Pie, PieChart, ResponsiveContainer, Tooltip, Treemap, XAxis, YAxis,
 } from "recharts";
 import { formatMoney } from "@/lib/utils";
 
@@ -23,7 +23,7 @@ function Rule() {
   return <hr className="mb-3 h-0.5 w-8 rounded-full border-0 bg-[linear-gradient(90deg,var(--gold-2),var(--gold))]" />;
 }
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <section className={`card p-5 ${className}`}>{children}</section>;
+  return <section className={`card flex flex-col p-5 ${className}`}>{children}</section>;
 }
 function H({ children, sub }: { children: React.ReactNode; sub?: string }) {
   return (
@@ -44,6 +44,44 @@ function Spark({ data, color }: { data: number[]; color: string }) {
     <svg viewBox="0 0 120 34" preserveAspectRatio="none" className="mt-2 h-8 w-full">
       <polyline fill="none" stroke={color} strokeWidth="2" points={pts} />
     </svg>
+  );
+}
+
+/** Interpolate #rrggbb hex a→b at t∈[0,1] → rgb() string. */
+function lerpHex(a: string, b: string, t: number) {
+  const ah = parseInt(a.slice(1), 16);
+  const bh = parseInt(b.slice(1), 16);
+  const r = Math.round(((ah >> 16) & 255) + (((bh >> 16) & 255) - ((ah >> 16) & 255)) * t);
+  const g = Math.round(((ah >> 8) & 255) + (((bh >> 8) & 255) - ((ah >> 8) & 255)) * t);
+  const bl = Math.round((ah & 255) + ((bh & 255) - (ah & 255)) * t);
+  return `rgb(${r},${g},${bl})`;
+}
+
+/** One treemap tile for a pod: area = load, colour deepens with load, label if it fits. */
+function TeamTile(props: {
+  x?: number; y?: number; width?: number; height?: number;
+  name?: string; value?: number; colorMax?: number;
+}) {
+  const { x = 0, y = 0, width = 0, height = 0, name = "", value = 0, colorMax = 1 } = props;
+  if (width <= 0 || height <= 0) return null;
+  const t = colorMax > 0 ? value / colorMax : 0;
+  const fill = lerpHex("#d8be86", "#8a6a2c", t); // light gold (low load) → deep gold (high load)
+  const showName = width > 52 && height > 24;
+  const showValue = width > 40 && height > 40;
+  return (
+    <g>
+      <rect x={x + 1} y={y + 1} width={width - 2} height={height - 2} rx={6} fill={fill} stroke="var(--panel)" strokeWidth={2} />
+      {showName && (
+        <text x={x + 9} y={y + 18} fontSize={11} fontWeight={600} fill="#1c2433" style={{ pointerEvents: "none" }}>
+          {name}
+        </text>
+      )}
+      {showValue && (
+        <text x={x + 9} y={y + 36} fontSize={15} fontWeight={800} fill="#1c2433" style={{ pointerEvents: "none" }}>
+          {value}
+        </text>
+      )}
+    </g>
   );
 }
 
@@ -133,17 +171,18 @@ export function HomeDashboard({
         <Card>
           <Rule />
           <H sub="Where the CRs sit in the workflow — spot the bottleneck">Governance pipeline</H>
-          <div className="mt-4 flex items-end gap-1.5">
-            {stages.map((s, i) => (
+          <div className="mt-4 flex flex-1 items-stretch gap-1.5" style={{ minHeight: 180 }}>
+            {stages.map((s) => (
               <div key={s.label} className="flex flex-1 flex-col items-center gap-2">
-                <div
-                  className="flex w-full items-center justify-center rounded-lg font-bold text-white"
-                  style={{ height: `${28 + (s.n / stageMax) * 64}px`, background: s.c }}
-                >
-                  {s.n}
+                <div className="flex w-full flex-1 items-end">
+                  <div
+                    className="flex w-full items-center justify-center rounded-lg font-bold text-white"
+                    style={{ height: `${20 + (s.n / stageMax) * 80}%`, minHeight: 28, background: s.c }}
+                  >
+                    {s.n}
+                  </div>
                 </div>
                 <span className="text-center text-[0.7rem] text-[var(--muted)]">{s.label}</span>
-                {i < stages.length - 1 ? null : null}
               </div>
             ))}
           </div>
@@ -151,7 +190,7 @@ export function HomeDashboard({
         <Card>
           <Rule />
           <H sub="Composition">Estimates by status</H>
-          <div className="mt-1 h-56">
+          <div className="mt-1 min-h-[14rem] flex-1">
             {statusTotal === 0 ? (
               <p className="pt-10 text-center text-sm text-[var(--muted)]">No estimates yet.</p>
             ) : (
@@ -175,13 +214,13 @@ export function HomeDashboard({
         <Card>
           <Rule />
           <H sub="What the engine flagged — how much needs action">Governance decision mix</H>
-          <div className="mt-3 flex flex-col gap-2.5">
+          <div className="mt-3 flex flex-1 flex-col justify-center gap-2.5">
             {byFlag.length === 0 ? <p className="text-sm text-[var(--muted)]">Nothing calculated yet.</p> : null}
             {byFlag.slice(0, 6).map((f) => {
               const needsAction = ACTIONISH.has(f.name);
               return (
-                <div key={f.name} className="grid grid-cols-[110px_1fr_28px] items-center gap-2 text-sm">
-                  <span className="truncate text-[var(--muted)]">{f.name}</span>
+                <div key={f.name} className="grid grid-cols-[132px_1fr_28px] items-center gap-2 text-sm">
+                  <span className="leading-tight text-[var(--muted)]">{f.name}</span>
                   <span className="h-2 rounded bg-[var(--panel-2)]">
                     <span className="block h-full rounded" style={{ width: `${(f.count / flagMax) * 100}%`, background: needsAction ? "#e05c5c" : "#10b981" }} />
                   </span>
@@ -191,24 +230,27 @@ export function HomeDashboard({
             })}
           </div>
         </Card>
-        <Card className="text-center">
+        <Card>
           <Rule />
           <H sub="Portfolio readiness">Definition of Ready</H>
-          <svg viewBox="0 0 120 74" className="mx-auto mt-3 h-28">
-            <path d="M10 66 A50 50 0 0 1 110 66" fill="none" stroke="var(--panel-2)" strokeWidth="12" strokeLinecap="round" />
-            <path
-              d="M10 66 A50 50 0 0 1 110 66" fill="none" strokeWidth="12" strokeLinecap="round"
-              stroke={dorPct >= 80 ? "#10b981" : dorPct >= 50 ? "#e0a458" : "#e05c5c"}
-              strokeDasharray={`${(dorPct / 100) * 157} 999`}
-            />
-            <text x="60" y="58" textAnchor="middle" fontSize="22" fontWeight="700" fill="var(--navy)">{dorPct}%</text>
-          </svg>
-          <p className="text-xs text-[var(--muted)]">Avg readiness {avgReadiness.toFixed(1)} / 5</p>
+          <div className="flex flex-1 flex-col items-center justify-center gap-1">
+            <svg viewBox="0 0 120 74" className="h-32">
+              <path d="M10 66 A50 50 0 0 1 110 66" fill="none" stroke="var(--panel-2)" strokeWidth="12" strokeLinecap="round" />
+              <path
+                d="M10 66 A50 50 0 0 1 110 66" fill="none" strokeWidth="12" strokeLinecap="round"
+                stroke={dorPct >= 80 ? "#10b981" : dorPct >= 50 ? "#e0a458" : "#e05c5c"}
+                strokeDasharray={`${(dorPct / 100) * 157} 999`}
+              />
+              <text x="60" y="58" textAnchor="middle" fontSize="22" fontWeight="700" fill="var(--navy)">{dorPct}%</text>
+            </svg>
+            <p className="text-xs text-[var(--muted)]">Avg readiness {avgReadiness.toFixed(1)} / 5</p>
+          </div>
         </Card>
         <Card>
           <Rule />
           <H sub="Estimate certainty spread">Confidence mix</H>
-          <div className="mt-4 flex h-4 overflow-hidden rounded-md">
+          <div className="flex flex-1 flex-col justify-center">
+          <div className="flex h-6 overflow-hidden rounded-md">
             {["High", "Medium", "Low", "Very Low"].map((k) => {
               const n = byConfidence.find((c) => c.name === k)?.count ?? 0;
               return n > 0 ? <span key={k} style={{ width: `${(n / confTotal) * 100}%`, background: confColor[k] }} /> : null;
@@ -225,6 +267,7 @@ export function HomeDashboard({
               );
             })}
           </div>
+          </div>
         </Card>
       </div>
 
@@ -232,24 +275,28 @@ export function HomeDashboard({
       <div className="grid gap-4 lg:grid-cols-3">
         <Card>
           <Rule />
-          <H sub="Load across pods">Volume by team</H>
-          <div className="mt-2 h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={byTeam} margin={{ top: 16, right: 6, left: -18, bottom: 0 }}>
-                <defs><linearGradient id="hvbar" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#a07d38" /><stop offset="100%" stopColor="#c99a4d" /></linearGradient></defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" vertical={false} />
-                <XAxis dataKey="name" tick={{ fill: "var(--muted)", fontSize: 10 }} axisLine={{ stroke: "var(--line)" }} tickLine={false} />
-                <YAxis allowDecimals={false} tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={TT} cursor={{ fill: "var(--gold-soft)" }} />
-                <Bar dataKey="count" fill="url(#hvbar)" radius={[6, 6, 0, 0]} maxBarSize={46} isAnimationActive={false} />
-              </BarChart>
-            </ResponsiveContainer>
+          <H sub="Load across pods — tile size & shade show relative load">Volume by team</H>
+          <div className="mt-2 min-h-[14rem] flex-1">
+            {byTeam.length === 0 ? (
+              <p className="pt-10 text-center text-sm text-[var(--muted)]">No estimates yet.</p>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <Treemap
+                  data={byTeam.map((t) => ({ name: t.name, value: t.count, colorMax: byTeam[0]?.count ?? 1 }))}
+                  dataKey="value"
+                  isAnimationActive={false}
+                  content={<TeamTile />}
+                >
+                  <Tooltip contentStyle={TT} formatter={(v) => [`${v}`, "CRs"]} />
+                </Treemap>
+              </ResponsiveContainer>
+            )}
           </div>
         </Card>
         <Card>
           <Rule />
           <H sub="Created vs approved · 6 months">Activity trend</H>
-          <div className="mt-2 h-48">
+          <div className="mt-2 min-h-[12rem] flex-1">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={trend} margin={{ top: 16, right: 6, left: -18, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" vertical={false} />

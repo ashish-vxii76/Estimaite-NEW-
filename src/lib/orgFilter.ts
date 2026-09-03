@@ -102,6 +102,66 @@ export async function getOrgFilterData(
   return { units, teams, lockedUnitIds, lockedTeamId };
 }
 
+export type HomeScope = {
+  /** Filter data for the scope bar + org split (seat-driven for admins, role-driven otherwise). */
+  orgFilter: OrgFilterData;
+  /** Estimate visibility for the viewer, WITHOUT any org/team URL selection (drives the split). */
+  base: Prisma.EstimateWhereInput;
+  /** base ∩ the current org/team selection (drives the aggregate KPIs). */
+  where: Prisma.EstimateWhereInput;
+  /** Crews the viewer's home is bounded to for money roll-ups; null = unrestricted (App admin). */
+  crewIds: string[] | null;
+  /** Display name of a scoped admin's org anchor (e.g. "Citi"); null for App admin / non-admins. */
+  scopeLabel: string | null;
+};
+
+function combineWhere(
+  base: Prisma.EstimateWhereInput,
+  sel: Prisma.EstimateWhereInput,
+): Prisma.EstimateWhereInput {
+  if (isEmpty(base)) return sel;
+  if (isEmpty(sel)) return base;
+  return { AND: [base, sel] };
+}
+
+/**
+ * Home dashboard scope. DEC-016: admins (scope.allTeams) are bounded to their SEAT subtree
+ * here — an App admin still sees everything, but a Company/Crew admin sees only their org, so
+ * they don't land on other organizations' financials. Non-admins keep their role-driven record
+ * visibility unchanged. Records vs config authority stays separated elsewhere; this bounds the
+ * one landing surface that aggregates money across orgs.
+ */
+export async function resolveHomeScope(
+  user: ScopeUser,
+  org: string,
+  team: string,
+): Promise<HomeScope> {
+  const adminScoped = seesAllTeams(user.role);
+  const orgFilter = await getOrgFilterData(user, { adminScoped });
+
+  let crewIds: string[] | null = null;
+  let scopeLabel: string | null = null;
+  let base: Prisma.EstimateWhereInput;
+  if (adminScoped) {
+    const scope = await adminOrgScope(user);
+    if (scope.appLevel) {
+      base = {}; // App admin: all records.
+    } else {
+      crewIds = orgFilter.units.filter((u) => u.type === "CREW").map((u) => u.id);
+      base = { team: { crewId: { in: crewIds.length ? crewIds : ["__none__"] } } };
+      scopeLabel = orgFilter.units.find((u) => u.id === scope.anchorId)?.name ?? null;
+    }
+  } else {
+    base = await resolveEstimateScope(user); // non-admins: role-driven, unchanged.
+  }
+
+  let sel: Prisma.EstimateWhereInput = {};
+  if (team) sel = { teamId: team };
+  else if (org) sel = { teamId: { in: await teamIdsUnderOrgUnit(org) } };
+
+  return { orgFilter, base, where: combineWhere(base, sel), crewIds, scopeLabel };
+}
+
 async function teamIdsUnderOrgUnit(orgUnitId: string): Promise<string[]> {
   const ids = await descendantIds(orgUnitId);
   const teams = await prisma.team.findMany({
