@@ -21,6 +21,26 @@ export const STATUS_TRANSITIONS: Record<TransitionAction, { from: string[]; to: 
 /** Actions that require a mandatory reason/comment. */
 export const REASON_REQUIRED: ReadonlySet<TransitionAction> = new Set(["cancel"]);
 
+/**
+ * Display labels for estimate statuses. The `REVIEWED` enum value is the "passed review, awaiting
+ * approval" stage — surfaced to users as "Awaiting approval". The enum value is unchanged (data,
+ * filters, analytics, two-person rule all stay intact); only the label differs.
+ */
+export const STATUS_LABELS: Record<string, string> = {
+  DRAFT: "Draft",
+  RETURNED: "Returned",
+  READY_FOR_REVIEW: "Ready for review",
+  REVIEWED: "Awaiting approval",
+  APPROVED: "Approved",
+  REJECTED: "Rejected",
+  COMPLETED: "Completed",
+  CANCELLED: "Cancelled",
+};
+
+export function statusLabel(status: string): string {
+  return STATUS_LABELS[status] ?? status.replaceAll("_", " ");
+}
+
 export function canTransition(action: TransitionAction, from: string): boolean {
   return STATUS_TRANSITIONS[action].from.includes(from);
 }

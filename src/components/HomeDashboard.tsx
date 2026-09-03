@@ -121,7 +121,7 @@ export function HomeDashboard({
   const stages = [
     { label: "Draft", n: counts.drafts, c: "var(--gold)" },
     { label: "Ready for review", n: counts.readyForReview, c: "#3b82f6" },
-    { label: "Reviewed", n: counts.reviewed, c: "#e0a458" },
+    { label: "Awaiting approval", n: counts.reviewed, c: "#e0a458" },
     { label: "Approved", n: counts.approved, c: "#0f766e" },
     { label: "Completed", n: counts.completed, c: "#10b981" },
   ];

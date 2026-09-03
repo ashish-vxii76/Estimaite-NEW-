@@ -134,7 +134,7 @@ export function buildHomeActions(role: string | undefined): HomeAction[] {
     actions.push({
       id: "approve-queue",
       label: "Approval queue",
-      description: "Reviewed items waiting for approval.",
+      description: "Items awaiting approval.",
       href: "/estimates?status=REVIEWED",
       feature: "estimates.approve",
     });

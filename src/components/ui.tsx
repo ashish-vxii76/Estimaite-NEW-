@@ -1,5 +1,7 @@
 "use client";
 
+import { statusLabel } from "@/lib/estimateLifecycle";
+
 export function StatusBadge({ status }: { status: string }) {
   const tone =
     status === "APPROVED" || status === "READY" || status === "HIGH" || status === "High" || status === "PLAN"
@@ -11,7 +13,7 @@ export function StatusBadge({ status }: { status: string }) {
           : "chip-neutral";
   return (
     <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${tone}`}>
-      {status.replaceAll("_", " ")}
+      {statusLabel(status)}
     </span>
   );
 }

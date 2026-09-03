@@ -36,9 +36,16 @@ export function estimateScope(user: ScopeUser): Prisma.EstimateWhereInput {
   return { teamId: user.teamId };
 }
 
+/**
+ * Roles that see ONLY the estimates they authored (through the full lifecycle), regardless of
+ * seat level — an Estimator raises CRs and tracks their own to approval, nothing else.
+ */
+const OWNER_SCOPED_ROLES = new Set(["ESTIMATOR"]);
+
 /** Org-aware estimate scope: subtree of primary seat, else legacy team. */
 export async function resolveEstimateScope(user: ScopeUser): Promise<Prisma.EstimateWhereInput> {
   if (await isAppLevelAdmin(user)) return {};
+  if (OWNER_SCOPED_ROLES.has(user.role)) return { createdById: user.id };
   const teamIds = await visibleTeamIds(user);
   if (teamIds == null) return {};
   if (teamIds.length === 0) {

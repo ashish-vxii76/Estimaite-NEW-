@@ -17,7 +17,7 @@ const STATUS_OPTIONS = [
   { value: "", label: "All statuses" },
   { value: "DRAFT", label: "Drafts" },
   { value: "READY_FOR_REVIEW", label: "Ready for review" },
-  { value: "REVIEWED", label: "Reviewed" },
+  { value: "REVIEWED", label: "Awaiting approval" },
   { value: "APPROVED", label: "Approved" },
   { value: "COMPLETED", label: "Completed" },
   { value: "CANCELLED", label: "Cancelled" },

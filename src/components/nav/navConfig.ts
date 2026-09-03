@@ -38,6 +38,12 @@ export const NAV_TREE: NavNode[] = [
         feature: "estimates.list",
       },
       {
+        id: "estimates-awaiting-approval",
+        label: "Awaiting approval",
+        href: "/estimates?status=REVIEWED",
+        feature: "estimates.list",
+      },
+      {
         id: "estimates-approved",
         label: "Approved",
         href: "/estimates?status=APPROVED",
