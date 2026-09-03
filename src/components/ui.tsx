@@ -44,8 +44,8 @@ export function ExplanationPanel({
         <span className="ml-2 text-[var(--muted)]">{summary}</span>
       </summary>
       <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-[var(--muted)]">
-        {steps.map((step) => (
-          <li key={step}>{step}</li>
+        {steps.map((step, i) => (
+          <li key={`${i}-${step}`}>{step}</li>
         ))}
       </ol>
     </details>
