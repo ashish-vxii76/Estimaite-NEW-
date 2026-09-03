@@ -163,7 +163,7 @@ async function main() {
 
   await prisma.rbacSettings.upsert({
     where: { id: "default" },
-    update: {},
+    update: { matrixJson: JSON.stringify(DEFAULT_RBAC) },
     create: { id: "default", matrixJson: JSON.stringify(DEFAULT_RBAC) },
   });
 

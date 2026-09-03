@@ -53,22 +53,40 @@ describe("left navigation tree", () => {
     expect(canSeeNav(admin, "ADMINISTRATOR")).toBe(true);
   });
 
-  it("restricts Administration to admin tiers — pure config-readers cannot see it (DEC-016)", () => {
+  it("restricts Administration to admin tiers — leadership & workflow roles cannot see it", () => {
     const admin = find("administration")!;
-    // Estimator/Reviewer/Approver hold config.mappings *read* only → not an admin tier.
+    // Workflow roles hold no config-admin write → not an admin tier.
     expect(canSeeNav(admin, "ESTIMATOR")).toBe(false);
     expect(canSeeNav(admin, "REVIEWER")).toBe(false);
     expect(canSeeNav(admin, "APPROVER")).toBe(false);
     expect(canSeeNav(admin, "VIEWER")).toBe(false);
-    // Delivery Lead administers its crew (config.crewMappings/crewLevels RW) → Crew admin tier.
-    expect(canSeeNav(admin, "DELIVERY_LEAD")).toBe(true);
+    // Delivery Lead is crew LEADERSHIP (budget approver), not a config admin → no Administration.
+    expect(canSeeNav(admin, "DELIVERY_LEAD")).toBe(false);
+    // Finance is the global commercial admin (config.rates RW) → sees Administration (rates slice).
+    expect(canSeeNav(admin, "FINANCE")).toBe(true);
+    expect(canSeeNav(admin, "ADMINISTRATOR")).toBe(true);
   });
 
-  it("puts RBAC under Access and hides it from Approver", () => {
+  it("Crew budgets sits under Analytics (leadership surface), not Administration", () => {
+    // Leadership sees Crew budgets without the config-Administration section.
+    expect(find("crew-budgets")?.href).toBe("/admin/crew-budgets");
+    expect(canSeeNav(find("crew-budgets")!, "DELIVERY_LEAD")).toBe(true);
+    expect(canSeeNav(find("crew-budgets")!, "ADMINISTRATOR")).toBe(true);
+    expect(canSeeNav(find("crew-budgets")!, "FINANCE")).toBe(false);
+    expect(canSeeNav(find("crew-budgets")!, "ESTIMATOR")).toBe(false);
+  });
+
+  it("puts RBAC under Access and gates Roll-up to leadership/finance/admin", () => {
     expect(find("admin-rbac")?.href).toBe("/admin/rbac");
     expect(canSeeNav(find("admin-rbac")!, "ADMINISTRATOR")).toBe(true);
     expect(canSeeNav(find("admin-rbac")!, "APPROVER")).toBe(false);
-    expect(canSeeNav(find("portfolio-rollup")!, "APPROVER")).toBe(true);
+    // Roll-up: leadership, finance, admin only — not the workflow roles.
+    expect(canSeeNav(find("portfolio-rollup")!, "DELIVERY_LEAD")).toBe(true);
+    expect(canSeeNav(find("portfolio-rollup")!, "FINANCE")).toBe(true);
+    expect(canSeeNav(find("portfolio-rollup")!, "APPROVER")).toBe(false);
+    expect(canSeeNav(find("portfolio-rollup")!, "REVIEWER")).toBe(false);
+    expect(canSeeNav(find("portfolio-rollup")!, "ESTIMATOR")).toBe(false);
+    expect(canSeeNav(find("portfolio-rollup")!, "VIEWER")).toBe(false);
     expect(canSeeNav(find("portfolio-rollup")!, "REQUESTER")).toBe(false);
     expect(canSeeNav(find("admin-users")!, "FINANCE")).toBe(false);
     expect(canSeeNav(find("admin-users")!, "ADMINISTRATOR")).toBe(true);

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { seesAllTeams } from "@/lib/access";
-import { visibleTeamIds } from "@/services/orgService";
+import { visibleTeamIds, isAppLevelAdmin } from "@/services/orgService";
 import type { Prisma } from "@prisma/client";
 
 export type ScopeUser = {
@@ -38,7 +38,7 @@ export function estimateScope(user: ScopeUser): Prisma.EstimateWhereInput {
 
 /** Org-aware estimate scope: subtree of primary seat, else legacy team. */
 export async function resolveEstimateScope(user: ScopeUser): Promise<Prisma.EstimateWhereInput> {
-  if (seesAllTeams(user.role)) return {};
+  if (await isAppLevelAdmin(user)) return {};
   const teamIds = await visibleTeamIds(user);
   if (teamIds == null) return {};
   if (teamIds.length === 0) {
@@ -55,7 +55,7 @@ export function teamScope(user: ScopeUser): Prisma.TeamWhereInput {
 }
 
 export async function resolveTeamScope(user: ScopeUser): Promise<Prisma.TeamWhereInput> {
-  if (seesAllTeams(user.role)) return { active: true };
+  if (await isAppLevelAdmin(user)) return { active: true };
   const teamIds = await visibleTeamIds(user);
   if (teamIds == null) return { active: true };
   if (teamIds.length === 0) {
@@ -77,7 +77,7 @@ export async function canSeeEstimateAsync(
   user: ScopeUser,
   estimate: { teamId: string },
 ): Promise<boolean> {
-  if (seesAllTeams(user.role)) return true;
+  if (await isAppLevelAdmin(user)) return true;
   const teamIds = await visibleTeamIds(user);
   if (teamIds == null) return true;
   if (teamIds.length === 0) return Boolean(user.teamId && estimate.teamId === user.teamId);
@@ -85,7 +85,7 @@ export async function canSeeEstimateAsync(
 }
 
 export async function assertTeamAccess(user: ScopeUser, teamId: string) {
-  if (seesAllTeams(user.role)) return;
+  if (await isAppLevelAdmin(user)) return;
   const teamIds = await visibleTeamIds(user);
   if (teamIds == null) return;
   if (teamIds.length > 0) {

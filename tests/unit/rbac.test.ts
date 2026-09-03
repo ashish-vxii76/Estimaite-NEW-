@@ -53,7 +53,6 @@ const PDF: Record<FeatureId, Partial<Record<AppRole, Access>>> = {
     REVIEWER: "R",
     APPROVER: "R",
     DELIVERY_LEAD: "R",
-    FINANCE: "R",
     VIEWER: "R",
   },
   "estimates.create": {
@@ -79,9 +78,9 @@ const PDF: Record<FeatureId, Partial<Record<AppRole, Access>>> = {
     ESTIMATOR: "RW",
     DELIVERY_LEAD: "RW",
   },
-  "estimates.review": { ADMINISTRATOR: "RW", REVIEWER: "RW" },
-  "estimates.approve": { ADMINISTRATOR: "RW", APPROVER: "RW" },
-  "estimates.reopen": { ADMINISTRATOR: "RW", APPROVER: "RW" },
+  "estimates.review": { ADMINISTRATOR: "RW", REVIEWER: "RW", DELIVERY_LEAD: "RW" },
+  "estimates.approve": { ADMINISTRATOR: "RW", APPROVER: "RW", DELIVERY_LEAD: "RW" },
+  "estimates.reopen": { ADMINISTRATOR: "RW", APPROVER: "RW", DELIVERY_LEAD: "RW" },
   "estimates.cancel": { ADMINISTRATOR: "RW", DELIVERY_LEAD: "RW" }, // DEC-008 D6
   "estimates.descope": { ADMINISTRATOR: "RW", DELIVERY_LEAD: "RW" }, // DEC-008 D6
   "estimates.rebaseline": { ADMINISTRATOR: "RW" }, // DEC-008 D6 (strongest governance)
@@ -90,14 +89,10 @@ const PDF: Record<FeatureId, Partial<Record<AppRole, Access>>> = {
   "estimates.export": { ADMINISTRATOR: "RW", DELIVERY_LEAD: "RW", FINANCE: "RW" },
   "portfolio.view": {
     ADMINISTRATOR: "R",
-    ESTIMATOR: "R",
-    REVIEWER: "R",
-    APPROVER: "R",
     DELIVERY_LEAD: "R",
     FINANCE: "R",
-    VIEWER: "R",
   },
-  "portfolio.budget": { ADMINISTRATOR: "RW", FINANCE: "RW" },
+  "portfolio.budget": { ADMINISTRATOR: "RW", DELIVERY_LEAD: "RW" },
   whatIf: {
     ADMINISTRATOR: "RW",
     ESTIMATOR: "RW",
@@ -107,49 +102,25 @@ const PDF: Record<FeatureId, Partial<Record<AppRole, Access>>> = {
   },
   "calibration.view": {
     ADMINISTRATOR: "R",
-    ESTIMATOR: "R",
-    REVIEWER: "R",
-    APPROVER: "R",
     DELIVERY_LEAD: "R",
-    FINANCE: "R",
   },
   "calibration.apply": { ADMINISTRATOR: "RW" },
   analytics: {
     ADMINISTRATOR: "R",
-    ESTIMATOR: "R",
-    REVIEWER: "R",
-    APPROVER: "R",
     DELIVERY_LEAD: "R",
     FINANCE: "R",
-    VIEWER: "R",
   },
-  "config.teams": { ADMINISTRATOR: "RW", FINANCE: "R" },
-  "config.rates": { ADMINISTRATOR: "RW", DELIVERY_LEAD: "R", FINANCE: "R" },
-  "config.mappings": {
-    ADMINISTRATOR: "RW",
-    ESTIMATOR: "R",
-    REVIEWER: "R",
-    APPROVER: "R",
-    DELIVERY_LEAD: "R",
-  },
-  // DEC-009 D7 Class-A additive feature (not in the original PDF): per-crew Days/Point.
-  "config.crewLevels": {
-    ADMINISTRATOR: "RW",
-    DELIVERY_LEAD: "RW",
-    FINANCE: "R",
-  },
-  // DEC-011 additive feature: per-crew mapping overrides.
-  "config.crewMappings": {
-    ADMINISTRATOR: "RW",
-    DELIVERY_LEAD: "RW",
-    FINANCE: "R",
-  },
+  "config.teams": { ADMINISTRATOR: "RW" },
+  "config.rates": { ADMINISTRATOR: "RW", FINANCE: "RW" },
+  "config.mappings": { ADMINISTRATOR: "RW" },
+  "config.crewLevels": { ADMINISTRATOR: "RW" },
+  "config.crewMappings": { ADMINISTRATOR: "RW" },
   // Additive feature: tamper-evident audit-trail export (was a hardcoded ADMINISTRATOR check).
   "audit.export": { ADMINISTRATOR: "RW" },
   "config.users": { ADMINISTRATOR: "RW" },
   "config.rbac": { ADMINISTRATOR: "RW" },
-  "org.setup": { ADMINISTRATOR: "RW", DELIVERY_LEAD: "R" },
-  "org.budget": { ADMINISTRATOR: "RW", FINANCE: "RW", DELIVERY_LEAD: "RW" },
+  "org.setup": { ADMINISTRATOR: "RW" },
+  "org.budget": { ADMINISTRATOR: "RW", DELIVERY_LEAD: "RW" },
   "scope.allTeams": { ADMINISTRATOR: "R" },
   "scope.writeAnyOnTeam": {
     ADMINISTRATOR: "R",
@@ -170,16 +141,21 @@ describe("RBAC matrix", () => {
     }
   });
 
-  it("treats R as view-only and RW as the only write grant", () => {
-    expect(can("APPROVER", "config.mappings", "R")).toBe(true);
-    expect(can("APPROVER", "config.mappings", "RW")).toBe(false);
-    expect(can("FINANCE", "config.teams", "R")).toBe(true);
-    expect(can("FINANCE", "config.teams", "RW")).toBe(false);
-    expect(can("FINANCE", "portfolio.budget", "RW")).toBe(true);
-    expect(can("DELIVERY_LEAD", "config.rates", "R")).toBe(true);
-    expect(can("DELIVERY_LEAD", "config.rates", "RW")).toBe(false);
+  it("reflects the redesigned model — no config leaks to workflow/leadership roles", () => {
+    expect(can("ADMINISTRATOR", "config.mappings", "RW")).toBe(true);
+    // Config reads no longer leak to workflow roles.
+    expect(can("APPROVER", "config.mappings", "R")).toBe(false);
+    expect(can("ESTIMATOR", "config.mappings", "R")).toBe(false);
+    // Finance = global commercial admin (rates RW), nothing else in config.
+    expect(can("FINANCE", "config.rates", "RW")).toBe(true);
+    expect(can("FINANCE", "config.teams", "R")).toBe(false);
+    // Leadership (Delivery Lead) has no config-admin, but holds crew budgets.
+    expect(can("DELIVERY_LEAD", "config.rates", "R")).toBe(false);
+    expect(can("DELIVERY_LEAD", "org.budget", "RW")).toBe(true);
+    // Viewer/Estimator/Requester lose portfolio + calibration.
+    expect(can("VIEWER", "portfolio.view")).toBe(false);
+    expect(can("ESTIMATOR", "calibration.view")).toBe(false);
     expect(can("REQUESTER", "portfolio.view")).toBe(false);
-    expect(can("VIEWER", "whatIf")).toBe(false);
     expect(can("REVIEWER", "estimates.create", "RW")).toBe(false);
   });
 
@@ -206,15 +182,24 @@ describe("RBAC matrix", () => {
     expect(can("APPROVER", "estimates.create", "RW")).toBe(false);
   });
 
-  it("hides portfolio from Requester and login credentials from Finance", () => {
+  it("gates roll-up to leadership/finance/admin and config to admins", () => {
+    // Roll-up: leadership + finance + admin only.
     expect(canAccessPath("REQUESTER", "/portfolio")).toBe(false);
-    expect(canAccessPath("APPROVER", "/portfolio")).toBe(true);
+    expect(canAccessPath("APPROVER", "/portfolio")).toBe(false);
+    expect(canAccessPath("DELIVERY_LEAD", "/portfolio")).toBe(true);
+    expect(canAccessPath("FINANCE", "/portfolio")).toBe(true);
     expect(canAccessPath("APPROVER", "/estimates/new")).toBe(false);
+    // Finance sees only the commercial (rates) slice of Administration.
     expect(canAccessPath("FINANCE", "/admin")).toBe(true);
+    expect(canAccessPath("FINANCE", "/admin/cost-mapping")).toBe(true);
     expect(canAccessPath("FINANCE", "/admin/users")).toBe(false);
     expect(canAccessPath("ADMINISTRATOR", "/admin/rbac")).toBe(true);
     expect(canAccessPath("APPROVER", "/admin/rbac")).toBe(false);
-    expect(canAccessPath("APPROVER", "/admin/issue-mapping")).toBe(true);
+    // Config reads removed from workflow roles.
+    expect(canAccessPath("APPROVER", "/admin/issue-mapping")).toBe(false);
+    // Delivery Lead reaches crew budgets (leadership surface) but not config admin.
+    expect(canAccessPath("DELIVERY_LEAD", "/admin/crew-budgets")).toBe(true);
+    expect(canAccessPath("DELIVERY_LEAD", "/admin/issue-mapping")).toBe(false);
   });
 
   it("denies unlisted /admin/* paths by default, even for Administrator (a)", () => {

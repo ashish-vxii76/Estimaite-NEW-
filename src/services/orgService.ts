@@ -187,8 +187,21 @@ type ScopeInput = {
   activeGrantId?: string | null;
 };
 
+/**
+ * True only for the unscoped Application Admin: a sees-all role with NO seat/grant anchor.
+ * A seated or granted admin (Company/Crew) is bounded to their subtree, everywhere — records,
+ * roll-up, calibration and admin. Everyone else is already scoped. This is the single lever that
+ * makes visibility seat-scoped for all but the apex admin.
+ */
+export async function isAppLevelAdmin(user: ScopeInput): Promise<boolean> {
+  if (!seesAllTeams(user.role)) return false;
+  if (user.activeGrantId != null) return user.seatOrgUnitId == null;
+  const seat = await getPrimarySeat(user.id);
+  return seat == null;
+}
+
 export async function visibleOrgUnitIds(user: ScopeInput): Promise<string[] | null> {
-  if (seesAllTeams(user.role)) return null;
+  if (await isAppLevelAdmin(user)) return null; // apex admin → every unit
   // Active role grant → use its own scope, never the DB primary seat.
   if (user.activeGrantId != null) {
     return user.seatOrgUnitId ? descendantIds(user.seatOrgUnitId) : [];
@@ -279,7 +292,7 @@ export async function visibleCrewIds(user: ScopeInput): Promise<string[] | null>
 }
 
 export async function visibleTeamIds(user: ScopeInput): Promise<string[] | null> {
-  if (seesAllTeams(user.role)) return null;
+  if (await isAppLevelAdmin(user)) return null;
   const crewIds = await visibleCrewIds(user);
   if (!crewIds || crewIds.length === 0) {
     // No crew scope → fall back to the pod. An active grant carries its own teamId;

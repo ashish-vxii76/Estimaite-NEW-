@@ -106,7 +106,6 @@ export const DEFAULT_RBAC: Record<FeatureId, Record<AppRole, Access>> = {
     REVIEWER: R,
     APPROVER: R,
     DELIVERY_LEAD: R,
-    FINANCE: R,
     VIEWER: R,
   }),
   "estimates.create": cell({
@@ -132,17 +131,22 @@ export const DEFAULT_RBAC: Record<FeatureId, Record<AppRole, Access>> = {
     ESTIMATOR: RW,
     DELIVERY_LEAD: RW,
   }),
+  // Crew Delivery Lead can act at both estimate gates (review + approve); the per-record two-person
+  // rule still forbids the SAME person taking two gates on one estimate.
   "estimates.review": cell({
     ADMINISTRATOR: RW,
     REVIEWER: RW,
+    DELIVERY_LEAD: RW,
   }),
   "estimates.approve": cell({
     ADMINISTRATOR: RW,
     APPROVER: RW,
+    DELIVERY_LEAD: RW,
   }),
   "estimates.reopen": cell({
     ADMINISTRATOR: RW,
     APPROVER: RW,
+    DELIVERY_LEAD: RW,
   }),
   // DEC-008 D6: conservative default — governance roles only. Admin reconfigures via the matrix.
   "estimates.cancel": cell({
@@ -175,18 +179,15 @@ export const DEFAULT_RBAC: Record<FeatureId, Record<AppRole, Access>> = {
   "audit.export": cell({
     ADMINISTRATOR: RW,
   }),
+  // Roll-up & CR register: leadership (Delivery Lead / crew-lead+), Finance (global), and admins.
   "portfolio.view": cell({
     ADMINISTRATOR: R,
-    ESTIMATOR: R,
-    REVIEWER: R,
-    APPROVER: R,
     DELIVERY_LEAD: R,
     FINANCE: R,
-    VIEWER: R,
   }),
   "portfolio.budget": cell({
     ADMINISTRATOR: RW,
-    FINANCE: RW,
+    DELIVERY_LEAD: RW,
   }),
   whatIf: cell({
     ADMINISTRATOR: RW,
@@ -197,54 +198,37 @@ export const DEFAULT_RBAC: Record<FeatureId, Record<AppRole, Access>> = {
   }),
   "calibration.view": cell({
     ADMINISTRATOR: R,
-    ESTIMATOR: R,
-    REVIEWER: R,
-    APPROVER: R,
     DELIVERY_LEAD: R,
-    FINANCE: R,
   }),
   "calibration.apply": cell({
     ADMINISTRATOR: RW,
   }),
   analytics: cell({
     ADMINISTRATOR: R,
-    ESTIMATOR: R,
-    REVIEWER: R,
-    APPROVER: R,
     DELIVERY_LEAD: R,
     FINANCE: R,
-    VIEWER: R,
   }),
   "config.teams": cell({
     ADMINISTRATOR: RW,
-    FINANCE: R,
   }),
+  // Finance is the global commercial admin: rate cards are RW; nothing else.
   "config.rates": cell({
     ADMINISTRATOR: RW,
-    DELIVERY_LEAD: R,
-    FINANCE: R,
+    FINANCE: RW,
   }),
   "config.mappings": cell({
     ADMINISTRATOR: RW,
-    ESTIMATOR: R,
-    REVIEWER: R,
-    APPROVER: R,
-    DELIVERY_LEAD: R,
   }),
   // DEC-009 D7 Class-A: per-crew Days/Point is crew-tunable and safe (golden-safe override seam),
   // separate from the governed global "config.mappings" so crew leads can hold it without the
   // governed mapping/threshold pages.
   "config.crewLevels": cell({
     ADMINISTRATOR: RW,
-    DELIVERY_LEAD: RW,
-    FINANCE: R,
   }),
   // DEC-011: crew leads manage their crew's mapping overrides (RW); opting a crew IN is
   // admin-approved (approval gate checks config.mappings RW). FINANCE read-only.
   "config.crewMappings": cell({
     ADMINISTRATOR: RW,
-    DELIVERY_LEAD: RW,
-    FINANCE: R,
   }),
   "config.users": cell({
     ADMINISTRATOR: RW,
@@ -254,11 +238,11 @@ export const DEFAULT_RBAC: Record<FeatureId, Record<AppRole, Access>> = {
   }),
   "org.setup": cell({
     ADMINISTRATOR: RW,
-    DELIVERY_LEAD: R,
   }),
+  // Crew budgets are a crew-leadership governance surface (NOT config-admin — see ADMIN_SURFACES).
+  // Admins + crew leadership (Delivery Lead) hold it; Finance does not.
   "org.budget": cell({
     ADMINISTRATOR: RW,
-    FINANCE: RW,
     DELIVERY_LEAD: RW,
   }),
   /** Cross-team visibility. Blank = own team only (via user.teamId). */
@@ -341,11 +325,13 @@ export function can(
  * the existing inScope/visibleOrgUnitIds checks — not by a separate role. Pure config *readers*
  * (e.g. Estimator with config.mappings R) are NOT admins and must not see the Administration section.
  */
+// Config-Administration surfaces. NOTE: org.budget is intentionally NOT here — crew budgets are a
+// crew-leadership governance surface, not config-admin, so holding budget RW must not surface the
+// Administration section (that's what wrongly made Delivery Lead an admin tier).
 export const ADMIN_SURFACES: FeatureId[] = [
   "config.users",
   "config.rbac",
   "org.setup",
-  "org.budget",
   "config.teams",
   "config.rates",
   "config.mappings",

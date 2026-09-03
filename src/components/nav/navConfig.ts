@@ -62,6 +62,12 @@ export const NAV_TREE: NavNode[] = [
         feature: "portfolio.view",
       },
       {
+        id: "crew-budgets",
+        label: "Crew budgets",
+        href: "/admin/crew-budgets",
+        feature: "org.budget",
+      },
+      {
         id: "calibration",
         label: "Calibration",
         href: "/calibration",
@@ -100,12 +106,6 @@ export const NAV_TREE: NavNode[] = [
             label: "Organisation setup",
             href: "/admin/organisation",
             feature: "org.setup",
-          },
-          {
-            id: "crew-budgets",
-            label: "Crew budgets",
-            href: "/admin/crew-budgets",
-            feature: "org.budget",
           },
         ],
       },
