@@ -355,6 +355,9 @@ export async function listCrewBudgets(year?: number | null, crewIds?: string[] |
  * Lead / deputy (a CREW_TECH_LEAD seat, or a leadership role grant scoped to the crew). A plain
  * crew-level admin is a SUBMITTER, not an approver — their changes go PENDING.
  */
+/** Seat types at the crew that carry budget-approval authority (crew leadership + crew admin). */
+export const CREW_BUDGET_APPROVER_SEATS = ["CREW_TECH_LEAD", "CREW_PRODUCT_LEAD", "ORG_ADMIN"] as const;
+
 /** Pure governance rule for who may approve a crew budget (DB facts gathered by canApproveBudget). */
 export function decideBudgetApprover(input: {
   hasBudgetRW: boolean;
@@ -362,15 +365,15 @@ export function decideBudgetApprover(input: {
   anchorId: string | null;
   crewId: string;
   crewInScope: boolean;
-  hasCtlSeat: boolean;
-  hasDeputyGrant: boolean;
+  /** Holds a crew-approver seat (CTL/CPL/Crew Admin) or a leadership grant on the crew (deputy / Crew DL). */
+  hasCrewApproverSeat: boolean;
 }): boolean {
   if (!input.hasBudgetRW) return false; // must hold the budget grant at all
   if (input.appLevel) return true; // App admin
   if (!input.crewInScope) return false; // crew must be in the actor's scope
-  if (input.anchorId !== input.crewId) return true; // anchored ABOVE the crew → higher tier
-  // Anchored AT the crew: only the Crew Tech Lead / deputy approves, not a plain crew admin.
-  return input.hasCtlSeat || input.hasDeputyGrant;
+  if (input.anchorId !== input.crewId) return true; // anchored ABOVE the crew → higher-tier budget admin
+  // Anchored AT the crew: Crew Admin, CTL, CPL, Deputy CTL/CPL or Crew Delivery Lead.
+  return input.hasCrewApproverSeat;
 }
 
 export async function canApproveBudget(user: ScopeInput, crewId: string): Promise<boolean> {
@@ -381,8 +384,10 @@ export async function canApproveBudget(user: ScopeInput, crewId: string): Promis
   const crewInScope = scope.visibleIds.has(crewId);
   if (!crewInScope) return false;
   if (scope.anchorId !== crewId) return true;
-  const [ctl, deputy] = await Promise.all([
-    prisma.orgSeat.findFirst({ where: { userId: user.id, orgUnitId: crewId, seatType: "CREW_TECH_LEAD" } }),
+  const [seat, grant] = await Promise.all([
+    prisma.orgSeat.findFirst({
+      where: { userId: user.id, orgUnitId: crewId, seatType: { in: [...CREW_BUDGET_APPROVER_SEATS] } },
+    }),
     prisma.roleGrant.findFirst({ where: { userId: user.id, orgUnitId: crewId } }),
   ]);
   return decideBudgetApprover({
@@ -391,8 +396,7 @@ export async function canApproveBudget(user: ScopeInput, crewId: string): Promis
     anchorId: scope.anchorId,
     crewId,
     crewInScope,
-    hasCtlSeat: Boolean(ctl),
-    hasDeputyGrant: Boolean(deputy),
+    hasCrewApproverSeat: Boolean(seat || grant),
   });
 }
 
@@ -416,62 +420,53 @@ export async function saveCrewBudget(input: {
     throw new Error("Budget already exists for this Crew and year — please update the existing record");
   }
 
-  const selfApprove = input.actor ? await canApproveBudget(input.actor, input.crewId) : false;
+  // Maker ≠ Checker: a budget proposal is NEVER auto-approved by the person who raises it — even an
+  // App admin. It goes PENDING (new) or parks in pendingAmount (edit of an approved budget) and a
+  // DIFFERENT eligible approver must promote it (approveCrewBudget enforces requester ≠ approver).
   const now = new Date();
-  const approvedFields = selfApprove
-    ? { approvedById: input.actorUserId ?? null, approvedAt: now }
-    : { approvedById: null, approvedAt: null };
-
   let saved;
   let action: string;
   if (!existing) {
-    // New budget: PENDING unless the actor may self-approve. Only APPROVED budgets count in roll-ups.
+    // New budget: PENDING. Only APPROVED budgets count in roll-ups.
     saved = await prisma.crewBudget.create({
       data: {
         crewId: input.crewId,
         year: input.year,
         amount: input.amount,
         currency: "CHF",
-        status: selfApprove ? "APPROVED" : "PENDING",
+        status: "PENDING",
         requestedById: input.actorUserId ?? null,
         requestedAt: now,
-        ...approvedFields,
+        approvedById: null,
+        approvedAt: null,
       },
       include: { crew: true },
     });
-    action = selfApprove ? "CREW_BUDGET_CREATED" : "CREW_BUDGET_CREATE_REQUESTED";
+    action = "CREW_BUDGET_CREATE_REQUESTED";
   } else if (existing.status === "PENDING") {
     // Still awaiting its first approval → just revise the proposed amount.
     saved = await prisma.crewBudget.update({
       where: { id: existing.id },
       data: {
         amount: input.amount,
-        status: selfApprove ? "APPROVED" : "PENDING",
+        status: "PENDING",
         requestedById: input.actorUserId ?? null,
         requestedAt: now,
-        ...approvedFields,
+        approvedById: null,
+        approvedAt: null,
       },
       include: { crew: true },
     });
-    action = selfApprove ? "CREW_BUDGET_UPDATED" : "CREW_BUDGET_UPDATE_REQUESTED";
+    action = "CREW_BUDGET_UPDATE_REQUESTED";
   } else {
-    // APPROVED: self-approve applies immediately; otherwise park the proposal in pendingAmount so the
-    // approved amount stays effective in roll-ups until an approver promotes it.
-    if (selfApprove) {
-      saved = await prisma.crewBudget.update({
-        where: { id: existing.id },
-        data: { amount: input.amount, pendingAmount: null, requestedById: input.actorUserId ?? null, requestedAt: now, approvedById: input.actorUserId ?? null, approvedAt: now },
-        include: { crew: true },
-      });
-      action = "CREW_BUDGET_UPDATED";
-    } else {
-      saved = await prisma.crewBudget.update({
-        where: { id: existing.id },
-        data: { pendingAmount: input.amount, requestedById: input.actorUserId ?? null, requestedAt: now },
-        include: { crew: true },
-      });
-      action = "CREW_BUDGET_UPDATE_REQUESTED";
-    }
+    // APPROVED: park the proposal in pendingAmount so the approved amount stays effective in
+    // roll-ups until a different approver promotes it.
+    saved = await prisma.crewBudget.update({
+      where: { id: existing.id },
+      data: { pendingAmount: input.amount, requestedById: input.actorUserId ?? null, requestedAt: now },
+      include: { crew: true },
+    });
+    action = "CREW_BUDGET_UPDATE_REQUESTED";
   }
 
   await appendAuditEvent({
@@ -496,6 +491,10 @@ export async function approveCrewBudget(id: string, actor: ScopeInput) {
   if (!existing) throw new Error("Budget not found");
   if (!(await canApproveBudget(actor, existing.crewId))) {
     throw new Error("You are not an approver for this crew's budget");
+  }
+  // Maker ≠ Checker: the person who raised/last-revised this proposal cannot approve it.
+  if (existing.requestedById && existing.requestedById === actor.id) {
+    throw new Error("Maker cannot approve their own budget — a different approver is required");
   }
   if (existing.status === "APPROVED" && existing.pendingAmount == null) {
     throw new Error("Nothing to approve — this budget has no pending change");
