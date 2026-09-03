@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, Plus, Users, Pencil, Check, X } from "lucide-react";
+import { Trash2, Plus, Users, Pencil, Check, X, Lock } from "lucide-react";
 import { ORG_SEAT_LABEL, ORG_TYPE_LABEL, type OrgSeatType, type OrgType } from "@/lib/orgTypes";
 
 /** RefineIQ-style per-level organisation workspace: Company → Pod, seats + composition folded in. */
@@ -105,6 +105,20 @@ export function OrgNodeSetup({
     }
     return s;
   }, [scope.anchorId, units]);
+  const byId = useMemo(() => new Map(units.map((u) => [u.id, u])), [units]);
+  // A scoped admin's fixed ancestor path (Company→anchor), keyed by level type — used to pre-fill
+  // and LOCK the create cascade so e.g. a Crew Admin adds a Pod under their own crew without an
+  // (empty) Company/Division/Stream picker. App admins have no fixed path (full choice).
+  const fixedByType = useMemo(() => {
+    const m: Record<string, string> = {};
+    if (scope.appLevel || !scope.anchorId) return m;
+    let cur = byId.get(scope.anchorId);
+    while (cur) {
+      m[cur.type] = cur.id;
+      cur = cur.parentId ? byId.get(cur.parentId) : undefined;
+    }
+    return m;
+  }, [scope.appLevel, scope.anchorId, byId]);
   const inScope = (id: string) => scope.appLevel || visibleSet.has(id);
   const showNode = (id: string) => scope.appLevel || visibleSet.has(id) || ancestorSet.has(id);
   const anchorIdx = scope.appLevel ? -1 : LEVELS.indexOf((scope.anchorType as Level) ?? "COMPANY");
@@ -130,13 +144,16 @@ export function OrgNodeSetup({
   }, [units, teams]);
 
   const parents = PARENTS[level];
+  // Locked ancestor values (fixedByType) take precedence over the user's picks for scoped admins.
+  const effectiveChain = parents.map((lvl, i) => fixedByType[lvl] ?? chain[i] ?? "");
   function chainOptions(i: number): Unit[] {
     const lvl = parents[i];
+    const prev = i === 0 ? null : effectiveChain[i - 1];
     return units.filter(
-      (u) => u.active && u.type === lvl && (i === 0 || u.parentId === chain[i - 1]) && inScope(u.id),
+      (u) => u.active && u.type === lvl && (i === 0 || u.parentId === prev) && inScope(u.id),
     );
   }
-  const parentId = parents.length === 0 ? null : chain[parents.length - 1] ?? null;
+  const parentId = parents.length === 0 ? null : effectiveChain[parents.length - 1] || null;
   const canAdd = name.trim().length > 0 && (parents.length === 0 || !!parentId);
 
   async function refresh() {
@@ -229,23 +246,36 @@ export function OrgNodeSetup({
       {canEdit && canCreateLevel(level) && (
         <form onSubmit={handleAdd} className="card p-5">
           <div className="flex flex-wrap items-end gap-3">
-            {parents.map((lvl, i) => (
-              <label key={lvl} className="text-sm">
-                <span className="mb-1 block text-xs font-medium text-[var(--muted)]">{ORG_TYPE_LABEL[lvl]}</span>
-                <select
-                  className="min-w-[11rem] rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2 text-sm text-[var(--navy)]"
-                  value={chain[i] ?? ""}
-                  onChange={(e) => setChain((c) => [...c.slice(0, i), e.target.value].filter(Boolean))}
-                >
-                  <option value="">Select…</option>
-                  {chainOptions(i).map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ))}
+            {parents.map((lvl, i) => {
+              const fixed = fixedByType[lvl];
+              return (
+                <label key={lvl} className="text-sm">
+                  <span className="mb-1 block text-xs font-medium text-[var(--muted)]">{ORG_TYPE_LABEL[lvl]}</span>
+                  {fixed ? (
+                    <div
+                      className="flex min-w-[11rem] items-center gap-1.5 rounded-lg border border-dashed border-[var(--line)] bg-transparent px-3 py-2 text-sm text-[var(--navy)]"
+                      title="Fixed by your administration scope"
+                    >
+                      <Lock size={12} className="shrink-0 text-[var(--muted)]" />
+                      <span className="truncate">{nameById[fixed] ?? "—"}</span>
+                    </div>
+                  ) : (
+                    <select
+                      className="min-w-[11rem] rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2 text-sm text-[var(--navy)]"
+                      value={chain[i] ?? ""}
+                      onChange={(e) => setChain((c) => [...c.slice(0, i), e.target.value].filter(Boolean))}
+                    >
+                      <option value="">Select…</option>
+                      {chainOptions(i).map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </label>
+              );
+            })}
             <label className="flex-1 text-sm">
               <span className="mb-1 block text-xs font-medium text-[var(--muted)]">{LEVEL_TITLE[level]} name</span>
               <input
