@@ -1453,26 +1453,6 @@ export function EstimateWizard({
                     ["Complexity multiplier", String(result.complexityMultiplier)],
                   ]}
                 />
-                <div className="mt-3 border-t border-[var(--line)] pt-3">
-                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--muted)]">
-                    Dimension scores
-                  </p>
-                  <ul className="grid gap-1.5 sm:grid-cols-2">
-                    {sizeDimensions.map((d) => {
-                      const score = Number(form.scores[d.id] ?? 0);
-                      const label = d.options?.[score - 1];
-                      return (
-                        <li key={d.id} className="flex justify-between gap-2 text-sm">
-                          <span className="text-[var(--muted)]">{d.name}</span>
-                          <span className="font-medium text-[var(--navy)]">
-                            {score}
-                            {label ? ` — ${label}` : ""}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
               </ReviewBlock>
 
               <ReviewBlock title="4 · Plan & cost">
@@ -1575,6 +1555,29 @@ export function EstimateWizard({
                     />
                   </div>
                 ) : null}
+              </ReviewBlock>
+
+              <ReviewBlock title="Dimension scores" className="lg:col-span-2">
+                <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {sizeDimensions.map((d) => {
+                    const score = Number(form.scores[d.id] ?? 0);
+                    const label = d.options?.[score - 1];
+                    return (
+                      <li
+                        key={d.id}
+                        className="rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2"
+                      >
+                        <span className="block text-[10px] font-semibold uppercase tracking-wider text-[var(--muted)]">
+                          {d.name}
+                        </span>
+                        <span className="mt-1 flex items-baseline gap-1.5">
+                          <span className="text-base font-semibold tabular-nums text-[var(--navy)]">{score}</span>
+                          {label ? <span className="text-xs text-[var(--muted)]">{label}</span> : null}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
               </ReviewBlock>
             </div>
 

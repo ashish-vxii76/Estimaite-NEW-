@@ -30,6 +30,13 @@ const RAG_TEXT: Record<string, string> = {
   UNSET: "var(--muted)",
 };
 
+const RAG_BAR: Record<string, string> = {
+  GREEN: "#10b981",
+  AMBER: "#e0a458",
+  RED: "#e05c5c",
+  UNSET: "#94a3b8",
+};
+
 /** "Company" → "Companies", "Stream" → "Streams", etc. */
 function pluralize(label: string) {
   return label.endsWith("y") ? `${label.slice(0, -1)}ies` : `${label}s`;
@@ -154,8 +161,23 @@ export function HomeOrgSplit({
                   <td className="w-[36%] min-w-[220px] py-2.5 pr-3">
                     <StatusBar row={r} scaleMax={scaleMax} />
                   </td>
-                  <td className="py-2.5 pr-3 text-right tabular-nums text-[var(--navy)]">
-                    {r.total > 0 && r.avgReadiness > 0 ? `${r.avgReadiness.toFixed(1)}` : "—"}
+                  <td className="py-2.5 pr-3">
+                    {r.total > 0 && r.avgReadiness > 0 ? (
+                      <div className="flex items-center justify-end gap-2">
+                        <span className="hidden h-1.5 w-16 overflow-hidden rounded-full bg-[var(--panel-2)] sm:block">
+                          <span
+                            className="block h-full rounded-full"
+                            style={{
+                              width: `${(r.avgReadiness / 5) * 100}%`,
+                              backgroundColor: r.avgReadiness >= 4 ? "#10b981" : r.avgReadiness >= 3 ? "#e0a458" : "#e05c5c",
+                            }}
+                          />
+                        </span>
+                        <span className="w-8 text-right tabular-nums text-[var(--navy)]">{r.avgReadiness.toFixed(1)}</span>
+                      </div>
+                    ) : (
+                      <span className="block text-right text-[var(--muted)]">—</span>
+                    )}
                   </td>
                   <td className="py-2.5 pr-3 text-right tabular-nums">
                     {r.needsAction > 0 ? (
@@ -164,13 +186,27 @@ export function HomeOrgSplit({
                       <span className="text-[var(--muted)]">0</span>
                     )}
                   </td>
-                  <td className="py-2.5 pr-3 text-right tabular-nums" style={{ color: utilColor }}>
+                  <td className="py-2.5 pr-3">
                     {m && m.utilizationPct != null ? (
-                      <span title={`${formatMoney(m.utilised, m.currency)} of ${formatMoney(m.budget, m.currency)}`}>
-                        {Math.round(m.utilizationPct * 100)}%
-                      </span>
+                      <div
+                        className="flex items-center justify-end gap-2"
+                        title={`${formatMoney(m.utilised, m.currency)} of ${formatMoney(m.budget, m.currency)}`}
+                      >
+                        <span className="hidden h-1.5 w-24 overflow-hidden rounded-full bg-[var(--panel-2)] sm:block">
+                          <span
+                            className="block h-full rounded-full"
+                            style={{
+                              width: `${Math.min(100, Math.round(m.utilizationPct * 100))}%`,
+                              backgroundColor: RAG_BAR[m.rag] ?? RAG_BAR.UNSET,
+                            }}
+                          />
+                        </span>
+                        <span className="w-10 text-right tabular-nums" style={{ color: utilColor }}>
+                          {Math.round(m.utilizationPct * 100)}%
+                        </span>
+                      </div>
                     ) : (
-                      <span className="text-[var(--muted)]">—</span>
+                      <span className="block text-right text-[var(--muted)]">—</span>
                     )}
                   </td>
                   <td className="py-2.5 pr-0 text-right tabular-nums" style={{ color: varColor }}>
