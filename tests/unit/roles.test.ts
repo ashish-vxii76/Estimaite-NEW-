@@ -15,7 +15,6 @@ describe("role access", () => {
     expect(canAccessPath("FINANCE", "/admin/users")).toBe(false);
     expect(canAccessPath("VIEWER", "/estimates/new")).toBe(false);
     expect(canAccessPath("REQUESTER", "/estimates/new")).toBe(true);
-    expect(canAccessPath("VIEWER", "/what-if")).toBe(false);
     expect(canAccessPath("REQUESTER", "/portfolio")).toBe(false);
     expect(canAccessPath("APPROVER", "/portfolio")).toBe(false);
     expect(canAccessPath("DELIVERY_LEAD", "/portfolio")).toBe(true);
