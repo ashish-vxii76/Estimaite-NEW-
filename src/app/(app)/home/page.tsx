@@ -104,6 +104,11 @@ export default async function HomePage({
     getPortfolio({ user: scopeUser, crewIds: pfCrewIds ?? undefined, teamId: pfTeamId, year: releaseYear, currency: budgetCurrency ?? undefined }),
   ]);
 
+  // Estimates computed under a superseded config version (governance/risk signal).
+  const configStaleCount = await prisma.estimate.count({
+    where: { ...filter, configurationVersionId: { not: config.versionId } },
+  });
+
   const teamNames = Object.fromEntries(teams.map((t) => [t.id, t.name]));
   const byTeam = byTeamRows
     .map((r) => ({ name: teamNames[r.teamId] ?? "Unknown", count: r._count._all }))
@@ -309,6 +314,8 @@ export default async function HomePage({
         showBudget={isCrewLevelOrAbove}
         budgetMixedCurrency={budgetMixedCurrency}
         budgetRagSummary={budgetRagSummary}
+        showInsights={isCrewLevelOrAbove}
+        configStale={configStaleCount}
       />
 
       {showActions ? <HomeActionsPanel actions={actions} /> : null}

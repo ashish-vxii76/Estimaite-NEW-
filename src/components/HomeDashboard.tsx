@@ -108,6 +108,8 @@ export function HomeDashboard({
   showBudget = true,
   budgetMixedCurrency = false,
   budgetRagSummary = {},
+  showInsights = false,
+  configStale = 0,
 }: {
   counts: { total: number; drafts: number; inReview: number; approved: number; completed: number; reviewed: number; readyForReview: number };
   byStatus: Named[]; byTeam: Named[]; byFlag: Named[]; byConfidence: Named[];
@@ -122,6 +124,10 @@ export function HomeDashboard({
   budgetMixedCurrency?: boolean;
   /** Per-company budget RAG counts (GREEN/AMBER/RED/UNSET) — shown when currency is mixed. */
   budgetRagSummary?: Record<string, number>;
+  /** Show the app-level insights panel (oversight roles only). */
+  showInsights?: boolean;
+  /** Estimates on a superseded config version (governance risk). */
+  configStale?: number;
 }) {
   const statusTotal = byStatus.reduce((s, r) => s + r.count, 0);
   const dorPct = Math.round((avgReadiness / 5) * 100);
@@ -136,6 +142,32 @@ export function HomeDashboard({
     { label: "Completed", n: counts.completed, c: "#10b981" },
   ];
   const stageMax = Math.max(1, ...stages.map((s) => s.n));
+
+  // --- App-level insight tiles (all currency-free, so valid across companies) ---
+  const statusCount = (label: string) => byStatus.find((s) => s.name === label)?.count ?? 0;
+  const rejected = statusCount("Rejected");
+  const returned = statusCount("Returned");
+  const approvalDenom = counts.approved + counts.completed + rejected;
+  const approvalRate = approvalDenom > 0 ? Math.round(((counts.approved + counts.completed) / approvalDenom) * 100) : null;
+  const reworkRate = counts.total > 0 ? Math.round(((rejected + returned) / counts.total) * 100) : 0;
+  const confTotalAll = byConfidence.reduce((s, c) => s + c.count, 0);
+  const highConf = byConfidence.find((c) => c.name === "High")?.count ?? 0;
+  const highConfPct = confTotalAll > 0 ? Math.round((highConf / confTotalAll) * 100) : null;
+  const flagTotal = byFlag.reduce((s, f) => s + f.count, 0);
+  const splitDecompose = byFlag
+    .filter((f) => ["SPLIT", "SPLIT EPIC", "DECOMPOSE"].includes(f.name))
+    .reduce((s, f) => s + f.count, 0);
+  const splitRate = flagTotal > 0 ? Math.round((splitDecompose / flagTotal) * 100) : 0;
+  const insightTiles: { group: string; label: string; value: string; warn?: boolean }[] = [
+    { group: "Flow", label: "Completed this year", value: String(counts.completed) },
+    { group: "Flow", label: "Approval rate", value: approvalRate == null ? "—" : `${approvalRate}%` },
+    { group: "Pipeline", label: "In flight", value: String(counts.inReview) },
+    { group: "Pipeline", label: "Active pods", value: String(byTeam.length) },
+    { group: "Quality", label: "High confidence", value: highConfPct == null ? "—" : `${highConfPct}%` },
+    { group: "Quality", label: "Split / decompose", value: `${splitRate}%` },
+    { group: "Risk", label: "Rework rate", value: `${reworkRate}%`, warn: reworkRate > 15 },
+    { group: "Risk", label: "Config-stale", value: String(configStale), warn: configStale > 0 },
+  ];
 
   return (
     <div className="space-y-4">
@@ -198,6 +230,31 @@ export function HomeDashboard({
           <span className={health.needsAction > 0 ? "text-[var(--danger)]" : ""}>{health.needsAction}</span>
         </Stat>
       </div>
+
+      {/* App-level insights (oversight roles) */}
+      {showInsights ? (
+        <Card>
+          <Rule />
+          <H sub="Flow, pipeline, quality and risk across everything in scope — currency-free">
+            Application insights
+          </H>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {insightTiles.map((t) => (
+              <div key={t.label} className="rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2.5">
+                <p className="text-[0.6rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+                  {t.group}
+                </p>
+                <p className="mt-1 text-[0.78rem] text-[var(--muted)]">{t.label}</p>
+                <p
+                  className={`mt-0.5 text-2xl font-semibold tabular-nums ${t.warn ? "text-[var(--danger)]" : "text-[var(--navy)]"}`}
+                >
+                  {t.value}
+                </p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      ) : null}
 
       {/* KPI cards + sparklines */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
