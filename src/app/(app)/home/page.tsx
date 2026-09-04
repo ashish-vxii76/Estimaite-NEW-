@@ -230,6 +230,17 @@ export default async function HomePage({
   }
 
   const quarters = config.releaseQuarters ?? [];
+  // Overall budget RAG rollup (per health band) — currency-agnostic, so it works across the mixed
+  // currencies an App admin sees. Feeds the strip in place of a (meaningless) cross-currency sum.
+  const budgetRagSummary = orgSplitRows.reduce(
+    (a, r) => {
+      const k = r.money?.rag ?? "UNSET";
+      a[k] = (a[k] ?? 0) + 1;
+      return a;
+    },
+    {} as Record<string, number>,
+  );
+
   const isAppAdmin = session.user.role === "ADMINISTRATOR" && !homeScope.scopeLabel;
   // App admin → "(Application Admin)"; scoped admin → "(Citi · Admin)"; others → their team.
   const teamName = homeScope.scopeLabel ?? (session.user.role === "ADMINISTRATOR" ? null : team?.name);
@@ -297,6 +308,7 @@ export default async function HomePage({
         }}
         showBudget={isCrewLevelOrAbove}
         budgetMixedCurrency={budgetMixedCurrency}
+        budgetRagSummary={budgetRagSummary}
       />
 
       {showActions ? <HomeActionsPanel actions={actions} /> : null}

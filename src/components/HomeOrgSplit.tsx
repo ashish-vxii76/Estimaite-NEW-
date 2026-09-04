@@ -37,6 +37,13 @@ const RAG_BAR: Record<string, string> = {
   UNSET: "#94a3b8",
 };
 
+const RAG_LABEL: Record<string, string> = {
+  GREEN: "On budget",
+  AMBER: "Watch",
+  RED: "Over",
+  UNSET: "No budget",
+};
+
 /** "Company" → "Companies", "Stream" → "Streams", etc. */
 function pluralize(label: string) {
   return label.endsWith("y") ? `${label.slice(0, -1)}ies` : `${label}s`;
@@ -101,6 +108,16 @@ export function HomeOrgSplit({
     }),
     { total: 0, needsAction: 0 },
   );
+  // Overall budget RAG rollup — counts per health band, currency-agnostic (works across USD/GBP/CHF).
+  const ragCount = rows.reduce(
+    (a, r) => {
+      const k = r.money?.rag ?? "UNSET";
+      a[k] = (a[k] ?? 0) + 1;
+      return a;
+    },
+    {} as Record<string, number>,
+  );
+  const ragOrder = ["GREEN", "AMBER", "RED"] as const;
 
   return (
     <section className="card p-5">
@@ -115,6 +132,17 @@ export function HomeOrgSplit({
             {(rows.length === 1 ? splitLabel : pluralize(splitLabel)).toLowerCase()} in view ·
             select a row to focus the dashboard
           </p>
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.72rem] text-[var(--muted)]">
+            <span className="font-semibold uppercase tracking-[0.1em] text-[0.62rem]">Budget health</span>
+            {ragOrder.map((k) =>
+              ragCount[k] ? (
+                <span key={k} className="inline-flex items-center gap-1">
+                  <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: RAG_BAR[k] }} />
+                  {ragCount[k]} {RAG_LABEL[k].toLowerCase()}
+                </span>
+              ) : null,
+            )}
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.7rem] text-[var(--muted)]">
           {SEGMENTS.map((s) => (
@@ -154,12 +182,19 @@ export function HomeOrgSplit({
               return (
                 <tr key={r.id} className="border-b border-[var(--line)] align-middle">
                   <td className="py-2.5 pr-3">
-                    <Link
-                      href={`/home?org=${r.id}`}
-                      className="font-medium text-[var(--navy)] underline-offset-2 hover:underline"
-                    >
-                      {r.name}
-                    </Link>
+                    <span className="inline-flex items-center gap-2">
+                      <span
+                        className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: m ? RAG_BAR[m.rag] ?? RAG_BAR.UNSET : RAG_BAR.UNSET }}
+                        title={m ? RAG_LABEL[m.rag] ?? RAG_LABEL.UNSET : RAG_LABEL.UNSET}
+                      />
+                      <Link
+                        href={`/home?org=${r.id}`}
+                        className="font-medium text-[var(--navy)] underline-offset-2 hover:underline"
+                      >
+                        {r.name}
+                      </Link>
+                    </span>
                   </td>
                   <td className="w-[36%] min-w-[220px] py-2.5 pr-3">
                     <StatusBar row={r} scaleMax={scaleMax} />

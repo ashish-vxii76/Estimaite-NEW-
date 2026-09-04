@@ -18,6 +18,7 @@ type Health = {
 
 const RAG_TEXT: Record<string, string> = { GREEN: "var(--ok)", AMBER: "var(--warn)", RED: "var(--danger)", UNSET: "var(--muted)" };
 const RAG_BAR: Record<string, string> = { GREEN: "#10b981", AMBER: "#e0a458", RED: "#e05c5c", UNSET: "#94a3b8" };
+const RAG_STRIP_LABEL: Record<string, string> = { GREEN: "on budget", AMBER: "watch", RED: "over" };
 
 function Rule() {
   return <hr className="mb-3 h-0.5 w-8 rounded-full border-0 bg-[linear-gradient(90deg,var(--gold-2),var(--gold))]" />;
@@ -106,6 +107,7 @@ export function HomeDashboard({
   counts, byStatus, byTeam, byFlag, byConfidence, avgReadiness, spark, trend, attention, health,
   showBudget = true,
   budgetMixedCurrency = false,
+  budgetRagSummary = {},
 }: {
   counts: { total: number; drafts: number; inReview: number; approved: number; completed: number; reviewed: number; readyForReview: number };
   byStatus: Named[]; byTeam: Named[]; byFlag: Named[]; byConfidence: Named[];
@@ -118,6 +120,8 @@ export function HomeDashboard({
   showBudget?: boolean;
   /** Scope spans >1 company currency — no single-currency consolidation (needs FX). */
   budgetMixedCurrency?: boolean;
+  /** Per-company budget RAG counts (GREEN/AMBER/RED/UNSET) — shown when currency is mixed. */
+  budgetRagSummary?: Record<string, number>;
 }) {
   const statusTotal = byStatus.reduce((s, r) => s + r.count, 0);
   const dorPct = Math.round((avgReadiness / 5) * 100);
@@ -142,8 +146,18 @@ export function HomeDashboard({
       >
         {showBudget && budgetMixedCurrency ? (
           <>
-            <Stat label={`Committed vs budget · ${health.year}`}>
-              <span className="text-[var(--muted)]">Multiple currencies — see By-company</span>
+            <Stat label={`Budget health · ${health.year}`}>
+              <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-semibold">
+                {(["GREEN", "AMBER", "RED"] as const).map((k) =>
+                  budgetRagSummary[k] ? (
+                    <span key={k} className="inline-flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: RAG_BAR[k] }} />
+                      <span className="text-[var(--navy)]">{budgetRagSummary[k]}</span>
+                      <span className="text-[var(--muted)]">{RAG_STRIP_LABEL[k]}</span>
+                    </span>
+                  ) : null,
+                )}
+              </span>
             </Stat>
             <div className="hidden h-8 w-px bg-[var(--line)] sm:block" />
           </>
