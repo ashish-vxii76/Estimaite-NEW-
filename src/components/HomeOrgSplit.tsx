@@ -130,8 +130,8 @@ export function HomeOrgSplit({
           </h3>
           <p className="text-xs text-[var(--muted)]">
             {rows.length}{" "}
-            {(rows.length === 1 ? splitLabel : pluralize(splitLabel)).toLowerCase()} in view ·
-            select a row to focus the dashboard
+            {(rows.length === 1 ? splitLabel : pluralize(splitLabel)).toLowerCase()} in view ·{" "}
+            {rows.length === 1 ? "clear the filter to compare all" : "select a row to focus the dashboard"}
           </p>
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.72rem] text-[var(--muted)]">
             <span className="font-semibold uppercase tracking-[0.1em] text-[0.62rem]">Budget health</span>

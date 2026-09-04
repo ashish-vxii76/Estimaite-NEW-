@@ -190,14 +190,12 @@ export function HomeDashboard({
                 <span
                   className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-bold"
                   style={{ color: RAG_TEXT[mixedRag], background: "color-mix(in srgb, currentColor 12%, transparent)" }}
+                  title="Budget health across companies — per-company detail in the By-company panel"
                 >
                   ● {RAG_PILL_LABEL[mixedRag]}
                 </span>
               );
             })()}
-            <Stat label={`Budget health · ${health.year}`}>
-              <span className="text-[var(--muted)]">per company — see By-company</span>
-            </Stat>
             <div className="hidden h-8 w-px bg-[var(--line)] sm:block" />
           </>
         ) : showBudget ? (

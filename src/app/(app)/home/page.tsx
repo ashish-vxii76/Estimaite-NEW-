@@ -234,6 +234,24 @@ export default async function HomePage({
     orgSplitRows = split.units.map((u) => acc[u.id]);
   }
 
+  // The By-company panel follows the filter: a selected org/team narrows it to the ONE split unit
+  // that contains the selection (so filtering to a company shows just that company's box); no
+  // selection shows every unit in scope.
+  if (orgSplitRows.length > 0 && (org || teamFilter)) {
+    let focusUnitId: string | null = null;
+    if (org) {
+      const unitById = new Map(orgFilter.units.map((u) => [u.id, u]));
+      let cur = unitById.get(org);
+      while (cur) {
+        if (split.units.some((u) => u.id === cur!.id)) { focusUnitId = cur.id; break; }
+        cur = cur.parentId ? unitById.get(cur.parentId) : undefined;
+      }
+    } else if (teamFilter) {
+      focusUnitId = split.teamToUnitId[teamFilter] ?? null;
+    }
+    if (focusUnitId) orgSplitRows = orgSplitRows.filter((r) => r.id === focusUnitId);
+  }
+
   const quarters = config.releaseQuarters ?? [];
   // Overall budget RAG rollup (per health band) — currency-agnostic, so it works across the mixed
   // currencies an App admin sees. Feeds the strip in place of a (meaningless) cross-currency sum.
@@ -278,7 +296,7 @@ export default async function HomePage({
         quarters={quarters}
       />
 
-      {orgSplitRows.length > 1 ? (
+      {orgSplitRows.length >= 1 ? (
         <HomeOrgSplit splitLabel={split.splitLabel} rows={orgSplitRows} />
       ) : null}
 
