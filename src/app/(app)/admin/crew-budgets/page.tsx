@@ -2,7 +2,7 @@ import { auth } from "@/auth";
 import { can } from "@/lib/access";
 import { redirect } from "next/navigation";
 import { CrewBudgetsWorkspace } from "@/components/admin/CrewBudgetsWorkspace";
-import { adminVisibleCrewIds, canApproveBudget, listCrewBudgets } from "@/services/orgService";
+import { adminVisibleCrewIds, canApproveBudget, listCrewBudgets, resolveOrgCurrency } from "@/services/orgService";
 import { resolveCrewScope } from "@/lib/crewScope";
 import { fromSession } from "@/lib/scope";
 import { getActiveConfig } from "@/services/configService";
@@ -32,6 +32,9 @@ export default async function CrewBudgetsAdminPage({
   // Only a Crew scope is editable; App/Company scope shows the read-only roll-up.
   const activeCrewId = scope.activeScopeType === "CREW" ? scope.activeCrewId : null;
   const canApprove = activeCrewId ? await canApproveBudget(user, activeCrewId) : false;
+  const activeCrewCurrency = activeCrewId
+    ? await resolveOrgCurrency({ crewIds: [activeCrewId] })
+    : "CHF";
 
   return (
     <CrewBudgetsWorkspace
@@ -52,6 +55,7 @@ export default async function CrewBudgetsAdminPage({
         currency: b.currency,
       }))}
       releaseYears={releaseYears}
+      activeCrewCurrency={activeCrewCurrency}
       canWrite={can(session?.user.role, "org.budget", "RW")}
       canApprove={canApprove}
     />

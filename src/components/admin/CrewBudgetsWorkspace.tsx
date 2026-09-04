@@ -28,6 +28,7 @@ export function CrewBudgetsWorkspace({
   activeScopeName,
   budgets,
   releaseYears,
+  activeCrewCurrency,
   canWrite,
   canApprove,
 }: {
@@ -39,6 +40,7 @@ export function CrewBudgetsWorkspace({
   activeScopeName: string;
   budgets: Budget[];
   releaseYears: number[];
+  activeCrewCurrency: string;
   canWrite: boolean;
   canApprove: boolean;
 }) {
@@ -73,7 +75,7 @@ export function CrewBudgetsWorkspace({
       <div>
         <h1 className="font-display text-2xl font-semibold text-[var(--navy)]">Crew yearly budgets</h1>
         <p className="mt-1 max-w-3xl text-sm text-[var(--muted)]">
-          Budget is owned at Crew level (CHF, yearly); higher levels are sums. Changes are governed:
+          Budget is owned at Crew level in the company&apos;s currency, yearly; higher levels are per-currency sums. Changes are governed:
           a create or edit needs approval by an admin or the crew&apos;s Tech Lead before it counts —
           until then the previously approved amount stands. Pick a crew to manage its budgets.
         </p>
@@ -94,6 +96,7 @@ export function CrewBudgetsWorkspace({
             <CrewEditor
               crewId={activeCrewId!}
               crewName={activeScopeName}
+              currency={activeCrewCurrency}
               budgets={budgets.filter((b) => b.crewId === activeCrewId)}
               releaseYears={releaseYears}
               canWrite={canWrite}
@@ -127,6 +130,7 @@ function StatusBadge({ b }: { b: Budget }) {
 
 function CrewEditor({
   crewName,
+  currency,
   budgets,
   releaseYears,
   canWrite,
@@ -139,6 +143,7 @@ function CrewEditor({
 }: {
   crewId: string;
   crewName: string;
+  currency: string;
   budgets: Budget[];
   releaseYears: number[];
   canWrite: boolean;
@@ -184,7 +189,7 @@ function CrewEditor({
                 </select>
               </label>
               <label className="text-sm">
-                <span className="block">Amount (CHF)</span>
+                <span className="block">Amount ({currency})</span>
                 <input
                   type="number"
                   min={0}
@@ -240,10 +245,10 @@ function CrewEditor({
                       />
                     ) : (
                       <div>
-                        <span>{formatMoney(b.status === "PENDING" ? b.amount : b.amount, "CHF")}</span>
+                        <span>{formatMoney(b.amount, b.currency)}</span>
                         {b.status === "PENDING" ? <span className="ml-1 text-[11px] text-[var(--muted)]">(proposed)</span> : null}
                         {b.pendingAmount != null ? (
-                          <span className="ml-1 text-[11px] text-[var(--warn,#b7791f)]">→ {formatMoney(b.pendingAmount, "CHF")} pending</span>
+                          <span className="ml-1 text-[11px] text-[var(--warn,#b7791f)]">→ {formatMoney(b.pendingAmount, b.currency)} pending</span>
                         ) : null}
                       </div>
                     )}
@@ -280,7 +285,7 @@ function CrewEditor({
           </tbody>
         </table>
         <p className="mt-3 text-sm font-semibold text-[var(--navy)]">
-          Approved total: {formatMoney(rows.filter((b) => b.status === "APPROVED").reduce((s, b) => s + b.amount, 0), "CHF")}
+          Approved total: {formatMoney(rows.filter((b) => b.status === "APPROVED").reduce((s, b) => s + b.amount, 0), currency)}
         </p>
       </section>
     </div>
@@ -321,7 +326,14 @@ function RollupTable({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [budgets, year]);
 
-  const approvedTotal = rows.filter((r) => r.b.status === "APPROVED").reduce((s, r) => s + r.b.amount, 0);
+  // Roll-up spans companies/currencies — sum PER currency, never into one figure (no FX).
+  const totalsByCcy = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const r of rows) {
+      if (r.b.status === "APPROVED") m[r.b.currency] = (m[r.b.currency] ?? 0) + r.b.amount;
+    }
+    return m;
+  }, [rows]);
 
   return (
     <section className="card overflow-x-auto p-5">
@@ -363,7 +375,7 @@ function RollupTable({
               <td className="py-2">{path.STREAM}</td>
               <td className="py-2 font-medium">{b.crewName}</td>
               <td className="py-2">{b.year}</td>
-              <td className="py-2 text-right">{b.status === "APPROVED" ? formatMoney(b.amount, "CHF") : "—"}</td>
+              <td className="py-2 text-right">{b.status === "APPROVED" ? formatMoney(b.amount, b.currency) : "—"}</td>
               <td className="py-2"><StatusBadge b={b} /></td>
             </tr>
           ))}
@@ -373,9 +385,16 @@ function RollupTable({
         </tbody>
       </table>
       <p className="mt-3 text-sm font-semibold text-[var(--navy)]">
-        Approved total{year ? ` · ${year}` : ""}: {formatMoney(approvedTotal, "CHF")}
+        Approved total{year ? ` · ${year}` : ""}:{" "}
+        {Object.keys(totalsByCcy).length === 0
+          ? "—"
+          : Object.entries(totalsByCcy)
+              .map(([ccy, v]) => formatMoney(v, ccy))
+              .join("  ·  ")}
       </p>
-      <p className="mt-1 text-[11.5px] text-[var(--muted)]">Pick a crew on the left to add or edit its budgets.</p>
+      <p className="mt-1 text-[11.5px] text-[var(--muted)]">
+        Totals are per currency — budgets are held in each company&apos;s currency and never summed across currencies. Pick a crew on the left to add or edit its budgets.
+      </p>
     </section>
   );
 }

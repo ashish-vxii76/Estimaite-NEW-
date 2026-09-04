@@ -5,13 +5,14 @@ import { redirect } from "next/navigation";
 import { loadMappingPageData } from "@/lib/mappingPageData";
 import { MappingPageShell } from "@/components/admin/MappingPageShell";
 import type { Column } from "@/components/admin/MappingEditor";
+import { CURRENCIES } from "@/lib/currencies";
 
 const COLUMNS: Column[] = [
   { key: "location", label: "Location" },
   { key: "teamSprintCost", label: "Team Sprint Cost", type: "number" },
   { key: "resourceSprintCost", label: "Resource Sprint Cost", type: "number" },
   { key: "standardTeamSize", label: "Standard Team Size", type: "number" },
-  { key: "currency", label: "Currency" },
+  { key: "currency", label: "Currency", type: "select", options: [...CURRENCIES] },
 ];
 
 export default async function CostMappingPage({

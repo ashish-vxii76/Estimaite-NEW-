@@ -102,6 +102,34 @@ export async function resolveOrgCurrency(opts: {
   return companies[0]?.currency ?? "CHF";
 }
 
+/**
+ * Distinct COMPANY currencies covering a set of crews (null = every company). More than one means
+ * the scope spans currencies, so money must NOT be summed into a single figure (no FX consolidation).
+ */
+export async function orgCurrenciesForCrews(crewIds: string[] | null): Promise<string[]> {
+  const units = await prisma.orgUnit.findMany({
+    select: { id: true, type: true, parentId: true, currency: true },
+  });
+  const byId = new Map(units.map((u) => [u.id, u]));
+  const companyCurrencyOf = (startId: string): string | null => {
+    let cur = byId.get(startId);
+    while (cur) {
+      if (cur.type === "COMPANY") return cur.currency;
+      cur = cur.parentId ? byId.get(cur.parentId) : undefined;
+    }
+    return null;
+  };
+  if (crewIds == null) {
+    return [...new Set(units.filter((u) => u.type === "COMPANY").map((u) => u.currency))];
+  }
+  const set = new Set<string>();
+  for (const id of crewIds) {
+    const c = companyCurrencyOf(id);
+    if (c) set.add(c);
+  }
+  return [...set];
+}
+
 export async function setTeamCrew(teamId: string, crewId: string | null) {
   if (crewId) {
     const crew = await prisma.orgUnit.findUnique({ where: { id: crewId } });
@@ -437,6 +465,10 @@ export async function saveCrewBudget(input: {
     throw new Error("Budget already exists for this Crew and year — please update the existing record");
   }
 
+  // Budgets are held in the crew's COMPANY currency (Citi USD, HSBC/Barclays GBP, UBS CHF, …),
+  // never a hardcoded CHF. Cross-currency roll-ups stay per-company (no FX summing).
+  const currency = await resolveOrgCurrency({ crewIds: [input.crewId] });
+
   // Maker ≠ Checker: a budget proposal is NEVER auto-approved by the person who raises it — even an
   // App admin. It goes PENDING (new) or parks in pendingAmount (edit of an approved budget) and a
   // DIFFERENT eligible approver must promote it (approveCrewBudget enforces requester ≠ approver).
@@ -450,7 +482,7 @@ export async function saveCrewBudget(input: {
         crewId: input.crewId,
         year: input.year,
         amount: input.amount,
-        currency: "CHF",
+        currency,
         status: "PENDING",
         requestedById: input.actorUserId ?? null,
         requestedAt: now,

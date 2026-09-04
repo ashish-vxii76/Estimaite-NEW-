@@ -105,6 +105,7 @@ function Kpi({ label, value, series, color }: { label: string; value: number; se
 export function HomeDashboard({
   counts, byStatus, byTeam, byFlag, byConfidence, avgReadiness, spark, trend, attention, health,
   showBudget = true,
+  budgetMixedCurrency = false,
 }: {
   counts: { total: number; drafts: number; inReview: number; approved: number; completed: number; reviewed: number; readyForReview: number };
   byStatus: Named[]; byTeam: Named[]; byFlag: Named[]; byConfidence: Named[];
@@ -115,6 +116,8 @@ export function HomeDashboard({
   health: Health;
   /** Crew budgets & delivery economics are a Crew-and-above surface — hidden for Pod-level leads. */
   showBudget?: boolean;
+  /** Scope spans >1 company currency — no single-currency consolidation (needs FX). */
+  budgetMixedCurrency?: boolean;
 }) {
   const statusTotal = byStatus.reduce((s, r) => s + r.count, 0);
   const dorPct = Math.round((avgReadiness / 5) * 100);
@@ -137,7 +140,14 @@ export function HomeDashboard({
         className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-4 shadow-[var(--shadow)]"
         style={{ borderLeft: `5px solid ${showBudget ? RAG_TEXT[health.budgetRag] ?? "var(--muted)" : "var(--muted)"}` }}
       >
-        {showBudget ? (
+        {showBudget && budgetMixedCurrency ? (
+          <>
+            <Stat label={`Committed vs budget · ${health.year}`}>
+              <span className="text-[var(--muted)]">Multiple currencies — see By-company</span>
+            </Stat>
+            <div className="hidden h-8 w-px bg-[var(--line)] sm:block" />
+          </>
+        ) : showBudget ? (
           <>
             <span
               className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-bold"

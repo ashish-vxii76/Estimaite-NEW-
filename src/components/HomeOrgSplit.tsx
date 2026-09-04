@@ -70,7 +70,10 @@ function StatusBar({ row, scaleMax }: { row: OrgSplitRow; scaleMax: number }) {
           })}
         </div>
       </div>
-      <span className="w-8 text-right text-sm font-semibold tabular-nums text-[var(--navy)]">
+      <span
+        className="w-8 text-right text-sm font-semibold tabular-nums text-[var(--navy)]"
+        title="Total estimates (CRs) for this row"
+      >
         {row.total}
       </span>
     </div>

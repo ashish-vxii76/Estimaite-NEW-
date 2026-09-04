@@ -14,7 +14,7 @@ import { getActiveConfig } from "@/services/configService";
 import { getPortfolio } from "@/services/portfolioService";
 import { buildHomeActions } from "@/lib/homeInbox";
 import { releaseWhere, parseRelease } from "@/lib/releasePeriod";
-import { descendantIds, resolveSeatLevel } from "@/services/orgService";
+import { descendantIds, resolveSeatLevel, resolveOrgCurrency, orgCurrenciesForCrews } from "@/services/orgService";
 import { CREW_LEVEL } from "@/lib/orgLevel";
 
 const ACTION_FLAGS = ["SPLIT", "SPLIT EPIC", "SPIKE REQUIRED", "DISCOVERY REQUIRED", "DECOMPOSE"];
@@ -35,6 +35,10 @@ export default async function HomePage({
   const seatLevel = await resolveSeatLevel(scopeUser);
   const isCrewLevelOrAbove = seatLevel >= CREW_LEVEL;
   const homeScope = await resolveHomeScope(scopeUser, org, teamFilter);
+  // Currency of the scope. >1 company currency = mixed → no single-currency consolidation (needs FX).
+  const scopeCurrencies = await orgCurrenciesForCrews(homeScope.crewIds);
+  const budgetCurrency = scopeCurrencies.length === 1 ? scopeCurrencies[0] : null; // null = mixed
+  const budgetMixedCurrency = scopeCurrencies.length > 1;
   const filter = {
     ...homeScope.where,
     ...(workItemType ? { workItemType } : {}),
@@ -97,7 +101,7 @@ export default async function HomePage({
     getActiveConfig(),
     teamsForUser(scopeUser),
     Promise.resolve(homeScope.orgFilter),
-    getPortfolio({ user: scopeUser, crewIds: pfCrewIds ?? undefined, teamId: pfTeamId, year: releaseYear }),
+    getPortfolio({ user: scopeUser, crewIds: pfCrewIds ?? undefined, teamId: pfTeamId, year: releaseYear, currency: budgetCurrency ?? undefined }),
   ]);
 
   const teamNames = Object.fromEntries(teams.map((t) => [t.id, t.name]));
@@ -170,11 +174,12 @@ export default async function HomePage({
         _count: { _all: true },
       }),
       Promise.all(
-        split.units.map((u) =>
-          getPortfolio({ user: scopeUser, crewIds: split.unitCrewIds[u.id] ?? [], year })
+        split.units.map(async (u) => {
+          const currency = await resolveOrgCurrency({ orgUnitId: u.id });
+          return getPortfolio({ user: scopeUser, crewIds: split.unitCrewIds[u.id] ?? [], year, currency })
             .then((p) => ({ id: u.id, p }))
-            .catch(() => ({ id: u.id, p: null as Awaited<ReturnType<typeof getPortfolio>> | null })),
-        ),
+            .catch(() => ({ id: u.id, p: null as Awaited<ReturnType<typeof getPortfolio>> | null }));
+        }),
       ),
     ]);
 
@@ -291,6 +296,7 @@ export default async function HomePage({
           year: releaseYear,
         }}
         showBudget={isCrewLevelOrAbove}
+        budgetMixedCurrency={budgetMixedCurrency}
       />
 
       {showActions ? <HomeActionsPanel actions={actions} /> : null}

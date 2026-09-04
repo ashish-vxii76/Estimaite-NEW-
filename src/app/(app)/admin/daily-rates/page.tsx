@@ -5,11 +5,12 @@ import { redirect } from "next/navigation";
 import { loadMappingPageData } from "@/lib/mappingPageData";
 import { MappingPageShell } from "@/components/admin/MappingPageShell";
 import type { Column } from "@/components/admin/MappingEditor";
+import { CURRENCIES } from "@/lib/currencies";
 
 const COLUMNS: Column[] = [
   { key: "location", label: "Location" },
   { key: "dailyRate", label: "Daily Rate", type: "number" },
-  { key: "currency", label: "Currency" },
+  { key: "currency", label: "Currency", type: "select", options: [...CURRENCIES] },
 ];
 
 export default async function DailyRatesPage({
