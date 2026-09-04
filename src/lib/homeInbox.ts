@@ -1,9 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/access";
-import { canUseWhatIf } from "@/lib/rbac";
-import { getCachedRbacMatrix } from "@/services/rbacService";
 import { fromSession, resolveEstimateScope, type ScopeUser } from "@/lib/scope";
-import { CREW_LEVEL, APP_LEVEL } from "@/lib/orgLevel";
 
 export type AppNotification = {
   id: string;
@@ -11,14 +8,6 @@ export type AppNotification = {
   title: string;
   body: string;
   href: string;
-};
-
-export type HomeAction = {
-  id: string;
-  label: string;
-  description: string;
-  href: string;
-  feature?: string;
 };
 
 /** Build role-scoped inbox items for the top-right bell. */
@@ -103,98 +92,3 @@ export async function buildNotifications(
   return items;
 }
 
-/** Role-aware shortcut panel under Home charts. */
-export function buildHomeActions(role: string | undefined, seatLevel: number = APP_LEVEL): HomeAction[] {
-  const actions: HomeAction[] = [];
-  const crewLevelOrAbove = seatLevel >= CREW_LEVEL;
-  if (can(role, "estimates.create", "RW")) {
-    actions.push({
-      id: "new-estimate",
-      label: "New estimate",
-      description: "Start Ready → Size → Plan & cost → Govern.",
-      href: "/estimates/new",
-      feature: "estimates.create",
-    });
-  }
-  if (can(role, "estimates.list")) {
-    actions.push({
-      id: "register",
-      label: "Open register",
-      description: "Browse and filter all estimates in scope.",
-      href: "/estimates",
-      feature: "estimates.list",
-    });
-  }
-  if (can(role, "estimates.review", "RW")) {
-    actions.push({
-      id: "review-queue",
-      label: "Review queue",
-      description: "Items waiting to be marked reviewed.",
-      href: "/estimates?status=READY_FOR_REVIEW",
-      feature: "estimates.review",
-    });
-  }
-  if (can(role, "estimates.approve", "RW")) {
-    actions.push({
-      id: "approve-queue",
-      label: "Approval queue",
-      description: "Items awaiting approval.",
-      href: "/estimates?status=REVIEWED",
-      feature: "estimates.approve",
-    });
-  }
-  if (crewLevelOrAbove && can(role, "portfolio.view")) {
-    actions.push({
-      id: "portfolio",
-      label: "Roll-up & CR register",
-      description: "Portfolio cost and delivery roll-up.",
-      href: "/portfolio",
-      feature: "portfolio.view",
-    });
-  }
-  if (crewLevelOrAbove && can(role, "calibration.view")) {
-    actions.push({
-      id: "calibration",
-      label: "Calibration",
-      description: "Actuals vs estimate variance insights.",
-      href: "/calibration",
-      feature: "calibration.view",
-    });
-  }
-  if (canUseWhatIf(role, seatLevel, getCachedRbacMatrix())) {
-    actions.push({
-      id: "what-if",
-      label: "What-if scenarios",
-      description: "Model team / seniority / SP scenarios.",
-      href: "/what-if",
-      feature: "whatIf",
-    });
-  }
-  if (can(role, "config.mappings") || can(role, "config.users") || can(role, "config.rbac")) {
-    actions.push({
-      id: "admin",
-      label: "Administration",
-      description: "Lists, mappings, rates and access.",
-      href: "/admin",
-    });
-  }
-  if (can(role, "config.users", "RW")) {
-    actions.push({
-      id: "users",
-      label: "Login credentials",
-      description: "Create and manage user accounts.",
-      href: "/admin/users",
-      feature: "config.users",
-    });
-  }
-  if (can(role, "config.rbac", "RW")) {
-    actions.push({
-      id: "rbac",
-      label: "RBAC matrix",
-      description: "Grant Home notifications, actions and all other features.",
-      href: "/admin/rbac",
-      feature: "config.rbac",
-    });
-  }
-  return actions;
-}

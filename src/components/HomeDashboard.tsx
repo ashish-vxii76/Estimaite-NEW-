@@ -108,7 +108,6 @@ export function HomeDashboard({
   showBudget = true,
   budgetMixedCurrency = false,
   budgetRagSummary = {},
-  showInsights = false,
   configStale = 0,
 }: {
   counts: { total: number; drafts: number; inReview: number; approved: number; completed: number; reviewed: number; readyForReview: number };
@@ -124,8 +123,6 @@ export function HomeDashboard({
   budgetMixedCurrency?: boolean;
   /** Per-company budget RAG counts (GREEN/AMBER/RED/UNSET) — shown when currency is mixed. */
   budgetRagSummary?: Record<string, number>;
-  /** Show the app-level insights panel (oversight roles only). */
-  showInsights?: boolean;
   /** Estimates on a superseded config version (governance risk). */
   configStale?: number;
 }) {
@@ -158,101 +155,68 @@ export function HomeDashboard({
     .filter((f) => ["SPLIT", "SPLIT EPIC", "DECOMPOSE"].includes(f.name))
     .reduce((s, f) => s + f.count, 0);
   const splitRate = flagTotal > 0 ? Math.round((splitDecompose / flagTotal) * 100) : 0;
-  const insightTiles: { group: string; label: string; value: string; warn?: boolean }[] = [
-    { group: "Flow", label: "Completed this year", value: String(counts.completed) },
-    { group: "Flow", label: "Approval rate", value: approvalRate == null ? "—" : `${approvalRate}%` },
-    { group: "Pipeline", label: "In flight", value: String(counts.inReview) },
-    { group: "Pipeline", label: "Active pods", value: String(byTeam.length) },
-    { group: "Quality", label: "High confidence", value: highConfPct == null ? "—" : `${highConfPct}%` },
-    { group: "Quality", label: "Split / decompose", value: `${splitRate}%` },
-    { group: "Risk", label: "Rework rate", value: `${reworkRate}%`, warn: reworkRate > 15 },
-    { group: "Risk", label: "Config-stale", value: String(configStale), warn: configStale > 0 },
-  ];
+
+  // One compact tile set: the old health-strip metrics + the app-level insights, grouped.
+  type Tile = { group: string; label: string; value: string; warn?: boolean; color?: string };
+  const tiles: Tile[] = [];
+  if (showBudget) {
+    if (budgetMixedCurrency) {
+      const mixedRag = budgetRagSummary.RED
+        ? "RED"
+        : budgetRagSummary.AMBER
+          ? "AMBER"
+          : budgetRagSummary.GREEN
+            ? "GREEN"
+            : "UNSET";
+      tiles.push({ group: "Budget", label: `Budget health · ${health.year}`, value: RAG_PILL_LABEL[mixedRag], color: RAG_TEXT[mixedRag] });
+    } else {
+      tiles.push({
+        group: "Budget",
+        label: `Committed vs budget · ${health.year}`,
+        value: `${formatMoney(health.utilised, health.currency)}${health.utilizationPct != null ? ` · ${Math.round(health.utilizationPct * 100)}%` : ""}`,
+        color: RAG_TEXT[health.budgetRag],
+      });
+    }
+    tiles.push({
+      group: "Delivery",
+      label: "Delivery vs estimate",
+      value: health.deliveryVariancePct == null ? "—" : `${health.deliveryVariancePct > 0 ? "+" : ""}${(health.deliveryVariancePct * 100).toFixed(1)}%`,
+    });
+  }
+  tiles.push({ group: "Readiness", label: "Definition of Ready", value: `${dorPct}%` });
+  tiles.push({ group: "Flow", label: "Completed this year", value: String(counts.completed) });
+  tiles.push({ group: "Flow", label: "Approval rate", value: approvalRate == null ? "—" : `${approvalRate}%` });
+  tiles.push({ group: "Pipeline", label: "In flight", value: String(counts.inReview) });
+  tiles.push({ group: "Pipeline", label: "Active pods", value: String(byTeam.length) });
+  tiles.push({ group: "Quality", label: "High confidence", value: highConfPct == null ? "—" : `${highConfPct}%` });
+  tiles.push({ group: "Quality", label: "Split / decompose", value: `${splitRate}%` });
+  tiles.push({ group: "Risk", label: "CRs need action", value: String(health.needsAction), warn: health.needsAction > 0 });
+  tiles.push({ group: "Risk", label: "Rework rate", value: `${reworkRate}%`, warn: reworkRate > 15 });
+  tiles.push({ group: "Risk", label: "Config-stale", value: String(configStale), warn: configStale > 0 });
 
   return (
     <div className="space-y-4">
-      {/* Health strip — budget/committed/variance are Crew-and-above (crew economics). */}
-      <div
-        className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-4 shadow-[var(--shadow)]"
-        style={{ borderLeft: `5px solid ${showBudget ? RAG_TEXT[health.budgetRag] ?? "var(--muted)" : "var(--muted)"}` }}
-      >
-        {showBudget && budgetMixedCurrency ? (
-          <>
-            {(() => {
-              const mixedRag = budgetRagSummary.RED
-                ? "RED"
-                : budgetRagSummary.AMBER
-                  ? "AMBER"
-                  : budgetRagSummary.GREEN
-                    ? "GREEN"
-                    : "UNSET";
-              return (
-                <span
-                  className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-bold"
-                  style={{ color: RAG_TEXT[mixedRag], background: "color-mix(in srgb, currentColor 12%, transparent)" }}
-                  title="Budget health across companies — per-company detail in the By-company panel"
-                >
-                  ● {RAG_PILL_LABEL[mixedRag]}
-                </span>
-              );
-            })()}
-            <div className="hidden h-8 w-px bg-[var(--line)] sm:block" />
-          </>
-        ) : showBudget ? (
-          <>
-            <span
-              className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-bold"
-              style={{ color: RAG_TEXT[health.budgetRag], background: "color-mix(in srgb, currentColor 12%, transparent)" }}
-            >
-              ● {health.budgetLabel}
-            </span>
-            <Stat label={`Committed vs budget · ${health.year}`}>
-              {formatMoney(health.utilised, health.currency)}
-              <span className="text-[var(--muted)]"> / {health.budget != null ? formatMoney(health.budget, health.currency) : "no budget"}</span>
-              {health.utilizationPct != null ? <span className="text-[var(--muted)]"> · {Math.round(health.utilizationPct * 100)}%</span> : null}
-            </Stat>
-            <div className="hidden h-8 w-px bg-[var(--line)] sm:block" />
-          </>
-        ) : null}
-        <Stat label="Definition of Ready">{dorPct}%</Stat>
-        {showBudget ? (
-          <>
-            <div className="hidden h-8 w-px bg-[var(--line)] sm:block" />
-            <Stat label="Delivery vs estimate">
-              {health.deliveryVariancePct == null ? "—" : `${health.deliveryVariancePct > 0 ? "+" : ""}${(health.deliveryVariancePct * 100).toFixed(1)}%`}
-            </Stat>
-          </>
-        ) : null}
-        <div className="hidden h-8 w-px bg-[var(--line)] sm:block" />
-        <Stat label="CRs need action">
-          <span className={health.needsAction > 0 ? "text-[var(--danger)]" : ""}>{health.needsAction}</span>
-        </Stat>
-      </div>
-
-      {/* App-level insights (oversight roles) */}
-      {showInsights ? (
-        <Card>
-          <Rule />
-          <H sub="Flow, pipeline, quality and risk across everything in scope — currency-free">
-            Application insights
-          </H>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {insightTiles.map((t) => (
-              <div key={t.label} className="rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-3 py-2.5">
-                <p className="text-[0.6rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
-                  {t.group}
-                </p>
-                <p className="mt-1 text-[0.78rem] text-[var(--muted)]">{t.label}</p>
-                <p
-                  className={`mt-0.5 text-2xl font-semibold tabular-nums ${t.warn ? "text-[var(--danger)]" : "text-[var(--navy)]"}`}
-                >
-                  {t.value}
-                </p>
-              </div>
-            ))}
-          </div>
-        </Card>
-      ) : null}
+      {/* Application insights — compact tiles (budget/delivery/readiness + flow/pipeline/quality/risk) */}
+      <Card>
+        <Rule />
+        <H sub="Budget, delivery, flow, pipeline, quality and risk across everything in scope">
+          Application insights
+        </H>
+        <div className="mt-3 grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+          {tiles.map((t) => (
+            <div key={t.label} className="rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-2.5 py-2">
+              <p className="text-[0.56rem] font-semibold uppercase tracking-[0.1em] text-[var(--muted)]">{t.group}</p>
+              <p className="mt-0.5 truncate text-[0.7rem] text-[var(--muted)]" title={t.label}>{t.label}</p>
+              <p
+                className="mt-0.5 text-lg font-semibold tabular-nums"
+                style={{ color: t.warn ? "var(--danger)" : t.color ?? "var(--navy)" }}
+              >
+                {t.value}
+              </p>
+            </div>
+          ))}
+        </div>
+      </Card>
 
       {/* KPI cards + sparklines */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
@@ -440,12 +404,3 @@ export function HomeDashboard({
 }
 
 const ACTIONISH = new Set(["SPLIT", "SPLIT EPIC", "SPIKE REQUIRED", "DISCOVERY REQUIRED", "REJECTED"]);
-
-function Stat({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col">
-      <span className="text-base font-bold tabular-nums text-[var(--navy)]">{children}</span>
-      <span className="text-xs text-[var(--muted)]">{label}</span>
-    </div>
-  );
-}

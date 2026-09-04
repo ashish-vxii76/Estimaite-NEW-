@@ -3,7 +3,6 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { HomeDashboard } from "@/components/HomeDashboard";
 import { ScopeFilterBar } from "@/components/ScopeFilterBar";
-import { HomeActionsPanel } from "@/components/HomeActionsPanel";
 import { can } from "@/lib/access";
 import { fromSession, teamsForUser } from "@/lib/scope";
 import { resolveHomeScope } from "@/lib/orgFilter";
@@ -12,7 +11,6 @@ import { HomeOrgSplit, type OrgSplitRow } from "@/components/HomeOrgSplit";
 import { welcomeLine } from "@/lib/roles";
 import { getActiveConfig } from "@/services/configService";
 import { getPortfolio } from "@/services/portfolioService";
-import { buildHomeActions } from "@/lib/homeInbox";
 import { releaseWhere, parseRelease } from "@/lib/releasePeriod";
 import { descendantIds, resolveSeatLevel, resolveOrgCurrency, orgCurrenciesForCrews } from "@/services/orgService";
 import { CREW_LEVEL } from "@/lib/orgLevel";
@@ -270,8 +268,6 @@ export default async function HomePage({
   const welcome = isAppAdmin
     ? `Welcome ${session.user.name?.trim() || "there"} (Application Admin)`
     : welcomeLine(session.user.name, session.user.role, teamName);
-  const showActions = can(session.user.role, "home.actions");
-  const actions = showActions ? buildHomeActions(session.user.role, seatLevel) : [];
 
   return (
     <div className="space-y-6">
@@ -332,11 +328,8 @@ export default async function HomePage({
         showBudget={isCrewLevelOrAbove}
         budgetMixedCurrency={budgetMixedCurrency}
         budgetRagSummary={budgetRagSummary}
-        showInsights={isCrewLevelOrAbove}
         configStale={configStaleCount}
       />
-
-      {showActions ? <HomeActionsPanel actions={actions} /> : null}
     </div>
   );
 }
