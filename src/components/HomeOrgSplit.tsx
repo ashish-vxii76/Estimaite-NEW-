@@ -117,7 +117,8 @@ export function HomeOrgSplit({
     },
     {} as Record<string, number>,
   );
-  const ragOrder = ["GREEN", "AMBER", "RED"] as const;
+  // Worst-case overall RAG across the companies in view (Over > Watch > On budget).
+  const overallRag = ragCount.RED ? "RED" : ragCount.AMBER ? "AMBER" : ragCount.GREEN ? "GREEN" : "UNSET";
 
   return (
     <section className="card p-5">
@@ -132,16 +133,12 @@ export function HomeOrgSplit({
             {(rows.length === 1 ? splitLabel : pluralize(splitLabel)).toLowerCase()} in view ·
             select a row to focus the dashboard
           </p>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.72rem] text-[var(--muted)]">
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.72rem] text-[var(--muted)]">
             <span className="font-semibold uppercase tracking-[0.1em] text-[0.62rem]">Budget health</span>
-            {ragOrder.map((k) =>
-              ragCount[k] ? (
-                <span key={k} className="inline-flex items-center gap-1">
-                  <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: RAG_BAR[k] }} />
-                  {ragCount[k]} {RAG_LABEL[k].toLowerCase()}
-                </span>
-              ) : null,
-            )}
+            <span className="inline-flex items-center gap-1.5">
+              <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: RAG_BAR[overallRag] }} />
+              <span className="text-[var(--navy)]">{RAG_LABEL[overallRag]}</span>
+            </span>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.7rem] text-[var(--muted)]">

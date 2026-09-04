@@ -18,7 +18,7 @@ type Health = {
 
 const RAG_TEXT: Record<string, string> = { GREEN: "var(--ok)", AMBER: "var(--warn)", RED: "var(--danger)", UNSET: "var(--muted)" };
 const RAG_BAR: Record<string, string> = { GREEN: "#10b981", AMBER: "#e0a458", RED: "#e05c5c", UNSET: "#94a3b8" };
-const RAG_STRIP_LABEL: Record<string, string> = { GREEN: "on budget", AMBER: "watch", RED: "over" };
+const RAG_PILL_LABEL: Record<string, string> = { GREEN: "On budget", AMBER: "Watch", RED: "Over budget", UNSET: "No budget" };
 
 function Rule() {
   return <hr className="mb-3 h-0.5 w-8 rounded-full border-0 bg-[linear-gradient(90deg,var(--gold-2),var(--gold))]" />;
@@ -146,18 +146,25 @@ export function HomeDashboard({
       >
         {showBudget && budgetMixedCurrency ? (
           <>
+            {(() => {
+              const mixedRag = budgetRagSummary.RED
+                ? "RED"
+                : budgetRagSummary.AMBER
+                  ? "AMBER"
+                  : budgetRagSummary.GREEN
+                    ? "GREEN"
+                    : "UNSET";
+              return (
+                <span
+                  className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-bold"
+                  style={{ color: RAG_TEXT[mixedRag], background: "color-mix(in srgb, currentColor 12%, transparent)" }}
+                >
+                  ● {RAG_PILL_LABEL[mixedRag]}
+                </span>
+              );
+            })()}
             <Stat label={`Budget health · ${health.year}`}>
-              <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-semibold">
-                {(["GREEN", "AMBER", "RED"] as const).map((k) =>
-                  budgetRagSummary[k] ? (
-                    <span key={k} className="inline-flex items-center gap-1.5">
-                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: RAG_BAR[k] }} />
-                      <span className="text-[var(--navy)]">{budgetRagSummary[k]}</span>
-                      <span className="text-[var(--muted)]">{RAG_STRIP_LABEL[k]}</span>
-                    </span>
-                  ) : null,
-                )}
-              </span>
+              <span className="text-[var(--muted)]">per company — see By-company</span>
             </Stat>
             <div className="hidden h-8 w-px bg-[var(--line)] sm:block" />
           </>
