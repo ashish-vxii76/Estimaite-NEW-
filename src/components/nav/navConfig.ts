@@ -1,4 +1,4 @@
-import { can, isAdminTier, type FeatureId, type RbacMatrix } from "@/lib/rbac";
+import { can, isAdminTier, canUseWhatIf, type FeatureId, type RbacMatrix } from "@/lib/rbac";
 import { levelRank, APP_LEVEL } from "@/lib/orgLevel";
 import { ESTIMATE_CREATE_ROLES } from "@/lib/roles";
 
@@ -87,6 +87,7 @@ export const NAV_TREE: NavNode[] = [
       },
     ],
   },
+  { id: "whatif", label: "What-if scenarios", href: "/what-if", feature: "whatIf" },
   {
     id: "administration",
     label: "Administration",
@@ -202,6 +203,8 @@ export function canSeeNav(
   // The Administration section is for admin tiers only (App/Org/Crew) — a role that merely *reads* a
   // config surface must not see it.
   if (node.id === "administration") return isAdminTier(role, matrix);
+  // What-if: Reviewer/Approver (any level) + Crew Delivery Lead — not a Pod-level lead.
+  if (node.id === "whatif") return canUseWhatIf(role, levelRankValue, matrix);
   if (node.feature) return can(role, node.feature, "R", matrix);
   if (node.children?.length) return node.children.some((child) => canSeeNav(child, role, matrix, levelRankValue));
   if (node.href === "/admin") {

@@ -102,6 +102,32 @@ describe("seat-LEVEL gating — Delivery Lead at Pod vs Crew", () => {
   });
 });
 
+describe("What-if — hybrid capability (Reviewer/Approver any level; Delivery Lead Crew+)", () => {
+  const POD = levelRank("POD");
+  const CREW = levelRank("CREW");
+  it("Reviewer (any level) and Approver (read) can reach /what-if", () => {
+    expect(canAccessPath("REVIEWER", "/what-if", undefined, POD)).toBe(true);
+    expect(canAccessPath("APPROVER", "/what-if", undefined, POD)).toBe(true);
+    expect(canAccessPath("ADMINISTRATOR", "/what-if", undefined, POD)).toBe(true);
+  });
+  it("Estimator loses What-if entirely", () => {
+    expect(canAccessPath("ESTIMATOR", "/what-if", undefined, CREW)).toBe(false);
+  });
+  it("Delivery Lead needs Crew+ for What-if (Pod excluded)", () => {
+    expect(canAccessPath("DELIVERY_LEAD", "/what-if", undefined, POD)).toBe(false);
+    expect(canAccessPath("DELIVERY_LEAD", "/what-if", undefined, CREW)).toBe(true);
+  });
+  it("nav item mirrors the same rule", () => {
+    const node = findNode("whatif")!;
+    expect(node.href).toBe("/what-if");
+    expect(canSeeNav(node, "REVIEWER", undefined, POD)).toBe(true);
+    expect(canSeeNav(node, "APPROVER", undefined, POD)).toBe(true);
+    expect(canSeeNav(node, "DELIVERY_LEAD", undefined, POD)).toBe(false);
+    expect(canSeeNav(node, "DELIVERY_LEAD", undefined, CREW)).toBe(true);
+    expect(canSeeNav(node, "ESTIMATOR", undefined, CREW)).toBe(false);
+  });
+});
+
 describe("RBAC nav visibility (node × role)", () => {
   for (const [nodeId, expectations] of Object.entries(NAV_VISIBILITY)) {
     const node = findNode(nodeId);

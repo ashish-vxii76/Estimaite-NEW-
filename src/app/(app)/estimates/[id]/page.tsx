@@ -6,6 +6,8 @@ import { toScenarioTeams } from "@/lib/scenarioTeams";
 import { StatusBadge } from "@/components/ui";
 import { can, writesOwnRecordsOnly } from "@/lib/access";
 import { canSeeEstimateAsync, fromSession, teamsForUser } from "@/lib/scope";
+import { resolveSeatLevel } from "@/services/orgService";
+import { CREW_LEVEL } from "@/lib/orgLevel";
 import { safeJsonParse } from "@/lib/safeJson";
 import type { EstimateCalculationResult } from "@/domain/estimation";
 import { getActiveConfig } from "@/services/configService";
@@ -31,6 +33,11 @@ export default async function EstimateDetailPage({
 
   const ownOnly = writesOwnRecordsOnly(session?.user.role);
   const authored = estimate.createdById === session?.user.id;
+  // What-if: Delivery Lead needs a Crew+ seat (Pod-level lead excluded); other roles by grant.
+  const seatLevel = await resolveSeatLevel(fromSession(session!.user));
+  const canWhatIfInteractive =
+    can(session?.user.role, "whatIf", "RW") &&
+    (session?.user.role !== "DELIVERY_LEAD" || seatLevel >= CREW_LEVEL);
   const canEdit =
     can(session?.user.role, "estimates.edit", "RW") && (!ownOnly || authored);
 
@@ -96,7 +103,7 @@ export default async function EstimateDetailPage({
           canApprove: can(session?.user.role, "estimates.approve", "RW"),
           canOverride: canEdit,
           canEditActuals: can(session?.user.role, "estimates.actuals", "RW"),
-          canWhatIf: can(session?.user.role, "whatIf", "RW"),
+          canWhatIf: canWhatIfInteractive,
           canCancel: can(session?.user.role, "estimates.cancel", "RW"),
           canDescope: can(session?.user.role, "estimates.descope", "RW"),
           canRebaseline: can(session?.user.role, "estimates.rebaseline", "RW"),

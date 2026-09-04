@@ -95,9 +95,8 @@ const PDF: Record<FeatureId, Partial<Record<AppRole, Access>>> = {
   "portfolio.budget": { ADMINISTRATOR: "RW", DELIVERY_LEAD: "RW" },
   whatIf: {
     ADMINISTRATOR: "RW",
-    ESTIMATOR: "RW",
     REVIEWER: "RW",
-    APPROVER: "RW",
+    APPROVER: "R",
     DELIVERY_LEAD: "RW",
   },
   "calibration.view": {

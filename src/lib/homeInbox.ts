@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/access";
+import { canUseWhatIf } from "@/lib/rbac";
+import { getCachedRbacMatrix } from "@/services/rbacService";
 import { fromSession, resolveEstimateScope, type ScopeUser } from "@/lib/scope";
 import { CREW_LEVEL, APP_LEVEL } from "@/lib/orgLevel";
 
@@ -159,12 +161,12 @@ export function buildHomeActions(role: string | undefined, seatLevel: number = A
       feature: "calibration.view",
     });
   }
-  if (can(role, "whatIf")) {
+  if (canUseWhatIf(role, seatLevel, getCachedRbacMatrix())) {
     actions.push({
       id: "what-if",
-      label: "Scenarios (what-if)",
-      description: "Open a submitted estimate and use the Scenarios tab.",
-      href: "/estimates?status=READY_FOR_REVIEW",
+      label: "What-if scenarios",
+      description: "Model team / seniority / SP scenarios.",
+      href: "/what-if",
       feature: "whatIf",
     });
   }

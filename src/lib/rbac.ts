@@ -191,11 +191,12 @@ export const DEFAULT_RBAC: Record<FeatureId, Record<AppRole, Access>> = {
     ADMINISTRATOR: RW,
     DELIVERY_LEAD: RW,
   }),
+  // What-if scenarios: Reviewer + Crew Delivery Lead edit (RW), Approver views (R). Delivery Lead is
+  // additionally level-gated to Crew+ (see canUseWhatIf) so a Pod-level lead doesn't get it.
   whatIf: cell({
     ADMINISTRATOR: RW,
-    ESTIMATOR: RW,
     REVIEWER: RW,
-    APPROVER: RW,
+    APPROVER: R,
     DELIVERY_LEAD: RW,
   }),
   "calibration.view": cell({
@@ -412,6 +413,21 @@ export const PATH_MIN_LEVEL: { prefix: string; minLevel: string }[] = [
   { prefix: "/admin/crew-budgets", minLevel: "CREW" },
 ];
 
+/**
+ * What-if is a hybrid capability: a *workflow* tool for Reviewer/Approver (any level) but a
+ * *leadership* tool for a Delivery Lead — so a Pod-level Delivery Lead is excluded, a Crew+ one is
+ * not. Single source of truth for the nav item, the /what-if route, and the home shortcut.
+ */
+export function canUseWhatIf(
+  role: string | null | undefined,
+  levelRankValue: number = LEVEL_ORDER.indexOf("APP"),
+  matrix: RbacMatrix = DEFAULT_RBAC,
+): boolean {
+  if (!can(role, "whatIf", "R", matrix)) return false;
+  if (role === "DELIVERY_LEAD" && levelRankValue < LEVEL_ORDER.indexOf("CREW")) return false;
+  return true;
+}
+
 export function minLevelForPath(pathname: string): string | null {
   const hit = PATH_MIN_LEVEL.find(
     (row) => pathname === row.prefix || pathname.startsWith(`${row.prefix}/`),
@@ -426,6 +442,10 @@ export function canAccessPath(
   levelRankValue?: number,
 ): boolean {
   if (!role) return false;
+  // What-if: hybrid capability with a role-specific level rule (Delivery Lead needs Crew+).
+  if (pathname === "/what-if" || pathname.startsWith("/what-if/")) {
+    return canUseWhatIf(role, levelRankValue ?? LEVEL_ORDER.indexOf("APP"), matrix);
+  }
   // Level gate: crew-leadership surfaces need a Crew-or-above seat, not just the feature grant.
   const minLevel = minLevelForPath(pathname);
   if (minLevel != null && levelRankValue != null) {
