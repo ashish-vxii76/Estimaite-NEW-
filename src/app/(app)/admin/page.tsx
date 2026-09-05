@@ -22,7 +22,6 @@ const CLUSTERS = [
     feature: "org.setup" as const,
     links: [
       ["/admin/organisation", "Organisation setup"],
-      ["/admin/crew-budgets", "Crew yearly budgets"],
     ],
   },
   {
@@ -117,7 +116,6 @@ export default async function AdminHomePage() {
                   if (href === "/admin/rbac") return can(role, "config.rbac");
                   if (href === "/admin/users") return can(role, "config.users");
                   if (href === "/admin/organisation") return can(role, "org.setup");
-                  if (href === "/admin/crew-budgets") return can(role, "org.budget");
                   if (href.startsWith("/teams") || href.includes("composition")) return can(role, "config.teams");
                   if (href.includes("cost") || href.includes("daily")) return can(role, "config.rates");
                   if (href.includes("resource-mapping")) return can(role, "config.mappings");

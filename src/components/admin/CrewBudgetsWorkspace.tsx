@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CrewScopePanel } from "@/components/admin/CrewScopePanel";
+import { ScopeFilterBar } from "@/components/ScopeFilterBar";
 import { formatMoney } from "@/lib/utils";
 
 type Unit = { id: string; type: string; name: string; parentId: string | null };
@@ -15,23 +17,34 @@ type Budget = {
   pendingAmount: number | null;
   status: string;
   currency: string;
+  requestedById: string | null;
 };
 
-const ORG_ORDER = ["COMPANY", "DIVISION", "SUB_DIVISION", "STREAM"] as const;
+type StatusFilter = "ALL" | "PENDING" | "APPROVED";
+
+/** A budget with a pending create or a parked change is "awaiting approval". */
+function isAwaiting(b: Budget) {
+  return b.status === "PENDING" || b.pendingAmount != null;
+}
 
 export function CrewBudgetsWorkspace({
+  mode,
+  statusFilter,
   units,
   lockedUnitIds,
-  crews,
   activeCrewId,
   activeScopeType,
   activeScopeName,
   budgets,
   releaseYears,
   activeCrewCurrency,
+  approverCrewIds,
+  currentUserId,
   canWrite,
-  canApprove,
+  filters,
 }: {
+  mode: "queue" | "editor";
+  statusFilter: StatusFilter;
   units: Unit[];
   lockedUnitIds: string[];
   crews: { id: string; name: string }[];
@@ -41,12 +54,16 @@ export function CrewBudgetsWorkspace({
   budgets: Budget[];
   releaseYears: number[];
   activeCrewCurrency: string;
+  approverCrewIds: string[];
+  currentUserId: string;
   canWrite: boolean;
-  canApprove: boolean;
+  filters: { org: string; status: string; year: string };
 }) {
   const router = useRouter();
   const byId = useMemo(() => new Map(units.map((u) => [u.id, u])), [units]);
+  const approverSet = useMemo(() => new Set(approverCrewIds), [approverCrewIds]);
   const editingCrew = activeScopeType === "CREW" && activeCrewId != null;
+  const canApproveActive = editingCrew && activeCrewId != null && approverSet.has(activeCrewId);
 
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -70,62 +87,267 @@ export function CrewBudgetsWorkspace({
     }
   }
 
+  // Standardised filter drawer (identical contract to the Estimates register): org cascade to Crew,
+  // release year and status. Budgets are crew-level so the Pod/Team rung and the work-type/quarter
+  // section are hidden. Year + status ride as generic extra filters (URL-driven).
+  const extraFilters = [
+    {
+      label: "Release year",
+      param: "year",
+      value: filters.year,
+      clearValue: "",
+      options: [{ value: "", label: "All years" }, ...releaseYears.map((y) => ({ value: String(y), label: String(y) }))],
+    },
+    {
+      label: "Status",
+      param: "status",
+      value: filters.status,
+      clearValue: "",
+      options: [
+        { value: "", label: "All statuses" },
+        { value: "PENDING", label: "Awaiting approval" },
+        { value: "APPROVED", label: "Approved" },
+      ],
+    },
+  ];
+
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="font-display text-2xl font-semibold text-[var(--navy)]">Crew yearly budgets</h1>
-        <p className="mt-1 max-w-3xl text-sm text-[var(--muted)]">
-          Budget is owned at Crew level in the company&apos;s currency, yearly; higher levels are per-currency sums. Changes are governed:
-          a create or edit needs approval by an admin or the crew&apos;s Tech Lead before it counts —
-          until then the previously approved amount stands. Pick a crew to manage its budgets.
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="kicker">Governed budgets</p>
+          <h1 className="font-display text-2xl font-semibold text-[var(--navy)]">Crew yearly budgets</h1>
+        </div>
+        {mode === "queue" && canWrite ? (
+          <Link href="/crew-budgets?new=1" className="btn-primary">
+            New crew budget
+          </Link>
+        ) : null}
       </div>
+      <p className="max-w-3xl text-sm text-[var(--muted)]">
+        Budget is owned at Crew level in each company&apos;s currency, yearly; higher levels are per-currency
+        sums. Every create or edit is governed: it stays <em>awaiting approval</em> until a different eligible
+        approver (an admin, or the crew&apos;s Tech/Product Lead) promotes it — the previously approved amount
+        stands until then.
+      </p>
 
-      <div className="flex flex-wrap items-start gap-4">
-        <CrewScopePanel units={units} lockedUnitIds={lockedUnitIds} activeCrewId={activeCrewId} />
-
-        <section className="min-w-[340px] flex-1 space-y-3">
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-[var(--muted)]">Scope:</span>
-            <span className="rounded-full bg-[var(--panel-2)] px-2.5 py-0.5 font-medium text-[var(--navy)]">
-              {editingCrew ? `Crew · ${activeScopeName}` : activeScopeType === "COMPANY" ? `Company · ${activeScopeName}` : "Application · all"}
-            </span>
+      {mode === "editor" ? (
+        <div className="space-y-4">
+          <Link href="/crew-budgets" className="inline-block text-sm text-[var(--navy)] underline">
+            ← Back to all budgets
+          </Link>
+          <div className="flex flex-wrap items-start gap-4">
+            <CrewScopePanel units={units} lockedUnitIds={lockedUnitIds} activeCrewId={activeCrewId} />
+            <section className="min-w-[340px] flex-1 space-y-3">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-[var(--muted)]">Scope:</span>
+                <span className="rounded-full bg-[var(--panel-2)] px-2.5 py-0.5 font-medium text-[var(--navy)]">
+                  {editingCrew ? `Crew · ${activeScopeName}` : "Pick a crew to add or edit its budget"}
+                </span>
+              </div>
+              {editingCrew ? (
+                <CrewEditor
+                  crewName={activeScopeName}
+                  currency={activeCrewCurrency}
+                  budgets={budgets.filter((b) => b.crewId === activeCrewId)}
+                  releaseYears={releaseYears}
+                  canWrite={canWrite}
+                  canApprove={canApproveActive}
+                  currentUserId={currentUserId}
+                  busy={busy}
+                  onSave={(year, amount, allowUpdate) => call({ action: "save", crewId: activeCrewId, year, amount, allowUpdate })}
+                  onApprove={(id) => call({ action: "approve", id })}
+                  onDiscard={(id) => call({ action: "discard", id })}
+                  onDelete={(id) => call({}, "DELETE", `?id=${encodeURIComponent(id)}`)}
+                />
+              ) : (
+                <p className="card p-5 text-sm text-[var(--muted)]">
+                  Choose a crew in the cascade on the left to create or edit a yearly budget.
+                </p>
+              )}
+              {message ? <p className="text-sm text-[var(--navy)]">{message}</p> : null}
+            </section>
           </div>
-
-          {editingCrew ? (
-            <CrewEditor
-              crewId={activeCrewId!}
-              crewName={activeScopeName}
-              currency={activeCrewCurrency}
-              budgets={budgets.filter((b) => b.crewId === activeCrewId)}
-              releaseYears={releaseYears}
-              canWrite={canWrite}
-              canApprove={canApprove}
-              busy={busy}
-              onSave={(year, amount, allowUpdate) => call({ action: "save", crewId: activeCrewId, year, amount, allowUpdate })}
-              onApprove={(id) => call({ action: "approve", id })}
-              onDiscard={(id) => call({ action: "discard", id })}
-              onDelete={(id) => call({}, "DELETE", `?id=${encodeURIComponent(id)}`)}
-            />
-          ) : (
-            <RollupTable units={byId} budgets={budgets} releaseYears={releaseYears} />
-          )}
-
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <ScopeFilterBar
+            basePath="/crew-budgets"
+            units={units}
+            teams={[]}
+            lockedUnitIds={lockedUnitIds}
+            org={filters.org}
+            team=""
+            showTeam={false}
+            showWorkRelease={false}
+            extraFilters={extraFilters}
+          />
+          <QueueTable
+            units={byId}
+            budgets={budgets}
+            statusFilter={statusFilter}
+            approverSet={approverSet}
+            currentUserId={currentUserId}
+            canWrite={canWrite}
+            busy={busy}
+            onApprove={(id) => call({ action: "approve", id })}
+            onDiscard={(id) => call({ action: "discard", id })}
+          />
           {message ? <p className="text-sm text-[var(--navy)]">{message}</p> : null}
-        </section>
-      </div>
+        </div>
+      )}
     </div>
   );
 }
 
 function StatusBadge({ b }: { b: Budget }) {
-  if (b.status === "PENDING") {
-    return <span className="chip-warn rounded-full px-2 py-0.5 text-[11px] font-medium">Pending approval</span>;
+  const cls = "inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium";
+  if (b.status === "PENDING") return <span className={`chip-warn ${cls}`}>Awaiting approval</span>;
+  if (b.pendingAmount != null) return <span className={`chip-warn ${cls}`}>Change pending</span>;
+  return <span className={`chip-ok ${cls}`}>Approved</span>;
+}
+
+/** Cross-crew, status-filtered approval queue — the "All / Awaiting approval / Approved" views. */
+function QueueTable({
+  units,
+  budgets,
+  statusFilter,
+  approverSet,
+  currentUserId,
+  canWrite,
+  busy,
+  onApprove,
+  onDiscard,
+}: {
+  units: Map<string, Unit>;
+  budgets: Budget[];
+  statusFilter: StatusFilter;
+  approverSet: Set<string>;
+  currentUserId: string;
+  canWrite: boolean;
+  busy: boolean;
+  onApprove: (id: string) => void;
+  onDiscard: (id: string) => void;
+}) {
+  function pathOf(crewId: string) {
+    const out: Record<string, string> = { COMPANY: "—", DIVISION: "—", SUB_DIVISION: "—", STREAM: "—" };
+    let cur = units.get(crewId);
+    cur = cur?.parentId ? units.get(cur.parentId) : undefined;
+    while (cur) {
+      out[cur.type] = cur.name;
+      cur = cur.parentId ? units.get(cur.parentId) : undefined;
+    }
+    return out;
   }
-  if (b.pendingAmount != null) {
-    return <span className="chip-warn rounded-full px-2 py-0.5 text-[11px] font-medium">Change pending</span>;
-  }
-  return <span className="chip-ok rounded-full px-2 py-0.5 text-[11px] font-medium">Approved</span>;
+
+  // Rows arrive already filtered by the drawer (org / year / status), resolved server-side.
+  const rows = useMemo(() => {
+    return budgets
+      .map((b) => ({ b, path: pathOf(b.crewId) }))
+      .sort((a, z) =>
+        (a.path.COMPANY + a.path.DIVISION + a.path.SUB_DIVISION + a.path.STREAM + a.b.crewName + a.b.year).localeCompare(
+          z.path.COMPANY + z.path.DIVISION + z.path.SUB_DIVISION + z.path.STREAM + z.b.crewName + z.b.year,
+        ),
+      );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [budgets]);
+
+  // Roll-up spans companies/currencies — sum PER currency, never into one figure (no FX).
+  const totalsByCcy = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const r of rows) {
+      if (r.b.status === "APPROVED") m[r.b.currency] = (m[r.b.currency] ?? 0) + r.b.amount;
+    }
+    return m;
+  }, [rows]);
+
+  const emptyLabel =
+    statusFilter === "PENDING"
+      ? "Nothing awaiting approval"
+      : statusFilter === "APPROVED"
+        ? "No approved budgets"
+        : "No budgets in scope";
+
+  return (
+    <section className="card overflow-x-auto p-5">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-medium text-[var(--navy)]">
+          {statusFilter === "PENDING" ? "Awaiting approval" : statusFilter === "APPROVED" ? "Approved budgets" : "All crew budgets"}
+        </h2>
+        <span className="text-sm text-[var(--muted)]">{rows.length} {rows.length === 1 ? "budget" : "budgets"}</span>
+      </div>
+      <table className="w-full min-w-[900px] text-left text-sm [&_td]:px-3 [&_td]:py-3 [&_td]:align-top [&_th]:px-3 [&_th]:py-2">
+        <thead className="text-xs uppercase text-[var(--muted)]">
+          <tr>
+            <th>Company</th>
+            <th>Division</th>
+            <th>Sub-Division</th>
+            <th>Stream</th>
+            <th>Crew</th>
+            <th>Year</th>
+            <th className="text-right">Amount</th>
+            <th>Status</th>
+            <th className="text-right">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(({ b, path }) => {
+            const awaiting = isAwaiting(b);
+            const isMaker = b.requestedById != null && b.requestedById === currentUserId;
+            const mayApprove = awaiting && approverSet.has(b.crewId) && !isMaker;
+            return (
+              <tr key={b.id} className="border-t border-[var(--line)] align-top">
+                <td className="py-2">{path.COMPANY}</td>
+                <td className="py-2">{path.DIVISION}</td>
+                <td className="py-2">{path.SUB_DIVISION}</td>
+                <td className="py-2">{path.STREAM}</td>
+                <td className="py-2 font-medium">{b.crewName}</td>
+                <td className="py-2">{b.year}</td>
+                <td className="whitespace-nowrap text-right">
+                  {b.status === "APPROVED" ? formatMoney(b.amount, b.currency) : b.status === "PENDING" ? (
+                    <span>{formatMoney(b.amount, b.currency)} <span className="text-[11px] text-[var(--muted)]">(proposed)</span></span>
+                  ) : "—"}
+                  {b.pendingAmount != null ? (
+                    <div className="text-[11px] text-[var(--warn,#b7791f)]">→ {formatMoney(b.pendingAmount, b.currency)} pending</div>
+                  ) : null}
+                </td>
+                <td><StatusBadge b={b} /></td>
+                <td className="text-right">
+                  {mayApprove ? (
+                    <span className="inline-flex flex-wrap justify-end gap-3">
+                      <button className="text-[var(--success,#2f855a)] underline disabled:opacity-40" disabled={busy} onClick={() => onApprove(b.id)}>Approve</button>
+                      <button className="text-[var(--muted)] underline disabled:opacity-40" disabled={busy} onClick={() => onDiscard(b.id)}>Discard</button>
+                    </span>
+                  ) : awaiting && isMaker ? (
+                    <span className="text-[11px] text-[var(--muted)]">You submitted — needs another approver</span>
+                  ) : awaiting ? (
+                    <span className="text-[11px] text-[var(--muted)]">Awaiting an approver</span>
+                  ) : canWrite ? (
+                    <Link href={`/crew-budgets?crew=${encodeURIComponent(b.crewId)}`} className="text-[var(--navy)] underline">Edit</Link>
+                  ) : null}
+                </td>
+              </tr>
+            );
+          })}
+          {rows.length === 0 ? (
+            <tr><td colSpan={9} className="py-4 text-[var(--muted)]">{emptyLabel} in this filter.</td></tr>
+          ) : null}
+        </tbody>
+      </table>
+      <p className="mt-3 text-sm font-semibold text-[var(--navy)]">
+        Approved total:{" "}
+        {Object.keys(totalsByCcy).length === 0
+          ? "—"
+          : Object.entries(totalsByCcy)
+              .map(([ccy, v]) => formatMoney(v, ccy))
+              .join("  ·  ")}
+      </p>
+      <p className="mt-1 text-[11.5px] text-[var(--muted)]">
+        Totals are per currency — budgets are held in each company&apos;s currency and never summed across
+        currencies. Only approved budgets count in roll-ups.
+      </p>
+    </section>
+  );
 }
 
 function CrewEditor({
@@ -135,19 +357,20 @@ function CrewEditor({
   releaseYears,
   canWrite,
   canApprove,
+  currentUserId,
   busy,
   onSave,
   onApprove,
   onDiscard,
   onDelete,
 }: {
-  crewId: string;
   crewName: string;
   currency: string;
   budgets: Budget[];
   releaseYears: number[];
   canWrite: boolean;
   canApprove: boolean;
+  currentUserId: string;
   busy: boolean;
   onSave: (year: number, amount: number, allowUpdate: boolean) => void;
   onApprove: (id: string) => void;
@@ -204,15 +427,14 @@ function CrewEditor({
                 disabled={busy || !newYear || newAmount === ""}
                 onClick={() => { onSave(Number(newYear), Number(newAmount), false); setNewYear(""); setNewAmount(""); }}
               >
-                {canApprove ? "Add budget" : "Submit for approval"}
+                Submit for approval
               </button>
             </div>
           )}
-          {!canApprove ? (
-            <p className="text-[11.5px] text-[var(--muted)]">
-              You can submit budgets; an admin or the Crew Tech Lead approves before they take effect.
-            </p>
-          ) : null}
+          <p className="text-[11.5px] text-[var(--muted)]">
+            A new or changed budget is submitted for approval. Maker ≠ checker: it must be approved by a
+            different eligible approver{canApprove ? " (you can approve others’ submissions here)" : ""}.
+          </p>
         </section>
       ) : null}
 
@@ -229,7 +451,9 @@ function CrewEditor({
           </thead>
           <tbody>
             {rows.map((b) => {
-              const hasPending = b.status === "PENDING" || b.pendingAmount != null;
+              const awaiting = isAwaiting(b);
+              const isMaker = b.requestedById != null && b.requestedById === currentUserId;
+              const mayApprove = awaiting && canApprove && !isMaker;
               return (
                 <tr key={b.id} className="border-t border-[var(--line)] align-top">
                   <td className="py-2 font-medium">{b.year}</td>
@@ -264,10 +488,12 @@ function CrewEditor({
                       ) : (
                         <span className="inline-flex flex-wrap justify-end gap-3">
                           <button className="text-[var(--navy)] underline" onClick={() => { setEditingId(b.id); setEditAmount(String(b.pendingAmount ?? b.amount)); }}>Edit</button>
-                          {hasPending && canApprove ? (
+                          {mayApprove ? (
                             <button className="text-[var(--success,#2f855a)] underline" disabled={busy} onClick={() => onApprove(b.id)}>Approve</button>
+                          ) : awaiting && isMaker ? (
+                            <span className="text-[11px] text-[var(--muted)]">needs another approver</span>
                           ) : null}
-                          {hasPending ? (
+                          {awaiting ? (
                             <button className="text-[var(--muted)] underline" disabled={busy} onClick={() => onDiscard(b.id)}>Discard change</button>
                           ) : (
                             <button className="text-[var(--danger)] underline" disabled={busy} onClick={() => { if (window.confirm(`Delete the ${b.year} budget for ${crewName}?`)) onDelete(b.id); }}>Delete</button>
@@ -289,112 +515,5 @@ function CrewEditor({
         </p>
       </section>
     </div>
-  );
-}
-
-function RollupTable({
-  units,
-  budgets,
-  releaseYears,
-}: {
-  units: Map<string, Unit>;
-  budgets: Budget[];
-  releaseYears: number[];
-}) {
-  const [year, setYear] = useState(""); // "" = All (default)
-
-  function pathOf(crewId: string) {
-    const out: Record<string, string> = { COMPANY: "—", DIVISION: "—", SUB_DIVISION: "—", STREAM: "—" };
-    let cur = units.get(crewId);
-    cur = cur?.parentId ? units.get(cur.parentId) : undefined;
-    while (cur) {
-      out[cur.type] = cur.name;
-      cur = cur.parentId ? units.get(cur.parentId) : undefined;
-    }
-    return out;
-  }
-
-  const rows = useMemo(() => {
-    const filtered = year ? budgets.filter((b) => b.year === Number(year)) : budgets;
-    return filtered
-      .map((b) => ({ b, path: pathOf(b.crewId) }))
-      .sort((a, z) =>
-        (a.path.COMPANY + a.path.DIVISION + a.path.SUB_DIVISION + a.path.STREAM + a.b.crewName + a.b.year).localeCompare(
-          z.path.COMPANY + z.path.DIVISION + z.path.SUB_DIVISION + z.path.STREAM + z.b.crewName + z.b.year,
-        ),
-      );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [budgets, year]);
-
-  // Roll-up spans companies/currencies — sum PER currency, never into one figure (no FX).
-  const totalsByCcy = useMemo(() => {
-    const m: Record<string, number> = {};
-    for (const r of rows) {
-      if (r.b.status === "APPROVED") m[r.b.currency] = (m[r.b.currency] ?? 0) + r.b.amount;
-    }
-    return m;
-  }, [rows]);
-
-  return (
-    <section className="card overflow-x-auto p-5">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-medium text-[var(--navy)]">Budget roll-up</h2>
-        <label className="text-sm text-[var(--muted)]">
-          Year{" "}
-          <select
-            className="rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-2 py-1 text-sm text-[var(--navy)]"
-            value={year}
-            onChange={(e) => setYear(e.target.value)}
-          >
-            <option value="">All</option>
-            {releaseYears.map((y) => (
-              <option key={y} value={y}>{y}</option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <table className="w-full min-w-[720px] text-left text-sm">
-        <thead className="text-xs uppercase text-[var(--muted)]">
-          <tr>
-            <th className="py-2">Company</th>
-            <th className="py-2">Division</th>
-            <th className="py-2">Sub-Division</th>
-            <th className="py-2">Stream</th>
-            <th className="py-2">Crew</th>
-            <th className="py-2">Year</th>
-            <th className="py-2 text-right">Budget (approved)</th>
-            <th className="py-2">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(({ b, path }) => (
-            <tr key={b.id} className="border-t border-[var(--line)]">
-              <td className="py-2">{path.COMPANY}</td>
-              <td className="py-2">{path.DIVISION}</td>
-              <td className="py-2">{path.SUB_DIVISION}</td>
-              <td className="py-2">{path.STREAM}</td>
-              <td className="py-2 font-medium">{b.crewName}</td>
-              <td className="py-2">{b.year}</td>
-              <td className="py-2 text-right">{b.status === "APPROVED" ? formatMoney(b.amount, b.currency) : "—"}</td>
-              <td className="py-2"><StatusBadge b={b} /></td>
-            </tr>
-          ))}
-          {rows.length === 0 ? (
-            <tr><td colSpan={8} className="py-4 text-[var(--muted)]">No budgets in scope{year ? ` for ${year}` : ""}.</td></tr>
-          ) : null}
-        </tbody>
-      </table>
-      <p className="mt-3 text-sm font-semibold text-[var(--navy)]">
-        Approved total{year ? ` · ${year}` : ""}:{" "}
-        {Object.keys(totalsByCcy).length === 0
-          ? "—"
-          : Object.entries(totalsByCcy)
-              .map(([ccy, v]) => formatMoney(v, ccy))
-              .join("  ·  ")}
-      </p>
-      <p className="mt-1 text-[11.5px] text-[var(--muted)]">
-        Totals are per currency — budgets are held in each company&apos;s currency and never summed across currencies. Pick a crew on the left to add or edit its budgets.
-      </p>
-    </section>
   );
 }

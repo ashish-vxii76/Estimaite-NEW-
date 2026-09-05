@@ -3,7 +3,6 @@ export const ADMIN_PAGES = [
   ["/admin/users", "Login credentials"],
   ["/admin/rbac", "RBAC"],
   ["/admin/organisation", "Organisation setup"],
-  ["/admin/crew-budgets", "Crew budgets"],
   ["/admin/release-quarters", "Release quarters"],
   ["/admin/readiness-criteria", "Definition of Ready"],
   ["/admin/complexity-dimensions", "Complexity dimensions"],

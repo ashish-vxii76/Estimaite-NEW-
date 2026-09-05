@@ -231,7 +231,7 @@ export default async function PortfolioPage({
             </p>
           </div>
           {canBudget ? (
-            <Link href="/admin/crew-budgets" className="btn-primary text-sm">
+            <Link href="/crew-budgets" className="btn-primary text-sm">
               Manage Crew budgets
             </Link>
           ) : null}

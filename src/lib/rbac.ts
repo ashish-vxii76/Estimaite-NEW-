@@ -372,7 +372,7 @@ export const PATH_FEATURES: { prefix: string; feature: FeatureId; mode: "R" | "R
   { prefix: "/admin/users", feature: "config.users", mode: "R" },
   { prefix: "/admin/rbac", feature: "config.rbac", mode: "R" },
   { prefix: "/admin/organisation", feature: "org.setup", mode: "R" },
-  { prefix: "/admin/crew-budgets", feature: "org.budget", mode: "R" },
+  { prefix: "/crew-budgets", feature: "org.budget", mode: "R" },
   { prefix: "/admin/team-composition", feature: "config.teams", mode: "R" },
   { prefix: "/teams", feature: "config.teams", mode: "R" },
   { prefix: "/admin/cost-mapping", feature: "config.rates", mode: "R" },
@@ -409,7 +409,7 @@ export function featureForPath(pathname: string): { feature: FeatureId; mode: "R
 export const PATH_MIN_LEVEL: { prefix: string; minLevel: string }[] = [
   { prefix: "/portfolio", minLevel: "CREW" },
   { prefix: "/calibration", minLevel: "CREW" },
-  { prefix: "/admin/crew-budgets", minLevel: "CREW" },
+  { prefix: "/crew-budgets", minLevel: "CREW" },
 ];
 
 export function minLevelForPath(pathname: string): string | null {

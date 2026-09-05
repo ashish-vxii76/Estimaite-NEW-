@@ -49,6 +49,8 @@ type Props = {
   release?: string;
   quarters?: string[];
   showWorkRelease?: boolean;
+  /** Pod/Team level — hidden for crew-level surfaces (e.g. Crew budgets) that have no pod. */
+  showTeam?: boolean;
   extraFilters?: ExtraFilter[];
   extraParams?: Record<string, string>;
 };
@@ -82,6 +84,7 @@ export function ScopeFilterBar(props: Props) {
     release = "",
     quarters = [],
     showWorkRelease = true,
+    showTeam = true,
     extraFilters = [],
     extraParams = {},
   } = props;
@@ -123,7 +126,7 @@ export function ScopeFilterBar(props: Props) {
 
   const activeCount =
     orgChips.length +
-    (team && !lockedTeamId ? 1 : 0) +
+    (showTeam && team && !lockedTeamId ? 1 : 0) +
     (showWorkRelease && workItemType ? 1 : 0) +
     (showWorkRelease && parsed.year ? 1 : 0) +
     (showWorkRelease && parsed.quarter ? 1 : 0) +
@@ -152,7 +155,7 @@ export function ScopeFilterBar(props: Props) {
         {orgChips.map((c) => (
           <Chip key={c.type} label={`${ORG_TYPE_LABEL[c.type]}: ${c.name}`} onRemove={() => removeOrgLevel(c.type)} />
         ))}
-        {team && !lockedTeamId ? (
+        {showTeam && team && !lockedTeamId ? (
           <Chip label={`Pod: ${teams.find((t) => t.id === team)?.name ?? "—"}`} onRemove={() => navigate({ team: "" })} />
         ) : null}
 
@@ -226,6 +229,7 @@ function FilterDrawer({
   release = "",
   quarters = [],
   showWorkRelease = true,
+  showTeam = true,
   extraFilters = [],
   onClose,
   navigate,
@@ -332,25 +336,27 @@ function FilterDrawer({
                 </label>
               );
             })}
-            <label className={`mb-2 block text-sm ${!crewSel && !lockedTeamId ? "opacity-60" : ""}`}>
-              Pod / Team
-              {lockedTeamId ? (
-                <LockedScopeField className="mt-1 px-3 py-2 text-sm" value={teams.find((t) => t.id === lockedTeamId)?.name ?? "—"} />
-              ) : !crewSel ? (
-                <select className={SEL} value="" disabled aria-readonly="true">
-                  <option value="">All pods</option>
-                </select>
-              ) : (
-                <select className={SEL} value={dTeam} onChange={(e) => setDTeam(e.target.value)}>
-                  <option value="">All pods</option>
-                  {podOptions.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </label>
+            {showTeam ? (
+              <label className={`mb-2 block text-sm ${!crewSel && !lockedTeamId ? "opacity-60" : ""}`}>
+                Pod / Team
+                {lockedTeamId ? (
+                  <LockedScopeField className="mt-1 px-3 py-2 text-sm" value={teams.find((t) => t.id === lockedTeamId)?.name ?? "—"} />
+                ) : !crewSel ? (
+                  <select className={SEL} value="" disabled aria-readonly="true">
+                    <option value="">All pods</option>
+                  </select>
+                ) : (
+                  <select className={SEL} value={dTeam} onChange={(e) => setDTeam(e.target.value)}>
+                    <option value="">All pods</option>
+                    {podOptions.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </label>
+            ) : null}
           </div>
 
           {showWorkRelease ? (

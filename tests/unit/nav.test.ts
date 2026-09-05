@@ -67,13 +67,28 @@ describe("left navigation tree", () => {
     expect(canSeeNav(admin, "ADMINISTRATOR")).toBe(true);
   });
 
-  it("Crew budgets sits under Analytics (leadership surface), not Administration", () => {
-    // Leadership sees Crew budgets without the config-Administration section.
-    expect(find("crew-budgets")?.href).toBe("/admin/crew-budgets");
-    expect(canSeeNav(find("crew-budgets")!, "DELIVERY_LEAD")).toBe(true);
-    expect(canSeeNav(find("crew-budgets")!, "ADMINISTRATOR")).toBe(true);
-    expect(canSeeNav(find("crew-budgets")!, "FINANCE")).toBe(false);
-    expect(canSeeNav(find("crew-budgets")!, "ESTIMATOR")).toBe(false);
+  it("Crew budgets is a top-level lifecycle section (like Estimates), not Analytics/Administration", () => {
+    // Promoted to a first-class peer of Estimates with a status-tab subtree, gated to crew leadership.
+    const node = NAV_TREE.find((n) => n.id === "crew-budgets");
+    expect(node).toBeDefined(); // top-level, not nested under Analytics
+    expect(node?.href).toBe("/crew-budgets");
+    expect(node?.minLevel).toBe("CREW");
+    expect(node?.children?.map((c) => c.href)).toEqual([
+      "/crew-budgets?new=1",
+      "/crew-budgets",
+      "/crew-budgets?status=PENDING",
+      "/crew-budgets?status=APPROVED",
+    ]);
+    expect(canSeeNav(node!, "DELIVERY_LEAD")).toBe(true);
+    expect(canSeeNav(node!, "ADMINISTRATOR")).toBe(true);
+    expect(canSeeNav(node!, "FINANCE")).toBe(false);
+    expect(canSeeNav(node!, "ESTIMATOR")).toBe(false);
+    // "All" tab lights up only on bare /crew-budgets, not the status/new variants.
+    const all = node!.children!.find((c) => c.id === "crew-budgets-all")!;
+    expect(isNodeActive(all, "/crew-budgets", "", "")).toBe(true);
+    expect(isNodeActive(all, "/crew-budgets", "?status=PENDING", "")).toBe(false);
+    const awaiting = node!.children!.find((c) => c.id === "crew-budgets-awaiting")!;
+    expect(isNodeActive(awaiting, "/crew-budgets", "?status=PENDING", "")).toBe(true);
   });
 
   it("puts RBAC under Access and gates Roll-up to leadership/finance/admin", () => {

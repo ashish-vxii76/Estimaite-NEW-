@@ -3,7 +3,24 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { BarChart3, ChevronRight, Home, ListChecks, Menu, Plus, Settings, X } from "lucide-react";
+import {
+  Banknote,
+  BarChart3,
+  Building2,
+  ChevronRight,
+  ClipboardList,
+  Cog,
+  Home,
+  KeyRound,
+  LayoutDashboard,
+  ListChecks,
+  Menu,
+  Plus,
+  Ruler,
+  Settings,
+  Wallet,
+  X,
+} from "lucide-react";
 import {
   NAV_TREE,
   canCreate,
@@ -17,9 +34,26 @@ import type { RbacMatrix } from "@/lib/rbac";
 const TOP_ICONS: Record<string, typeof Home> = {
   home: Home,
   estimates: ListChecks,
+  "crew-budgets": Wallet,
   analytics: BarChart3,
   administration: Settings,
 };
+
+// Sub-section (nested group) icons — parallel to the top-level icons, for scannability.
+const SUB_ICONS: Record<string, typeof Home> = {
+  "admin-overview": LayoutDashboard,
+  "admin-access": KeyRound,
+  "admin-org": Building2,
+  "admin-lists": ClipboardList,
+  "admin-size": Ruler,
+  "admin-commercial": Banknote,
+  "admin-engine": Cog,
+};
+
+/** Icon for a node: top-level sections and nested sub-sections carry one; leaves don't. */
+function iconFor(node: NavNode, depth: number) {
+  return depth === 0 ? TOP_ICONS[node.id] : SUB_ICONS[node.id];
+}
 
 export function SideNav({
   role,
@@ -46,7 +80,9 @@ export function SideNav({
   const search = searchParams.toString() ? `?${searchParams.toString()}` : "";
   const [hash, setHash] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [open, setOpen] = useState<Record<string, boolean>>({ estimates: true, analytics: true });
+  // Accordion: at most ONE branch open per level → `open` only ever holds a single ancestor path.
+  // Starts empty so a fresh login / Home lands fully collapsed.
+  const [open, setOpen] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const apply = () => setHash(window.location.hash);
@@ -61,38 +97,55 @@ export function SideNav({
 
   const tree = useMemo(() => filterTree(NAV_TREE, role, matrix, seatLevel), [role, matrix, seatLevel]);
 
+  // Parent lookup for the accordion: opening/closing a node is expressed as its ancestor path.
+  const parentOf = useMemo(() => {
+    const map: Record<string, string | null> = {};
+    const walk = (nodes: NavNode[], parent: string | null) => {
+      for (const n of nodes) {
+        map[n.id] = parent;
+        if (n.children) walk(n.children, n.id);
+      }
+    };
+    walk(tree, null);
+    return map;
+  }, [tree]);
+
+  function ancestorsOf(id: string): string[] {
+    const chain: string[] = [];
+    let p = parentOf[id] ?? null;
+    while (p) {
+      chain.push(p);
+      p = parentOf[p] ?? null;
+    }
+    return chain;
+  }
+
+  // On navigation, expand exactly the active branch path (and nothing else). On Home — which has no
+  // expandable active branch — this resolves to fully collapsed. Replaces (not merges) prior state,
+  // so the tree never accumulates open siblings across routes.
   useEffect(() => {
-    setOpen((current) => {
-      const next = { ...current };
-      const visit = (nodes: NavNode[]) => {
-        for (const node of nodes) {
-          if (node.children?.length && containsActive(node, pathname, search, hash)) {
-            next[node.id] = true;
-          }
-          if (node.children) visit(node.children);
+    const next: Record<string, boolean> = {};
+    const visit = (nodes: NavNode[]) => {
+      for (const node of nodes) {
+        if (node.children?.length && containsActive(node, pathname, search, hash)) {
+          next[node.id] = true;
+          visit(node.children);
         }
-      };
-      visit(tree);
-      return next;
-    });
+      }
+    };
+    visit(tree);
+    setOpen(next);
   }, [pathname, search, hash, tree]);
 
+  // Accordion toggle: only one branch stays open per level. Opening a node keeps its ancestor path
+  // open and closes every sibling/unrelated branch; closing it drops back to the parent path.
   function toggle(id: string) {
-    setOpen((current) => ({ ...current, [id]: !current[id] }));
-  }
-
-  function branchIds(nodes: NavNode[], acc: string[] = []): string[] {
-    for (const node of nodes) {
-      if (node.children?.length) {
-        acc.push(node.id);
-        branchIds(node.children, acc);
-      }
-    }
-    return acc;
-  }
-
-  function expandAll() {
-    setOpen(Object.fromEntries(branchIds(tree).map((id) => [id, true])));
+    setOpen((current) => {
+      const next: Record<string, boolean> = {};
+      for (const a of ancestorsOf(id)) next[a] = true;
+      if (!current[id]) next[id] = true;
+      return next;
+    });
   }
 
   function collapseAll() {
@@ -103,10 +156,6 @@ export function SideNav({
   const renderNav = () => (
     <nav className="mt-4 space-y-0.5 text-sm">
       <div className="mb-1 flex items-center justify-end gap-2 px-2 text-[0.68rem] font-medium text-[var(--muted)]">
-        <button type="button" onClick={expandAll} className="hover:text-[var(--navy)]">
-          Expand all
-        </button>
-        <span aria-hidden="true">·</span>
         <button type="button" onClick={collapseAll} className="hover:text-[var(--navy)]">
           Collapse all
         </button>
@@ -116,6 +165,8 @@ export function SideNav({
           key={node.id}
           node={node}
           depth={0}
+          basePad={8}
+          reserveIcon={tree.some((n) => Boolean(iconFor(n, 0)))}
           role={role}
           matrix={matrix}
           open={open}
@@ -229,6 +280,8 @@ function UserBlock({
 function NavBranch({
   node,
   depth,
+  basePad,
+  reserveIcon,
   role,
   matrix,
   open,
@@ -239,6 +292,10 @@ function NavBranch({
 }: {
   node: NavNode;
   depth: number;
+  /** Left padding (px) for this row, derived from the parent's label position (hanging indent). */
+  basePad: number;
+  /** Reserve the icon column even without an icon, so leaves align with icon-bearing siblings. */
+  reserveIcon: boolean;
   role: string;
   matrix?: RbacMatrix;
   open: Record<string, boolean>;
@@ -252,8 +309,21 @@ function NavBranch({
   const isOpen = hasChildren && Boolean(open[node.id]);
   const active = isNodeActive(node, pathname, search, hash) && !hasChildren;
   const showCreate = canCreate(node, role, matrix);
-  const Icon = depth === 0 ? TOP_ICONS[node.id] : undefined;
-  const padding = { paddingLeft: `${8 + depth * 12}px` };
+  const Icon = iconFor(node, depth);
+  const showIconSlot = Boolean(Icon) || reserveIcon;
+  const padding = { paddingLeft: `${basePad}px` };
+  // Children hang under THIS row's label: chevron (14) + gap (4) = 18, plus the icon column (20) when
+  // shown. So a child's label lands under this label; icon-less groups keep the "start from E" look,
+  // while icon-bearing sub-sections nest one icon-width further in.
+  const childBasePad = basePad + (showIconSlot ? 20 : 0);
+  const childReserveIcon = children.some((child) => Boolean(iconFor(child, depth + 1)));
+  // Fixed-width placeholders that hold the chevron / icon columns on rows that lack them.
+  const chevronSpacer = <span className="w-3.5 shrink-0" aria-hidden="true" />;
+  const iconSlot = showIconSlot
+    ? Icon
+      ? <Icon size={16} className="shrink-0 text-[var(--muted)]" />
+      : <span className="w-4 shrink-0" aria-hidden="true" />
+    : null;
 
   return (
     <div>
@@ -278,7 +348,7 @@ function NavBranch({
                 active ? "text-[var(--gold-2)]" : "text-[var(--muted)]"
               } ${isOpen ? "rotate-90" : ""}`}
             />
-            {Icon ? <Icon size={16} className="shrink-0 text-[var(--muted)]" /> : null}
+            {iconSlot}
             {node.href && depth > 0 ? (
               <Link
                 href={node.href}
@@ -292,12 +362,17 @@ function NavBranch({
             )}
           </button>
         ) : node.href ? (
-          <Link href={node.href} aria-current={active ? "page" : undefined} className="flex min-w-0 flex-1 items-center gap-2 truncate py-1.5 pr-1">
-            {Icon ? <Icon size={16} className="shrink-0 text-[var(--muted)]" /> : null}
+          <Link href={node.href} aria-current={active ? "page" : undefined} className="flex min-w-0 flex-1 items-center gap-1 truncate py-1.5 pr-1">
+            {chevronSpacer}
+            {iconSlot}
             {node.label}
           </Link>
         ) : (
-          <span className="min-w-0 flex-1 truncate py-1.5">{node.label}</span>
+          <span className="flex min-w-0 flex-1 items-center gap-1 truncate py-1.5">
+            {chevronSpacer}
+            {iconSlot}
+            {node.label}
+          </span>
         )}
         {showCreate ? (
           <Link
@@ -320,6 +395,8 @@ function NavBranch({
               key={child.id}
               node={child}
               depth={depth + 1}
+              basePad={childBasePad}
+              reserveIcon={childReserveIcon}
               role={role}
               matrix={matrix}
               open={open}

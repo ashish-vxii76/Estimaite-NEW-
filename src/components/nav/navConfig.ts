@@ -61,6 +61,39 @@ export const NAV_TREE: NavNode[] = [
     ],
   },
   {
+    id: "crew-budgets",
+    label: "Crew budgets",
+    href: "/crew-budgets",
+    feature: "org.budget",
+    minLevel: "CREW",
+    createHref: "/crew-budgets?new=1",
+    createLabel: "New crew budget",
+    children: [
+      {
+        id: "crew-budgets-new",
+        label: "New crew budget",
+        href: "/crew-budgets?new=1",
+        feature: "org.budget",
+        minLevel: "CREW",
+      },
+      { id: "crew-budgets-all", label: "All", href: "/crew-budgets", feature: "org.budget", minLevel: "CREW" },
+      {
+        id: "crew-budgets-awaiting",
+        label: "Awaiting approval",
+        href: "/crew-budgets?status=PENDING",
+        feature: "org.budget",
+        minLevel: "CREW",
+      },
+      {
+        id: "crew-budgets-approved",
+        label: "Approved",
+        href: "/crew-budgets?status=APPROVED",
+        feature: "org.budget",
+        minLevel: "CREW",
+      },
+    ],
+  },
+  {
     id: "analytics",
     label: "Analytics",
     children: [
@@ -69,13 +102,6 @@ export const NAV_TREE: NavNode[] = [
         label: "Roll-up & CR register",
         href: "/portfolio",
         feature: "portfolio.view",
-        minLevel: "CREW",
-      },
-      {
-        id: "crew-budgets",
-        label: "Crew budgets",
-        href: "/admin/crew-budgets",
-        feature: "org.budget",
         minLevel: "CREW",
       },
       {
@@ -220,6 +246,7 @@ export function canSeeNav(
 export function canCreate(node: NavNode, role: string, matrix?: RbacMatrix): boolean {
   if (!node.createHref) return false;
   if (node.id === "estimates") return can(role, "estimates.create", "RW", matrix);
+  if (node.id === "crew-budgets") return can(role, "org.budget", "RW", matrix);
   if (node.id === "admin-users") return can(role, "config.users", "RW", matrix);
   if (node.id === "teams") return can(role, "config.teams", "RW", matrix);
   if (!node.createRoles || node.createRoles.length === 0) return true;
@@ -246,6 +273,9 @@ export function isNodeActive(
   if (node.id === "estimates") {
     return pathname === "/estimates" || pathname.startsWith("/estimates/");
   }
+  if (node.id === "crew-budgets") {
+    return pathname === "/crew-budgets" || pathname.startsWith("/crew-budgets/");
+  }
   if (node.id === "administration") {
     return pathname === "/admin" || pathname.startsWith("/admin/") || pathname.startsWith("/teams");
   }
@@ -253,6 +283,10 @@ export function isNodeActive(
     return pathname === target.pathname && normalizeSearch(search) === normalizeSearch(target.search);
   }
   if (pathname === "/estimates" && node.href === "/estimates") {
+    return !search || search === "?";
+  }
+  // "All" crew budgets (bare /crew-budgets) must not light up on the ?status / ?new variants.
+  if (pathname === "/crew-budgets" && node.href === "/crew-budgets") {
     return !search || search === "?";
   }
   return pathname === target.pathname && !target.search;

@@ -12,8 +12,9 @@ import { welcomeLine } from "@/lib/roles";
 import { getActiveConfig } from "@/services/configService";
 import { getPortfolio } from "@/services/portfolioService";
 import { releaseWhere, parseRelease } from "@/lib/releasePeriod";
-import { descendantIds, resolveSeatLevel, resolveOrgCurrency, orgCurrenciesForCrews } from "@/services/orgService";
+import { descendantIds, resolveSeatLevel, resolveOrgCurrency, orgCurrenciesForCrews, budgetsAwaitingApproval } from "@/services/orgService";
 import { CREW_LEVEL } from "@/lib/orgLevel";
+import Link from "next/link";
 
 const ACTION_FLAGS = ["SPLIT", "SPLIT EPIC", "SPIKE REQUIRED", "DISCOVERY REQUIRED", "DECOMPOSE"];
 
@@ -32,6 +33,11 @@ export default async function HomePage({
   // seat — a Pod-level Delivery Lead sees estimates in scope but not the crew-economics panels.
   const seatLevel = await resolveSeatLevel(scopeUser);
   const isCrewLevelOrAbove = seatLevel >= CREW_LEVEL;
+  // Approver surfacing: budgets awaiting THIS user's sign-off (maker ≠ checker). Only budget approvers
+  // hold org.budget RW, so skip the lookup entirely for everyone else.
+  const budgetApprovals = can(session.user.role, "org.budget", "RW")
+    ? await budgetsAwaitingApproval(scopeUser)
+    : 0;
   const homeScope = await resolveHomeScope(scopeUser, org, teamFilter);
   // Currency of the scope. >1 company currency = mixed → no single-currency consolidation (needs FX).
   const scopeCurrencies = await orgCurrenciesForCrews(homeScope.crewIds);
@@ -291,6 +297,19 @@ export default async function HomePage({
         release={release}
         quarters={quarters}
       />
+
+      {budgetApprovals > 0 ? (
+        <Link
+          href="/crew-budgets?status=PENDING"
+          className="flex items-center justify-between gap-3 rounded-xl border border-[var(--warn,#b7791f)]/40 bg-[var(--panel-2)] px-4 py-3 text-sm hover:border-[var(--warn,#b7791f)]"
+        >
+          <span className="text-[var(--navy)]">
+            <span className="chip-warn mr-2 rounded-full px-2 py-0.5 text-[11px] font-semibold">{budgetApprovals}</span>
+            crew {budgetApprovals === 1 ? "budget is" : "budgets are"} awaiting your approval
+          </span>
+          <span className="font-medium text-[var(--navy)] underline">Review →</span>
+        </Link>
+      ) : null}
 
       {orgSplitRows.length >= 1 ? (
         <HomeOrgSplit splitLabel={split.splitLabel} rows={orgSplitRows} />

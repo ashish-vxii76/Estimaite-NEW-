@@ -421,28 +421,60 @@ export function decideBudgetApprover(input: {
   return input.hasCrewApproverSeat;
 }
 
-export async function canApproveBudget(user: ScopeInput, crewId: string): Promise<boolean> {
-  const hasBudgetRW = can(user.role, "org.budget", "RW");
-  if (!hasBudgetRW) return false;
+/**
+ * Batched sibling of {@link canApproveBudget}: of the given crews, which may THIS user approve budgets
+ * for? Single source of truth for approval authority — mirrors {@link decideBudgetApprover} exactly
+ * (App admin → all; anchored strictly ABOVE a crew → that crew; anchored AT a crew → only with a
+ * crew-approver seat or a leadership grant on it). Used by the cross-crew approval queue and Home.
+ */
+export async function approvableCrewIds(user: ScopeInput, crewIds: string[]): Promise<Set<string>> {
+  const out = new Set<string>();
+  if (crewIds.length === 0) return out;
+  if (!can(user.role, "org.budget", "RW")) return out;
   const scope = await adminOrgScope(user);
-  if (scope.appLevel) return true;
-  const crewInScope = scope.visibleIds.has(crewId);
-  if (!crewInScope) return false;
-  if (scope.anchorId !== crewId) return true;
-  const [seat, grant] = await Promise.all([
-    prisma.orgSeat.findFirst({
-      where: { userId: user.id, orgUnitId: crewId, seatType: { in: [...CREW_BUDGET_APPROVER_SEATS] } },
-    }),
-    prisma.roleGrant.findFirst({ where: { userId: user.id, orgUnitId: crewId } }),
+  if (scope.appLevel) return new Set(crewIds);
+  // Anchored AT the crew is the only case that needs a seat/grant lookup — batch those crews only.
+  const anchorCrews = crewIds.filter((id) => scope.visibleIds.has(id) && scope.anchorId === id);
+  const [seats, grants] = await Promise.all([
+    anchorCrews.length
+      ? prisma.orgSeat.findMany({
+          where: { userId: user.id, orgUnitId: { in: anchorCrews }, seatType: { in: [...CREW_BUDGET_APPROVER_SEATS] } },
+          select: { orgUnitId: true },
+        })
+      : Promise.resolve([] as { orgUnitId: string }[]),
+    anchorCrews.length
+      ? prisma.roleGrant.findMany({
+          where: { userId: user.id, orgUnitId: { in: anchorCrews } },
+          select: { orgUnitId: true },
+        })
+      : Promise.resolve([] as { orgUnitId: string }[]),
   ]);
-  return decideBudgetApprover({
-    hasBudgetRW,
-    appLevel: scope.appLevel,
-    anchorId: scope.anchorId,
-    crewId,
-    crewInScope,
-    hasCrewApproverSeat: Boolean(seat || grant),
-  });
+  const seated = new Set<string>(
+    [...seats, ...grants].map((r) => r.orgUnitId).filter((id): id is string => id != null),
+  );
+  for (const id of crewIds) {
+    if (!scope.visibleIds.has(id)) continue;
+    if (scope.anchorId !== id) out.add(id); // anchored strictly above → higher-tier budget admin
+    else if (seated.has(id)) out.add(id); // anchored at the crew → needs an approver seat/grant
+  }
+  return out;
+}
+
+export async function canApproveBudget(user: ScopeInput, crewId: string): Promise<boolean> {
+  return (await approvableCrewIds(user, [crewId])).has(crewId);
+}
+
+/**
+ * Home surfacing: how many budgets are awaiting THIS user's approval — a pending create or a parked
+ * change, on a crew they may approve, that they did not themselves submit (maker ≠ checker).
+ */
+export async function budgetsAwaitingApproval(user: ScopeInput): Promise<number> {
+  const crewIds = await adminVisibleCrewIds(user);
+  const budgets = await listCrewBudgets(null, crewIds);
+  const pending = budgets.filter((b) => b.status === "PENDING" || b.pendingAmount != null);
+  if (pending.length === 0) return 0;
+  const approvable = await approvableCrewIds(user, [...new Set(pending.map((b) => b.crewId))]);
+  return pending.filter((b) => approvable.has(b.crewId) && b.requestedById !== user.id).length;
 }
 
 export async function saveCrewBudget(input: {

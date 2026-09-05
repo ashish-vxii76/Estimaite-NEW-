@@ -197,7 +197,7 @@ describe("RBAC matrix", () => {
     // Config reads removed from workflow roles.
     expect(canAccessPath("APPROVER", "/admin/issue-mapping")).toBe(false);
     // Delivery Lead reaches crew budgets (leadership surface) but not config admin.
-    expect(canAccessPath("DELIVERY_LEAD", "/admin/crew-budgets")).toBe(true);
+    expect(canAccessPath("DELIVERY_LEAD", "/crew-budgets")).toBe(true);
     expect(canAccessPath("DELIVERY_LEAD", "/admin/issue-mapping")).toBe(false);
   });
 

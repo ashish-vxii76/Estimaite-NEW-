@@ -35,7 +35,7 @@ const ROUTE_ACCESS: Record<string, Partial<Record<Role, boolean>>> = {
   "/portfolio": { ADMINISTRATOR: true, DELIVERY_LEAD: true, FINANCE: true, ESTIMATOR: false, REVIEWER: false, APPROVER: false, VIEWER: false, REQUESTER: false },
   "/calibration": { ADMINISTRATOR: true, DELIVERY_LEAD: true, FINANCE: false, ESTIMATOR: false, REVIEWER: false, APPROVER: false, VIEWER: false, REQUESTER: false },
   // Crew budgets: crew leadership + admins (NOT finance, NOT workflow roles).
-  "/admin/crew-budgets": { ADMINISTRATOR: true, DELIVERY_LEAD: true, FINANCE: false, ESTIMATOR: false, REVIEWER: false, APPROVER: false, VIEWER: false, REQUESTER: false },
+  "/crew-budgets": { ADMINISTRATOR: true, DELIVERY_LEAD: true, FINANCE: false, ESTIMATOR: false, REVIEWER: false, APPROVER: false, VIEWER: false, REQUESTER: false },
   // Config Administration: admins only; Finance sees the commercial (rates) slice, nothing else.
   "/admin": { ADMINISTRATOR: true, FINANCE: true, DELIVERY_LEAD: false, ESTIMATOR: false, REVIEWER: false, APPROVER: false, VIEWER: false, REQUESTER: false },
   "/admin/cost-mapping": { ADMINISTRATOR: true, FINANCE: true, DELIVERY_LEAD: false, APPROVER: false, VIEWER: false },
@@ -77,7 +77,7 @@ describe("RBAC access matrix (route × role)", () => {
 describe("seat-LEVEL gating — Delivery Lead at Pod vs Crew", () => {
   const POD = levelRank("POD");
   const CREW = levelRank("CREW");
-  const LEVEL_PATHS = ["/portfolio", "/calibration", "/admin/crew-budgets"];
+  const LEVEL_PATHS = ["/portfolio", "/calibration", "/crew-budgets"];
   const LEVEL_NODES = ["portfolio-rollup", "crew-budgets", "calibration"];
 
   for (const path of LEVEL_PATHS) {
