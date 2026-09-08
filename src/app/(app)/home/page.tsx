@@ -2,9 +2,11 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { HomeDashboard } from "@/components/HomeDashboard";
+import { PersonalHome, type HomeItem, type HomeStat, type PersonaKind } from "@/components/PersonalHome";
+import { PersonalInsights, type PersonalInsightsData } from "@/components/PersonalInsights";
 import { ScopeFilterBar } from "@/components/ScopeFilterBar";
-import { can } from "@/lib/access";
-import { fromSession, teamsForUser } from "@/lib/scope";
+import { can, seesAllTeams } from "@/lib/access";
+import { fromSession, teamsForUser, resolveEstimateScope, type ScopeUser } from "@/lib/scope";
 import { resolveHomeScope } from "@/lib/orgFilter";
 import { computeHomeSplit } from "@/lib/homeSplit";
 import { HomeOrgSplit, type OrgSplitRow } from "@/components/HomeOrgSplit";
@@ -38,6 +40,19 @@ export default async function HomePage({
   const budgetApprovals = can(session.user.role, "org.budget", "RW")
     ? await budgetsAwaitingApproval(scopeUser)
     : 0;
+
+  // --- Role-adaptive Home routing ---------------------------------------------------------------
+  // The aggregate dashboard is a leadership/portfolio surface — it only reads well for viewers who
+  // see across others' work AND hold the crew economics. Everyone below that (Estimator/Requester,
+  // Reviewer, Approver, Viewer, Pod-level Delivery Lead) gets a personal work/queue Home instead of
+  // an empty portfolio. Aggregate = admins (see all teams), or Crew-and-above with a portfolio lens.
+  const showAggregateHome =
+    seesAllTeams(session.user.role) || (isCrewLevelOrAbove && can(session.user.role, "portfolio.view"));
+
+  if (!showAggregateHome) {
+    return renderPersonalHome({ session, scopeUser, budgetApprovals });
+  }
+
   const homeScope = await resolveHomeScope(scopeUser, org, teamFilter);
   // Currency of the scope. >1 company currency = mixed → no single-currency consolidation (needs FX).
   const scopeCurrencies = await orgCurrenciesForCrews(homeScope.crewIds);
@@ -351,4 +366,368 @@ export default async function HomePage({
       />
     </div>
   );
+}
+
+/**
+ * Personal ("my work / my queue") Home for individual-contributor roles. Scoped to the viewer's own
+ * estimate visibility (resolveEstimateScope), so it's never empty of relevance the way the portfolio
+ * dashboard is. Persona (maker/reviewer/approver/viewer) picks the primary list and stat strip.
+ */
+async function renderPersonalHome({
+  session,
+  scopeUser,
+  budgetApprovals,
+}: {
+  session: { user: { name?: string | null; email?: string | null; role: string; teamId?: string | null } };
+  scopeUser: ScopeUser;
+  budgetApprovals: number;
+}) {
+  const role = session.user.role;
+  const scope = await resolveEstimateScope(scopeUser);
+
+  // Persona is scope-shape-driven, not just role: only ESTIMATOR is owner-scoped, so only it earns the
+  // "Your work" framing. Other create-capable, team-scoped roles (Requester, pod Delivery Lead) see the
+  // POD's work as their primary list + a separate "Raised by you" card for what they actually authored.
+  const canCreate = can(role, "estimates.create", "RW");
+  const persona: PersonaKind =
+    role === "REVIEWER"
+      ? "reviewer"
+      : role === "APPROVER"
+        ? "approver"
+        : role === "ESTIMATOR"
+          ? "maker"
+          : canCreate
+            ? "contributor"
+            : "viewer";
+
+  const PRIMARY_STATUSES: Record<PersonaKind, string[] | null> = {
+    maker: ["DRAFT", "RETURNED"],
+    contributor: ["DRAFT", "RETURNED"],
+    reviewer: ["READY_FOR_REVIEW"],
+    approver: ["REVIEWED"],
+    viewer: null,
+  };
+  const primaryStatuses = PRIMARY_STATUSES[persona];
+  const primaryWhere = primaryStatuses ? { ...scope, status: { in: primaryStatuses } } : scope;
+
+  const itemSelect = {
+    id: true,
+    reference: true,
+    title: true,
+    status: true,
+    updatedAt: true,
+    teamId: true,
+    deliveryFlag: true,
+  } as const;
+
+  // Contributor personas also get their own authored records (their "Raised by you" card + count).
+  const mineWhere = { ...scope, createdById: scopeUser.id };
+  const [primaryItems, primaryCount, recentRows, byStatusRows, teams, mineRows, mineCount] = await Promise.all([
+    prisma.estimate.findMany({ where: primaryWhere, select: itemSelect, orderBy: { updatedAt: "desc" }, take: 8 }),
+    prisma.estimate.count({ where: primaryWhere }),
+    prisma.estimate.findMany({ where: scope, select: itemSelect, orderBy: { updatedAt: "desc" }, take: 6 }),
+    prisma.estimate.groupBy({ by: ["status"], where: scope, _count: { _all: true } }),
+    teamsForUser(scopeUser),
+    persona === "contributor"
+      ? prisma.estimate.findMany({ where: mineWhere, select: itemSelect, orderBy: { updatedAt: "desc" }, take: 5 })
+      : Promise.resolve([]),
+    persona === "contributor" ? prisma.estimate.count({ where: mineWhere }) : Promise.resolve(0),
+  ]);
+
+  const teamNames = Object.fromEntries(teams.map((t) => [t.id, t.name]));
+  const now = Date.now();
+  const toItem = (r: {
+    id: string;
+    reference: string;
+    title: string;
+    status: string;
+    updatedAt: Date;
+    teamId: string;
+    deliveryFlag: string;
+  }): HomeItem => ({
+    id: r.id,
+    reference: r.reference,
+    title: r.title,
+    status: r.status,
+    team: teamNames[r.teamId] ?? "",
+    ageDays: Math.max(0, Math.floor((now - new Date(r.updatedAt).getTime()) / 86_400_000)),
+    flag: r.deliveryFlag && ACTION_FLAGS.includes(r.deliveryFlag) ? r.deliveryFlag : "",
+  });
+
+  const sc = (s: string) => byStatusRows.find((r) => r.status === s)?._count._all ?? 0;
+  const scopeTotal = byStatusRows.reduce((a, r) => a + r._count._all, 0);
+
+  let stats: HomeStat[];
+  if (persona === "maker") {
+    const returned = sc("RETURNED");
+    stats = [
+      { label: "My estimates", value: scopeTotal },
+      { label: "Drafts", value: sc("DRAFT") },
+      { label: "Returned to me", value: returned, tone: returned > 0 ? "warn" : undefined },
+      { label: "Awaiting review", value: sc("READY_FOR_REVIEW") },
+      { label: "Awaiting approval", value: sc("REVIEWED") },
+      { label: "Approved", value: sc("APPROVED") + sc("COMPLETED"), tone: "ok" },
+    ];
+  } else if (persona === "contributor") {
+    stats = [
+      { label: "In your pod", value: scopeTotal },
+      { label: "Drafts", value: sc("DRAFT") + sc("RETURNED") },
+      { label: "In review", value: sc("READY_FOR_REVIEW") + sc("REVIEWED") },
+      { label: "Approved", value: sc("APPROVED") },
+      { label: "Completed", value: sc("COMPLETED") },
+      { label: "Raised by you", value: mineCount },
+    ];
+  } else if (persona === "reviewer") {
+    const q = sc("READY_FOR_REVIEW");
+    stats = [{ label: "Review queue", value: q, tone: q > 0 ? "warn" : undefined }];
+  } else if (persona === "approver") {
+    const q = sc("REVIEWED");
+    stats = [
+      { label: "Awaiting approval", value: q, tone: q > 0 ? "warn" : undefined },
+      { label: "Approved", value: sc("APPROVED"), tone: "ok" },
+    ];
+  } else {
+    stats = [
+      { label: "In scope", value: scopeTotal },
+      { label: "Drafts", value: sc("DRAFT") + sc("RETURNED") },
+      { label: "In review", value: sc("READY_FOR_REVIEW") + sc("REVIEWED") },
+      { label: "Approved", value: sc("APPROVED") },
+      { label: "Completed", value: sc("COMPLETED") },
+    ];
+  }
+
+  const META: Record<PersonaKind, { title: string; sub: string; empty: string }> = {
+    maker: {
+      title: "Your work",
+      sub: "Drafts and returned estimates that need you",
+      empty: "Nothing in progress right now.",
+    },
+    contributor: {
+      title: "Work in your pod",
+      sub: "Drafts and returned estimates in your pod",
+      empty: "Nothing needs attention in your pod right now.",
+    },
+    reviewer: {
+      title: "Awaiting your review",
+      sub: "Estimates ready for your review",
+      empty: "Your review queue is clear. 🎉",
+    },
+    approver: {
+      title: "Awaiting your approval",
+      sub: "Reviewed estimates ready for your decision",
+      empty: "Nothing awaiting your approval. 🎉",
+    },
+    viewer: {
+      title: "Recent estimates",
+      sub: "Latest activity in your scope",
+      empty: "No estimates in your scope yet.",
+    },
+  };
+  const meta = META[persona];
+
+  // --- Calibrated visuals (below the action list) -----------------------------------------------
+  // Maker → my flow/quality charts. Reviewer/Approver → queue-health charts. Contributor (pod lead)
+  // → the scoped HomeDashboard (no money/cross-org). Viewer stays list-only. All scoped to `scope`,
+  // so nothing here can exceed the viewer's visibility.
+  let insights: PersonalInsightsData | null = null;
+  let dashboard: React.ComponentProps<typeof HomeDashboard> | null = null;
+
+  if (persona === "reviewer" || persona === "approver") {
+    // Queue roles see only a slice of the lifecycle, so the full pipeline funnel / by-status views
+    // would be structurally empty and misleading. Give them DECISION-aligned panels instead: how
+    // long items have waited, throughput, and the readiness/confidence/flags/volume of what they act on.
+    const ACTION_WHERE = { ...scope, deliveryFlag: { in: ACTION_FLAGS } };
+    const [agingRows, activityRows, byFlagRows, byConfidenceRows, readinessAgg, byTeamRows, attentionRows] =
+      await Promise.all([
+        prisma.estimate.findMany({ where: primaryWhere, select: { updatedAt: true } }),
+        prisma.estimate.findMany({ where: scope, select: { createdAt: true, status: true } }),
+        prisma.estimate.groupBy({ by: ["deliveryFlag"], where: { ...scope, deliveryFlag: { not: "" } }, _count: { _all: true } }),
+        prisma.estimate.groupBy({ by: ["confidence"], where: { ...scope, confidence: { not: "" } }, _count: { _all: true } }),
+        prisma.estimate.aggregate({ where: { ...scope, readinessScore: { gt: 0 } }, _avg: { readinessScore: true } }),
+        prisma.estimate.groupBy({ by: ["teamId"], where: scope, _count: { _all: true } }),
+        prisma.estimate.findMany({
+          where: ACTION_WHERE,
+          select: { id: true, reference: true, title: true, deliveryFlag: true, status: true },
+          orderBy: { updatedAt: "desc" },
+          take: 6,
+        }),
+      ]);
+    await hydrateTeamNames(teamNames, byTeamRows.map((r) => r.teamId));
+    const { trend } = buildMonthly(activityRows);
+    insights = {
+      aging: bucketAging(agingRows, now),
+      // Approver: what they cleared (approved). Reviewer: what arrived to review (raised in-queue).
+      throughput: trend.map((t) => ({ period: t.period, value: persona === "approver" ? t.approved : t.created })),
+      throughputLabel: persona === "approver" ? "Approved" : "Arrived",
+      avgReadiness: readinessAgg._avg.readinessScore ?? 0,
+      byConfidence: byConfidenceRows.map((r) => ({ name: r.confidence, count: r._count._all })),
+      byFlag: byFlagRows.map((r) => ({ name: r.deliveryFlag, count: r._count._all })).sort((a, b) => b.count - a.count),
+      byTeam: byTeamRows
+        .map((r) => ({ name: teamNames[r.teamId] ?? "Unknown", count: r._count._all }))
+        .sort((a, b) => b.count - a.count),
+      attention: attentionRows.map((r) => ({
+        id: r.id,
+        reference: r.reference,
+        title: r.title,
+        tag: ACTION_FLAGS.includes(r.deliveryFlag) ? r.deliveryFlag : r.status,
+      })),
+    };
+  } else if (persona === "maker" || persona === "contributor") {
+    const config = await getActiveConfig();
+    const ACTION_WHERE = { ...scope, OR: [{ deliveryFlag: { in: ACTION_FLAGS } }, { status: { in: ["RETURNED", "REJECTED"] } }] };
+    const [activityRows, byFlagRows, byConfidenceRows, byTeamRows, readinessAgg, attentionRows, needsActionTotal, configStale] =
+      await Promise.all([
+        prisma.estimate.findMany({ where: scope, select: { createdAt: true, status: true } }),
+        prisma.estimate.groupBy({ by: ["deliveryFlag"], where: { ...scope, deliveryFlag: { not: "" } }, _count: { _all: true } }),
+        prisma.estimate.groupBy({ by: ["confidence"], where: { ...scope, confidence: { not: "" } }, _count: { _all: true } }),
+        prisma.estimate.groupBy({ by: ["teamId"], where: scope, _count: { _all: true } }),
+        prisma.estimate.aggregate({ where: { ...scope, readinessScore: { gt: 0 } }, _avg: { readinessScore: true } }),
+        prisma.estimate.findMany({
+          where: ACTION_WHERE,
+          select: { id: true, reference: true, title: true, deliveryFlag: true, status: true },
+          orderBy: { updatedAt: "desc" },
+          take: 6,
+        }),
+        prisma.estimate.count({ where: ACTION_WHERE }),
+        prisma.estimate.count({ where: { ...scope, configurationVersionId: { not: config.versionId } } }),
+      ]);
+    // Owner-scoped makers can author across pods outside their team-scope — resolve those names too.
+    await hydrateTeamNames(teamNames, byTeamRows.map((r) => r.teamId));
+    const { spark, trend } = buildMonthly(activityRows);
+    const statusLabels: Record<string, string> = {
+      DRAFT: "Draft", RETURNED: "Returned", READY_FOR_REVIEW: "Ready for review",
+      REVIEWED: "Awaiting approval", APPROVED: "Approved", REJECTED: "Rejected", COMPLETED: "Completed", CANCELLED: "Cancelled",
+    };
+    dashboard = {
+      counts: {
+        total: scopeTotal,
+        drafts: sc("DRAFT") + sc("RETURNED"),
+        inReview: sc("READY_FOR_REVIEW") + sc("REVIEWED"),
+        approved: sc("APPROVED"),
+        completed: sc("COMPLETED"),
+        reviewed: sc("REVIEWED"),
+        readyForReview: sc("READY_FOR_REVIEW"),
+      },
+      byStatus: byStatusRows.map((r) => ({ name: statusLabels[r.status] ?? r.status, count: r._count._all })),
+      byTeam: byTeamRows
+        .map((r) => ({ name: teamNames[r.teamId] ?? "Unknown", count: r._count._all }))
+        .sort((a, b) => b.count - a.count),
+      byFlag: byFlagRows.map((r) => ({ name: r.deliveryFlag, count: r._count._all })).sort((a, b) => b.count - a.count),
+      byConfidence: byConfidenceRows.map((r) => ({ name: r.confidence, count: r._count._all })),
+      avgReadiness: readinessAgg._avg.readinessScore ?? 0,
+      spark,
+      trend,
+      attention: attentionRows.map((r) => ({
+        id: r.id,
+        reference: r.reference,
+        title: r.title,
+        tag: ACTION_FLAGS.includes(r.deliveryFlag) ? r.deliveryFlag : r.status,
+      })),
+      health: {
+        budgetRag: "UNSET", budgetLabel: "", utilizationPct: null, currency: "",
+        utilised: 0, budget: null, deliveryVariancePct: null,
+        needsAction: needsActionTotal, year: new Date().getFullYear(),
+      },
+      showBudget: false,
+      configStale,
+    };
+  }
+
+  const teamName = session.user.teamId ? teamNames[session.user.teamId] ?? null : null;
+  const welcome = welcomeLine(session.user.name, role, teamName);
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <p className="kicker">Home</p>
+        <h1 className="font-display text-2xl font-semibold text-[var(--navy)]">{welcome}</h1>
+        <p className="mt-1 text-sm text-[var(--muted)]">Signed in as {session.user.email}.</p>
+      </div>
+
+      {budgetApprovals > 0 ? (
+        <Link
+          href="/crew-budgets?status=PENDING"
+          className="flex items-center justify-between gap-3 rounded-xl border border-[var(--warn,#b7791f)]/40 bg-[var(--panel-2)] px-4 py-3 text-sm hover:border-[var(--warn,#b7791f)]"
+        >
+          <span className="text-[var(--navy)]">
+            <span className="chip-warn mr-2 rounded-full px-2 py-0.5 text-[11px] font-semibold">{budgetApprovals}</span>
+            crew {budgetApprovals === 1 ? "budget is" : "budgets are"} awaiting your approval
+          </span>
+          <span className="font-medium text-[var(--navy)] underline">Review →</span>
+        </Link>
+      ) : null}
+
+      <PersonalHome
+        persona={persona}
+        primary={{
+          title: meta.title,
+          sub: meta.sub,
+          empty: meta.empty,
+          items: primaryItems.map(toItem),
+          more: Math.max(0, primaryCount - primaryItems.length),
+          moreHref: "/estimates",
+        }}
+        stats={stats}
+        recent={recentRows.map(toItem)}
+        submissions={
+          persona === "contributor"
+            ? { items: mineRows.map(toItem), empty: "You haven't raised any estimates yet." }
+            : undefined
+        }
+        canCreate={canCreate}
+        showAge={persona === "reviewer" || persona === "approver"}
+      />
+
+      {insights ? <PersonalInsights {...insights} /> : null}
+      {dashboard ? <HomeDashboard {...dashboard} /> : null}
+    </div>
+  );
+}
+
+/** Fill in any team names missing from `map` (owner-scoped users author across pods outside scope). */
+async function hydrateTeamNames(map: Record<string, string>, ids: string[]) {
+  const missing = [...new Set(ids)].filter((id) => !(id in map));
+  if (missing.length === 0) return;
+  const rows = await prisma.team.findMany({ where: { id: { in: missing } }, select: { id: true, name: true } });
+  for (const t of rows) map[t.id] = t.name;
+}
+
+/** Last-6-months per-KPI sparklines + created/approved trend, from (createdAt, status) rows. */
+function buildMonthly(rows: { createdAt: Date; status: string }[]) {
+  const now = new Date();
+  const months = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+    return { key: `${d.getFullYear()}-${d.getMonth()}`, label: d.toLocaleString("en", { month: "short" }) };
+  });
+  const idx = new Map(months.map((m, i) => [m.key, i]));
+  const zeros = () => months.map(() => 0);
+  const spark = { total: zeros(), drafts: zeros(), review: zeros(), approved: zeros(), completed: zeros() };
+  const trend = months.map((m) => ({ period: m.label, created: 0, approved: 0 }));
+  for (const r of rows) {
+    const d = new Date(r.createdAt);
+    const i = idx.get(`${d.getFullYear()}-${d.getMonth()}`);
+    if (i == null) continue;
+    spark.total[i]++;
+    trend[i].created++;
+    if (["DRAFT", "RETURNED"].includes(r.status)) spark.drafts[i]++;
+    if (["READY_FOR_REVIEW", "REVIEWED"].includes(r.status)) spark.review[i]++;
+    if (r.status === "APPROVED") { spark.approved[i]++; trend[i].approved++; }
+    if (r.status === "COMPLETED") { spark.completed[i]++; trend[i].approved++; }
+  }
+  return { spark, trend };
+}
+
+/** Bucket queue items by how long they've waited (days since last update). */
+function bucketAging(rows: { updatedAt: Date }[], now: number) {
+  const buckets = [
+    { label: "≤3d", max: 3, count: 0 },
+    { label: "4–7d", max: 7, count: 0 },
+    { label: "8–14d", max: 14, count: 0 },
+    { label: "15d+", max: Infinity, count: 0 },
+  ];
+  for (const r of rows) {
+    const days = Math.max(0, Math.floor((now - new Date(r.updatedAt).getTime()) / 86_400_000));
+    (buckets.find((b) => days <= b.max) ?? buckets[buckets.length - 1]).count++;
+  }
+  return buckets.map((b) => ({ label: b.label, count: b.count }));
 }

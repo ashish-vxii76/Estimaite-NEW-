@@ -199,7 +199,7 @@ export function HomeDashboard({
       {/* Application insights — compact tiles (budget/delivery/readiness + flow/pipeline/quality/risk) */}
       <Card>
         <Rule />
-        <H sub="Budget, delivery, flow, pipeline, quality and risk across your scope">
+        <H sub={`${showBudget ? "Budget, delivery, flow" : "Flow"}, pipeline, quality and risk across your scope`}>
           Insights
         </H>
         <div className="mt-3 grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
