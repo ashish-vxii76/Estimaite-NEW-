@@ -88,6 +88,7 @@ export function EstimateWizard({
   orgUnits = [],
   requesterName = "",
   nextReference = "",
+  defaultTeamId = "",
   complexityDimensions = DEFAULT_CONFIG.complexityDimensions,
   releaseQuarters = DEFAULT_CONFIG.releaseQuarters,
   readinessCriteria = DEFAULT_CONFIG.readinessCriteria,
@@ -118,6 +119,8 @@ export function EstimateWizard({
   orgUnits?: OrgUnitRow[];
   requesterName?: string;
   nextReference?: string;
+  /** The signed-in user's own pod (session.user.teamId). Seeds Team/Pod for a NEW estimate. */
+  defaultTeamId?: string;
   /** Hydrated Size-step dimensions (labels score 1–5). Defaults to DEFAULT_CONFIG. */
   complexityDimensions?: ComplexityDimensionConfig[];
   releaseQuarters?: string[];
@@ -167,16 +170,18 @@ export function EstimateWizard({
   const [localSavedScenario, setLocalSavedScenario] = useState<SavedScenarioSnapshot | null>(
     savedScenario ?? null,
   );
+  // Seed Team/Pod for a NEW estimate from the signed-in user's own pod, so a pod-scoped Estimator sees
+  // their (locked) Pod pre-filled on Plan & Cost instead of an empty field. Editing keeps initial.teamId.
+  const seedTeamId = ((initial?.teamId as string) || defaultTeamId || "");
+  const seedTeam = teams.find((t) => t.id === seedTeamId);
+  const seedCostingTeam = seedTeam ?? teams[0];
   const [form, setForm] = useState({
     workItemType: (initial?.workItemType as string) ?? "",
     reference: (initial?.reference as string) ?? nextReference ?? "",
     title: (initial?.title as string) ?? "New work item",
     description: (initial?.description as string) ?? "",
-    teamId: (initial?.teamId as string) ?? "",
-    crewId:
-      (initial?.teamId
-        ? teams.find((t) => t.id === (initial.teamId as string))?.crewId ?? ""
-        : "") as string,
+    teamId: seedTeamId,
+    crewId: (seedTeam?.crewId ?? "") as string,
     requester: (initial?.requester as string) ?? requesterName ?? "",
     project: (initial?.project as string) ?? "",
     programme: (initial?.programme as string) ?? "",
@@ -188,7 +193,7 @@ export function EstimateWizard({
     costingBasis: (initial?.costingBasis as string) ?? "",
     costMethod: (initial?.costMethod as string) ?? "",
     projectOverrideRate: 0,
-    currency: (initial?.currency as string) ?? teams[0]?.currency ?? "CHF",
+    currency: (initial?.currency as string) ?? seedCostingTeam?.currency ?? "CHF",
     devResourceLevel: (initial?.devResourceLevel as string) ?? "",
     qaResourceLevel: (initial?.qaResourceLevel as string) ?? "",
     devAiProductivity: Number(initial?.devAiProductivity ?? 0),
@@ -210,8 +215,8 @@ export function EstimateWizard({
           (initial.readiness as { criterionId: string; answer: string }[]).map((r) => [r.criterionId, r.answer]),
         )
       : Object.fromEntries(dorCriteria.map((c) => [c.id, ""]))) as Record<string, string>,
-    locationId: locations.find((l) => l.name === (teams[0]?.mappedLocation ?? ""))?.id ?? locations[0]?.id ?? "",
-    locationName: teams[0]?.mappedLocation ?? locations[0]?.name ?? "",
+    locationId: locations.find((l) => l.name === (seedCostingTeam?.mappedLocation ?? ""))?.id ?? locations[0]?.id ?? "",
+    locationName: seedCostingTeam?.mappedLocation ?? locations[0]?.name ?? "",
   });
 
   const releaseYears = useMemo(() => yearsFromCatalogue(quarters), [quarters]);
