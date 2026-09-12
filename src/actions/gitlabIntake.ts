@@ -13,7 +13,7 @@ import {
   type PullFilters,
   type PreviewCandidate,
 } from "@/services/gitlab/intake";
-import { processImportRun } from "@/services/gitlab/runner";
+import { processImportRun, resyncEstimate } from "@/services/gitlab/runner";
 
 /** Trigger actions: feature on AND caller holds estimates.import (crew-leadership OR pod-level). */
 async function requireImporter() {
@@ -51,5 +51,12 @@ export async function processRunAction(runId: string): Promise<{ ok: boolean; me
   const result = await processImportRun(runId);
   revalidatePath("/intake/runs");
   revalidatePath(`/intake/runs/${runId}`);
+  return result;
+}
+
+export async function resyncEstimateAction(estimateId: string): Promise<{ ok: boolean; message: string }> {
+  const session = await requireImporter();
+  const result = await resyncEstimate(estimateId, session.user.id);
+  revalidatePath(`/estimates/${estimateId}`);
   return result;
 }

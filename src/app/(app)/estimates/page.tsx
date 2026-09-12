@@ -12,6 +12,7 @@ import { fromSession } from "@/lib/scope";
 import { getOrgFilterData, resolveOrgSelectionWhere } from "@/lib/orgFilter";
 import { getActiveConfig } from "@/services/configService";
 import { releaseWhere } from "@/lib/releasePeriod";
+import { isGitlabIntakeEnabled } from "@/lib/features";
 
 const STATUS_OPTIONS = [
   { value: "", label: "All statuses" },
@@ -34,6 +35,7 @@ export default async function EstimatesPage({
     tshirt?: string;
     flag?: string;
     org?: string;
+    source?: string;
     page?: string;
   }>;
 }) {
@@ -46,8 +48,10 @@ export default async function EstimatesPage({
     tshirt = "",
     flag = "",
     org = "",
+    source = "",
     page: pageParam = "",
   } = await searchParams;
+  const intakeOn = isGitlabIntakeEnabled();
   const scopeUser = fromSession(session!.user);
   const [orgWhere, orgFilter, config] = await Promise.all([
     resolveOrgSelectionWhere(scopeUser, org, team),
@@ -65,6 +69,7 @@ export default async function EstimatesPage({
     ...(workItemType ? { workItemType } : {}),
     ...(tshirt ? { effectiveTshirt: tshirt } : {}),
     ...(flag ? { deliveryFlag: flag } : {}),
+    ...(intakeOn && (source === "AGENT" || source === "MANUAL") ? { origin: source } : {}),
   };
   const PAGE_SIZE = 50;
   const page = Math.max(1, Number(pageParam) || 1);
@@ -86,7 +91,7 @@ export default async function EstimatesPage({
   // Preserve the active filters across pagination links.
   const pageQuery = (p: number) => {
     const params = new URLSearchParams();
-    for (const [k, v] of Object.entries({ status, release, team, workItemType, tshirt, flag, org })) {
+    for (const [k, v] of Object.entries({ status, release, team, workItemType, tshirt, flag, org, source })) {
       if (v) params.set(k, v);
     }
     if (p > 1) params.set("page", String(p));
@@ -123,6 +128,13 @@ export default async function EstimatesPage({
           { label: "T-shirt size", param: "tshirt", value: tshirt, options: [{ value: "", label: "All sizes" }, ...T_SHIRTS.map((s) => ({ value: s, label: s }))] },
           { label: "Delivery flag", param: "flag", value: flag, options: [{ value: "", label: "All flags" }, ...DELIVERY_FLAGS.map((f) => ({ value: f, label: f }))] },
           { label: "Status", param: "status", value: status, options: STATUS_OPTIONS },
+          ...(intakeOn
+            ? [{ label: "Source", param: "source", value: source, options: [
+                { value: "", label: "All sources" },
+                { value: "MANUAL", label: "Manual" },
+                { value: "AGENT", label: "GitLab" },
+              ] }]
+            : []),
         ]}
       />
 
@@ -162,6 +174,9 @@ export default async function EstimatesPage({
                       >
                         {row.reference}
                       </Link>
+                      {intakeOn && row.origin === "AGENT" ? (
+                        <span className="chip-warn ml-2 rounded-full px-2 py-0.5 text-[10px] font-semibold" title="Drafted from GitLab by the agent">Agent</span>
+                      ) : null}
                     </td>
                     <td>{row.workItemType === "EPIC" ? "Epic" : "Issue"}</td>
                     <td>{row.title}</td>

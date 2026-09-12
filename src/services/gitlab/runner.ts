@@ -174,3 +174,42 @@ export async function processImportRun(runId: string): Promise<{ ok: boolean; me
   });
   return { ok: true, message: `Processed ${processed}; ${errors} error(s).` };
 }
+
+/**
+ * E11 — provenance-aware re-sync. Re-fetches the linked GitLab item, re-runs the agent, and refreshes
+ * agent-owned inputs. Only for DRAFT agent estimates, and ONLY when no field has been human-edited
+ * (HUMAN provenance) — human edits are never overwritten (PRD §8.7 F21).
+ */
+export async function resyncEstimate(estimateId: string, userId: string): Promise<{ ok: boolean; message: string }> {
+  const est = await prisma.estimate.findUnique({ where: { id: estimateId } });
+  if (!est || est.origin !== "AGENT") return { ok: false, message: "Not an agent draft." };
+  if (est.status !== "DRAFT") return { ok: false, message: "Only draft agent estimates can be re-synced." };
+  if (!est.externalRef) return { ok: false, message: "No linked GitLab item." };
+
+  const human = await prisma.estimateFieldProvenance.count({ where: { estimateId, source: "HUMAN" } });
+  if (human > 0) return { ok: false, message: "Human edits present — re-sync is disabled to protect them." };
+
+  const run = est.agentRunId
+    ? await prisma.importRun.findUnique({ where: { id: est.agentRunId }, include: { sourceMapping: true } })
+    : null;
+  const projectRef = run?.sourceMapping.projectOrGroupRef;
+  if (!projectRef) return { ok: false, message: "No source mapping for this draft." };
+  const p = parseExternalRef(est.externalRef);
+  if (!p) return { ok: false, message: "Malformed external reference." };
+
+  const client = await clientForUser(userId);
+  if (!client) return { ok: false, message: "Connect your GitLab account first." };
+
+  try {
+    const ticket = p.type === "EPIC" ? await client.getEpic(projectRef, p.iid) : await client.getIssue(projectRef, p.iid);
+    const config = await getActiveConfig();
+    // Refresh title/description from source (agent-owned context fields).
+    await prisma.estimate.update({ where: { id: estimateId }, data: { title: ticket.title || est.title, description: ticket.description ?? est.description } });
+    const proposals = await runAgentFill(ticket, config);
+    if (proposals) await applyAgentProposals(estimateId, proposals, config, userId);
+    await calculateAndPersist(estimateId, userId);
+    return { ok: true, message: proposals ? "Re-synced from GitLab (agent refreshed)." : "Re-synced context; agent unavailable (no API key)." };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "Re-sync failed." };
+  }
+}
