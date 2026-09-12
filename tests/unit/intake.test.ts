@@ -163,3 +163,37 @@ describe("intake · deterministic ingest mapping (E7)", () => {
     expect(input.title).toBe("EPIC 3");
   });
 });
+
+describe("intake · agent fill (E8) pure logic", () => {
+  it("buildToolSchema mirrors active dimensions, criteria, and is strict/schema-locked", async () => {
+    const { buildToolSchema } = await import("@/services/gitlab/agent");
+    const { DEFAULT_CONFIG } = await import("@/domain/estimation/defaultConfig");
+    const tool = buildToolSchema(DEFAULT_CONFIG);
+    expect(tool.name).toBe("propose_estimate_inputs");
+    expect(tool.strict).toBe(true);
+    const schema = tool.input_schema as { additionalProperties: boolean; properties: Record<string, { required: string[] }> };
+    expect(schema.additionalProperties).toBe(false);
+    expect(schema.properties.complexity.required).toEqual(DEFAULT_CONFIG.complexityDimensions.filter((d) => d.active).map((d) => d.id));
+    expect(schema.properties.readiness.required).toEqual(DEFAULT_CONFIG.readinessCriteria.map((c) => c.id));
+  });
+
+  it("parseAgentProposals clamps scores, keeps YES/NO, rounds counts; deriveGaps flags weak fields", async () => {
+    const { parseAgentProposals, deriveGaps } = await import("@/services/gitlab/agent");
+    const { DEFAULT_CONFIG } = await import("@/domain/estimation/defaultConfig");
+    const dim = DEFAULT_CONFIG.complexityDimensions.find((d) => d.active)!;
+    const crit = DEFAULT_CONFIG.readinessCriteria[0];
+    const input = {
+      complexity: { [dim.id]: { score: 99, confidence: 0.9, evidence: "clear scope" } },
+      readiness: { [crit.id]: { answer: "YES", confidence: 0.8, evidence: "AC present" } },
+      resourcing: { devCount: 2.4, qaCount: 1, devLevel: "x", qaLevel: "y", confidence: 0.2, evidence: "no ticket evidence" },
+    };
+    const p = parseAgentProposals(input, DEFAULT_CONFIG);
+    expect(p.complexityScores[0]).toEqual({ dimensionId: dim.id, score: dim.maxScore }); // clamped to max
+    expect(p.readiness[0]).toEqual({ criterionId: crit.id, answer: "YES" });
+    expect(p.devCount).toBe(2); // rounded
+
+    const gaps = deriveGaps(p);
+    expect(gaps).toContain("resourcing"); // low confidence + "no ticket evidence"
+    expect(gaps).not.toContain(`complexity:${dim.name}`); // high confidence + evidence → not a gap
+  });
+});

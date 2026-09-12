@@ -1,8 +1,41 @@
 import { prisma } from "@/lib/prisma";
 import { createEstimate, calculateAndPersist, estimateInputSchema } from "@/services/estimateService";
+import { getActiveConfig } from "@/services/configService";
 import { clientForUser } from "./intake";
 import { parseExternalRef } from "./refs";
 import type { GitlabCandidate } from "./client";
+import { isAgentEnabled, runAgentFill, deriveGaps, type AgentProposals } from "./agent";
+import type { EstimationConfig } from "@/domain/estimation/types";
+
+/** Apply agent-proposed INPUTS to the draft + write field-level provenance. Engine recomputes after. */
+async function applyAgentProposals(
+  estimateId: string,
+  p: AgentProposals,
+  config: EstimationConfig,
+  userId: string,
+): Promise<{ avgConfidence: number | null; gaps: string[] }> {
+  const levelIdByName = Object.fromEntries(config.resourceLevels.map((l) => [l.name.toLowerCase(), l.id]));
+  const data: Record<string, unknown> = {};
+  if (p.complexityScores.length) data.complexityScoresJson = JSON.stringify(p.complexityScores);
+  if (p.readiness.length) data.readinessJson = JSON.stringify(p.readiness);
+  if (p.devCount != null) data.availableDev = p.devCount;
+  if (p.qaCount != null) data.availableQa = p.qaCount;
+  const devId = p.devLevelName ? levelIdByName[p.devLevelName.toLowerCase()] : undefined;
+  const qaId = p.qaLevelName ? levelIdByName[p.qaLevelName.toLowerCase()] : undefined;
+  if (devId) data.devResourceLevel = devId;
+  if (qaId) data.qaResourceLevel = qaId;
+  if (Object.keys(data).length) await prisma.estimate.update({ where: { id: estimateId }, data });
+
+  for (const f of p.fields) {
+    await prisma.estimateFieldProvenance.upsert({
+      where: { estimateId_field: { estimateId, field: f.field } },
+      create: { estimateId, field: f.field, source: "AGENT", confidence: f.confidence, evidence: f.evidence, updatedById: userId },
+      update: { source: "AGENT", confidence: f.confidence, evidence: f.evidence },
+    });
+  }
+  const avg = p.fields.length ? p.fields.reduce((s, f) => s + f.confidence, 0) / p.fields.length : null;
+  return { avgConfidence: avg, gaps: deriveGaps(p) };
+}
 
 /**
  * E6/E7 — deterministic ingest runner. Processes a QUEUED ImportRun in batches: for each SELECTED
@@ -65,6 +98,7 @@ export async function processImportRun(runId: string): Promise<{ ok: boolean; me
   const trigger = await prisma.user.findUnique({ where: { id: run.triggeredById }, select: { name: true, email: true } });
   const team = teamId ? await prisma.team.findUnique({ where: { id: teamId }, select: { currency: true } }) : null;
   const requester = trigger?.name || trigger?.email || "GitLab import";
+  const config = await getActiveConfig();
 
   const pending = run.items.filter((i) => i.status === "PENDING");
   let processed = run.processed;
@@ -100,8 +134,29 @@ export async function processImportRun(runId: string): Promise<{ ok: boolean; me
             where: { id: est.id },
             data: { origin: "AGENT", externalRef: item.externalRef, externalUrl: ticket.webUrl || null, agentRunId: run.id },
           });
+
+          // E8: agent fills evidence-backed INPUTS; engine recomputes after. Failure keeps the
+          // deterministic draft (item still DRAFTED, agent error recorded in evidenceJson).
+          let agentConfidence: number | null = null;
+          let evidence: Record<string, unknown> = {};
+          if (isAgentEnabled()) {
+            try {
+              const proposals = await runAgentFill(ticket, config);
+              if (proposals) {
+                const applied = await applyAgentProposals(est.id, proposals, config, run.triggeredById);
+                agentConfidence = applied.avgConfidence;
+                evidence = { gaps: applied.gaps, fields: proposals.fields };
+              }
+            } catch (e) {
+              evidence = { agentError: (e instanceof Error ? e.message : "agent failed").slice(0, 200) };
+            }
+          }
+
           await calculateAndPersist(est.id, run.triggeredById);
-          await prisma.importItem.update({ where: { id: item.id }, data: { status: "DRAFTED", estimateId: est.id, error: null } });
+          await prisma.importItem.update({
+            where: { id: item.id },
+            data: { status: "DRAFTED", estimateId: est.id, agentConfidence, evidenceJson: JSON.stringify(evidence), error: null },
+          });
         }
       } catch (e) {
         errors += 1;
