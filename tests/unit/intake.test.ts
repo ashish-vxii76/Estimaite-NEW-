@@ -197,3 +197,30 @@ describe("intake · agent fill (E8) pure logic", () => {
     expect(gaps).not.toContain(`complexity:${dim.name}`); // high confidence + evidence → not a gap
   });
 });
+
+describe("intake · RBAC & path gating (E12)", () => {
+  it("configure = Administrator only; trigger = admin/estimator/delivery-lead", async () => {
+    const { can } = await import("@/lib/rbac");
+    // Configure the integration (DEC-016: Delivery Lead is NOT admin, so no configure).
+    expect(can("ADMINISTRATOR", "integration.gitlab", "RW")).toBe(true);
+    expect(can("DELIVERY_LEAD", "integration.gitlab", "RW")).toBe(false);
+    expect(can("ESTIMATOR", "integration.gitlab", "RW")).toBe(false);
+    // Trigger a pull / Draft-with-AI (crew-leadership + pod-level).
+    expect(can("ADMINISTRATOR", "estimates.import", "RW")).toBe(true);
+    expect(can("ESTIMATOR", "estimates.import", "RW")).toBe(true);
+    expect(can("DELIVERY_LEAD", "estimates.import", "RW")).toBe(true);
+    expect(can("REQUESTER", "estimates.import", "RW")).toBe(false);
+    expect(can("VIEWER", "estimates.import", "RW")).toBe(false);
+  });
+
+  it("paths: configure needs CREW level; trigger is not level-gated (pod allowed)", async () => {
+    const { canAccessPath } = await import("@/lib/rbac");
+    const { levelRank } = await import("@/lib/orgLevel");
+    // Configure page: Crew Admin+ (feature + CREW min-level).
+    expect(canAccessPath("ADMINISTRATOR", "/admin/integrations", undefined, levelRank("CREW"))).toBe(true);
+    expect(canAccessPath("ADMINISTRATOR", "/admin/integrations", undefined, levelRank("POD"))).toBe(false);
+    // Trigger: a pod-level Estimator may reach the wizard; a Viewer never can.
+    expect(canAccessPath("ESTIMATOR", "/intake/new", undefined, levelRank("POD"))).toBe(true);
+    expect(canAccessPath("VIEWER", "/intake/new", undefined, levelRank("CREW"))).toBe(false);
+  });
+});

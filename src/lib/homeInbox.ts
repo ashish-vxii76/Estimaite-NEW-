@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/access";
 import { fromSession, resolveEstimateScope, type ScopeUser } from "@/lib/scope";
+import { isGitlabIntakeEnabled } from "@/lib/features";
+import { pullableCrewIds } from "@/services/gitlab/intake";
 
 export type AppNotification = {
   id: string;
@@ -80,6 +82,28 @@ export async function buildNotifications(
       href: "/estimates?status=DRAFT",
     });
   }
+  // E10: GitLab import completions, to the crew leadership + pod in scope (and the triggerer, whose
+  // crew is in their own scope). Flag-gated; only queried for holders of estimates.import.
+  if (isGitlabIntakeEnabled() && can(role, "estimates.import", "R")) {
+    const crewIds = await pullableCrewIds(scoped);
+    const since = new Date(Date.now() - 7 * 24 * 3600 * 1000);
+    const runs = await prisma.importRun.findMany({
+      where: { status: { in: ["COMPLETED", "PARTIAL"] }, completedAt: { gte: since }, ...(crewIds ? { crewId: { in: crewIds } } : {}) },
+      orderBy: { completedAt: "desc" },
+      take: 5,
+      select: { id: true, processed: true, total: true, status: true },
+    });
+    for (const r of runs) {
+      items.push({
+        id: `import-${r.id}`,
+        severity: "info",
+        title: "GitLab import ready",
+        body: `${r.processed} of ${r.total} drafted${r.status === "PARTIAL" ? " (partial)" : ""} — review and submit.`,
+        href: `/intake/runs/${r.id}`,
+      });
+    }
+  }
+
   if (items.length === 0) {
     items.push({
       id: "clear",
