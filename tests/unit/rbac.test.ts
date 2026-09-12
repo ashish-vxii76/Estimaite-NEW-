@@ -122,7 +122,7 @@ const PDF: Record<FeatureId, Partial<Record<AppRole, Access>>> = {
   "org.budget": { ADMINISTRATOR: "RW", DELIVERY_LEAD: "RW" },
   // GitLab Agentic Intake (feature-flagged): configure = Crew Admin+; trigger/Draft-with-AI = crew
   // leadership + pod-level Estimator.
-  "integration.gitlab": { ADMINISTRATOR: "RW", DELIVERY_LEAD: "RW" },
+  "integration.gitlab": { ADMINISTRATOR: "RW" },
   "estimates.import": { ADMINISTRATOR: "RW", ESTIMATOR: "RW", DELIVERY_LEAD: "RW" },
   "scope.allTeams": { ADMINISTRATOR: "R" },
   "scope.writeAnyOnTeam": {

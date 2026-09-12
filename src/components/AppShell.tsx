@@ -7,6 +7,7 @@ import { HeaderBar } from "@/components/HeaderBar";
 import { roleLabel } from "@/lib/roles";
 import type { RbacMatrix } from "@/lib/rbac";
 import type { AppNotification } from "@/lib/homeInbox";
+import { isGitlabIntakeEnabled } from "@/lib/features";
 
 export function AppShell({
   children,
@@ -43,6 +44,7 @@ export function AppShell({
           seatLevel={seatLevel}
           userName={user.name}
           userRole={roleLine}
+          gitlabIntake={isGitlabIntakeEnabled()}
           signOut={<SignOutButton key="signout" />}
           profileSwitcher={<RoleSwitcher key="role-switcher" options={roleOptions} />}
         />

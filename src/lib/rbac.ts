@@ -252,11 +252,12 @@ export const DEFAULT_RBAC: Record<FeatureId, Record<AppRole, Access>> = {
     ADMINISTRATOR: RW,
     DELIVERY_LEAD: RW,
   }),
-  // Configure the integration (connection + source mapping): Crew Admin+ (level-gated to CREW via
-  // PATH_MIN_LEVEL). Deny-by-default for others; an admin can widen in the matrix.
+  // Configure the integration (connection + source mapping) = admin-tier work (Administrator with a
+  // crew/org scope = "Crew Admin+"), level-gated to CREW via PATH_MIN_LEVEL. DEC-016 keeps Delivery
+  // Lead out of admin, so DL is NOT granted configure by default — an admin can widen via the matrix.
+  // (DL/pod still TRIGGER via estimates.import.) See PRD §5.1 deviation note.
   "integration.gitlab": cell({
     ADMINISTRATOR: RW,
-    DELIVERY_LEAD: RW,
   }),
   // Trigger a pull / manual "Draft with AI": crew-leadership + pod-level (Estimator), seat-scoped.
   // No min-level — a pod trigger is bounded to the actor's pod at the service layer.

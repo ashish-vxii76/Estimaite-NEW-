@@ -14,7 +14,8 @@
     "test:int": "vitest run --config vitest.int.config.ts",
     "db:seed": "tsx prisma/seed.ts",
     "db:push": "prisma db push",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "db:seed:intake": "tsx prisma/seedIntake.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

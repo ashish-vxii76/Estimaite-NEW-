@@ -12,6 +12,8 @@ export type NavNode = {
   createHref?: string;
   createLabel?: string;
   createRoles?: string[];
+  /** Gates the node behind a feature flag (stripped when the flag is off). */
+  flag?: "gitlabIntake";
   children?: NavNode[];
 };
 
@@ -58,6 +60,20 @@ export const NAV_TREE: NavNode[] = [
         href: "/estimates?status=COMPLETED",
         feature: "estimates.list",
       },
+    ],
+  },
+  {
+    id: "intake",
+    label: "Intake",
+    href: "/intake/runs",
+    feature: "estimates.import",
+    flag: "gitlabIntake",
+    createHref: "/intake/new",
+    createLabel: "New GitLab import",
+    createRoles: ESTIMATE_CREATE_ROLES,
+    children: [
+      { id: "intake-new", label: "New import", href: "/intake/new", feature: "estimates.import" },
+      { id: "intake-runs", label: "Import runs", href: "/intake/runs", feature: "estimates.import" },
     ],
   },
   {
@@ -212,6 +228,25 @@ export const NAV_TREE: NavNode[] = [
           },
         ],
       },
+      {
+        id: "admin-integrations",
+        label: "Integrations",
+        flag: "gitlabIntake",
+        children: [
+          {
+            id: "gitlab-connection",
+            label: "GitLab connection",
+            href: "/admin/integrations/gitlab",
+            feature: "integration.gitlab",
+          },
+          {
+            id: "gitlab-mapping",
+            label: "Source mapping",
+            href: "/admin/integrations/gitlab/mapping",
+            feature: "integration.gitlab",
+          },
+        ],
+      },
     ],
   },
 ];
@@ -226,7 +261,8 @@ export function canSeeNav(
   // seat, not just the feature grant — a Pod-level Delivery Lead holds the grant but not the level.
   if (node.minLevel && levelRankValue < levelRank(node.minLevel)) return false;
   // The Administration section is for admin tiers only (App/Org/Crew) — a role that merely *reads* a
-  // config surface must not see it.
+  // config surface must not see it. (DEC-016: a Crew Delivery Lead is NOT an admin tier.) Configuring
+  // GitLab integration is admin-tier work; DL/pod get the *trigger* via the top-level Intake section.
   if (node.id === "administration") return isAdminTier(role, matrix);
   if (node.feature) return can(role, node.feature, "R", matrix);
   if (node.children?.length) return node.children.some((child) => canSeeNav(child, role, matrix, levelRankValue));

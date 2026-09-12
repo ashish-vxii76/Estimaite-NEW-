@@ -10,8 +10,10 @@ import {
   ChevronRight,
   ClipboardList,
   Cog,
+  DownloadCloud,
   Home,
   KeyRound,
+  Plug,
   LayoutDashboard,
   ListChecks,
   Menu,
@@ -34,6 +36,7 @@ import type { RbacMatrix } from "@/lib/rbac";
 const TOP_ICONS: Record<string, typeof Home> = {
   home: Home,
   estimates: ListChecks,
+  intake: DownloadCloud,
   "crew-budgets": Wallet,
   analytics: BarChart3,
   administration: Settings,
@@ -48,6 +51,7 @@ const SUB_ICONS: Record<string, typeof Home> = {
   "admin-size": Ruler,
   "admin-commercial": Banknote,
   "admin-engine": Cog,
+  "admin-integrations": Plug,
 };
 
 /** Icon for a node: top-level sections and nested sub-sections carry one; leaves don't. */
@@ -63,12 +67,14 @@ export function SideNav({
   userRole,
   signOut,
   profileSwitcher,
+  gitlabIntake = false,
 }: {
   role: string;
   matrix?: RbacMatrix;
   seatLevel?: number;
   userName?: string | null;
   userRole?: string | null;
+  gitlabIntake?: boolean;
   // Elements (not functions): AppShell is a Server Component, so only serializable React elements
   // may cross the boundary. SideNav renders them in one mount point at a time (mobile drawer XOR
   // desktop aside), so a single instance is safe.
@@ -95,7 +101,10 @@ export function SideNav({
     setMobileOpen(false);
   }, [pathname, search, hash]);
 
-  const tree = useMemo(() => filterTree(NAV_TREE, role, matrix, seatLevel), [role, matrix, seatLevel]);
+  const tree = useMemo(
+    () => filterTree(NAV_TREE, role, matrix, seatLevel, { gitlabIntake }),
+    [role, matrix, seatLevel, gitlabIntake],
+  );
 
   // Parent lookup for the accordion: opening/closing a node is expressed as its ancestor path.
   const parentOf = useMemo(() => {
@@ -412,12 +421,19 @@ function NavBranch({
   );
 }
 
-function filterTree(nodes: NavNode[], role: string, matrix?: RbacMatrix, level?: number): NavNode[] {
+function filterTree(
+  nodes: NavNode[],
+  role: string,
+  matrix?: RbacMatrix,
+  level?: number,
+  flags?: { gitlabIntake?: boolean },
+): NavNode[] {
   return nodes
+    .filter((node) => !node.flag || flags?.[node.flag])
     .filter((node) => canSeeNav(node, role, matrix, level))
     .map((node) => ({
       ...node,
-      children: node.children ? filterTree(node.children, role, matrix, level) : undefined,
+      children: node.children ? filterTree(node.children, role, matrix, level, flags) : undefined,
     }))
     .filter((node) => node.href || (node.children && node.children.length > 0));
 }
