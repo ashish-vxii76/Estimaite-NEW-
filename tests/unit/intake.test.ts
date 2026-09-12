@@ -129,3 +129,37 @@ describe("intake · candidate parsing & selection", () => {
     expect(revealed.visible.find((c) => c.iid === 2)?.alreadyImported).toBe(false);
   });
 });
+
+describe("intake · deterministic ingest mapping (E7)", () => {
+  it("maps a ticket to known inputs and parses cleanly through the engine input schema", async () => {
+    const { ticketToEstimateInput } = await import("@/services/gitlab/runner");
+    const { estimateInputSchema } = await import("@/services/estimateService");
+    const input = ticketToEstimateInput(
+      { type: "ISSUE", iid: 7, title: "Card controls in app", description: "As a user…" },
+      { teamId: "team_1", reference: "CR-000123", requester: "Jordan", release: "2026-Q1", currency: "EUR" },
+    );
+    expect(input).toMatchObject({
+      workItemType: "ISSUE",
+      reference: "CR-000123",
+      title: "Card controls in app",
+      teamId: "team_1",
+      requester: "Jordan",
+      release: "2026-Q1",
+      currency: "EUR",
+    });
+    // The engine's own schema accepts it and fills governed defaults (agent never sets these).
+    const parsed = estimateInputSchema.parse(input);
+    expect(parsed.devAiProductivity).toBe(0);
+    expect(parsed.availableDev).toBeGreaterThanOrEqual(0);
+    expect(parsed.planningMode).toBe("RESOURCE_CONSTRAINED");
+  });
+
+  it("falls back to a synthesised title when the ticket has none", async () => {
+    const { ticketToEstimateInput } = await import("@/services/gitlab/runner");
+    const input = ticketToEstimateInput(
+      { type: "EPIC", iid: 3, title: "", description: "" },
+      { teamId: "t", reference: "CR-1", requester: "x" },
+    );
+    expect(input.title).toBe("EPIC 3");
+  });
+});

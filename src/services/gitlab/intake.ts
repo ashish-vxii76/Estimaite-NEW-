@@ -234,3 +234,32 @@ export async function listRuns(user: ScopeUser): Promise<RunRow[]> {
     createdAt: r.createdAt, triggeredBy: r.triggeredBy.name,
   }));
 }
+
+export type RunItemRow = {
+  id: string; gitlabType: string; gitlabIid: string; status: string;
+  estimateId: string | null; estimateRef: string | null; error: string | null;
+};
+export type RunDetail = {
+  id: string; status: string; total: number; processed: number;
+  source: string; crewName: string; defaultReleaseQuarter: string | null; items: RunItemRow[];
+} | null;
+
+export async function getRunDetail(user: ScopeUser, runId: string): Promise<RunDetail> {
+  const ids = await pullableCrewIds(user);
+  const run = await prisma.importRun.findUnique({
+    where: { id: runId },
+    include: { sourceMapping: true, items: { include: { estimate: { select: { reference: true } } }, orderBy: { createdAt: "asc" } } },
+  });
+  if (!run) return null;
+  if (ids !== null && !ids.includes(run.crewId)) return null;
+  const crew = await prisma.orgUnit.findUnique({ where: { id: run.crewId }, select: { name: true } });
+  return {
+    id: run.id, status: run.status, total: run.total, processed: run.processed,
+    source: run.sourceMapping.projectOrGroupRef, crewName: crew?.name ?? "—",
+    defaultReleaseQuarter: run.defaultReleaseQuarter,
+    items: run.items.map((i) => ({
+      id: i.id, gitlabType: i.gitlabType, gitlabIid: i.gitlabIid, status: i.status,
+      estimateId: i.estimateId, estimateRef: i.estimate?.reference ?? null, error: i.error,
+    })),
+  };
+}

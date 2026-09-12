@@ -5,6 +5,9 @@ import { can } from "@/lib/access";
 import { fromSession } from "@/lib/scope";
 import { isGitlabIntakeEnabled } from "@/lib/features";
 import { listRuns } from "@/services/gitlab/intake";
+import { ProcessRunButton } from "@/components/intake/ProcessRunButton";
+
+const RUNNABLE = new Set(["QUEUED", "IN_PROGRESS", "PARTIAL", "FAILED"]);
 
 const STATUS_CHIP: Record<string, string> = {
   QUEUED: "chip-neutral",
@@ -42,12 +45,14 @@ export default async function ImportRunsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm [&_td]:px-3 [&_td]:py-2.5 [&_th]:px-3 [&_th]:py-2">
               <thead className="text-left text-xs uppercase tracking-wide text-[var(--muted)]">
-                <tr><th>Source</th><th>Crew</th><th>Status</th><th>Progress</th><th>By</th><th>When</th></tr>
+                <tr><th>Source</th><th>Crew</th><th>Status</th><th>Progress</th><th>By</th><th>When</th><th></th></tr>
               </thead>
               <tbody>
                 {runs.map((r) => (
                   <tr key={r.id} className="border-t border-[var(--line)]">
-                    <td className="font-mono text-[var(--navy)]">{r.source}</td>
+                    <td className="font-mono">
+                      <Link href={`/intake/runs/${r.id}`} className="text-[var(--navy)] underline">{r.source}</Link>
+                    </td>
                     <td>{r.crewName}</td>
                     <td>
                       <span className={`${STATUS_CHIP[r.status] ?? "chip-neutral"} rounded-full px-2 py-0.5 text-[11px] font-semibold`}>
@@ -57,6 +62,7 @@ export default async function ImportRunsPage() {
                     <td className="tabular-nums text-[var(--muted)]">{r.processed}/{r.total}</td>
                     <td className="text-[var(--muted)]">{r.triggeredBy}</td>
                     <td className="text-[var(--muted)]">{new Date(r.createdAt).toLocaleString()}</td>
+                    <td className="text-right">{RUNNABLE.has(r.status) ? <ProcessRunButton runId={r.id} /> : null}</td>
                   </tr>
                 ))}
               </tbody>

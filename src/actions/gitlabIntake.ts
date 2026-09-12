@@ -1,15 +1,19 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/access";
 import { fromSession } from "@/lib/scope";
 import { isGitlabIntakeEnabled } from "@/lib/features";
 import {
   previewCandidates,
   createImportRun,
+  pullableCrewIds,
   type PullFilters,
   type PreviewCandidate,
 } from "@/services/gitlab/intake";
+import { processImportRun } from "@/services/gitlab/runner";
 
 /** Trigger actions: feature on AND caller holds estimates.import (crew-leadership OR pod-level). */
 async function requireImporter() {
@@ -36,4 +40,16 @@ export async function createRunAction(input: {
 }): Promise<{ ok: boolean; runId?: string; message: string }> {
   const session = await requireImporter();
   return createImportRun(fromSession(session.user), input);
+}
+
+export async function processRunAction(runId: string): Promise<{ ok: boolean; message: string }> {
+  const session = await requireImporter();
+  const run = await prisma.importRun.findUnique({ where: { id: runId }, select: { crewId: true } });
+  if (!run) return { ok: false, message: "Run not found." };
+  const ids = await pullableCrewIds(fromSession(session.user));
+  if (ids !== null && !ids.includes(run.crewId)) return { ok: false, message: "Run is outside your scope." };
+  const result = await processImportRun(runId);
+  revalidatePath("/intake/runs");
+  revalidatePath(`/intake/runs/${runId}`);
+  return result;
 }

@@ -102,6 +102,14 @@ export class GitLabClient {
     return raw.map((r) => toCandidate("EPIC", r));
   }
 
+  async getIssue(projectRef: string, iid: string | number): Promise<GitlabCandidate> {
+    return toCandidate("ISSUE", await this.get<Record<string, unknown>>(`/projects/${this.encodeRef(projectRef)}/issues/${iid}`));
+  }
+
+  async getEpic(groupRef: string, iid: string | number): Promise<GitlabCandidate> {
+    return toCandidate("EPIC", await this.get<Record<string, unknown>>(`/groups/${this.encodeRef(groupRef)}/epics/${iid}`));
+  }
+
   /** Validate the PAT: reachable, and read-only. Never returns or logs the token. */
   async testConnection(): Promise<ConnectionResult> {
     try {
