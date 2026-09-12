@@ -97,3 +97,35 @@ describe("intake · GitLabClient (injected fetch)", () => {
     expect(() => new GitLabClient("evil.example.com", "t")).toThrow();
   });
 });
+
+describe("intake · candidate parsing & selection", () => {
+  it("toCandidate maps issue (project_id) and epic (group_id)", async () => {
+    const { toCandidate } = await import("@/services/gitlab/client");
+    const issue = toCandidate("ISSUE", { iid: 5, project_id: 42, title: "X", state: "opened", labels: ["a", "b"], web_url: "u", updated_at: "t", description: "d" });
+    expect(issue).toMatchObject({ type: "ISSUE", iid: 5, projectId: 42, title: "X", labels: ["a", "b"] });
+    const epic = toCandidate("EPIC", { iid: 2, group_id: 9, title: "E" });
+    expect(epic.projectId).toBe(9);
+    expect(epic.type).toBe("EPIC");
+  });
+
+  it("partitionCandidates hides already-imported by default, reveals with the toggle", async () => {
+    const { partitionCandidates } = await import("@/services/gitlab/intake");
+    const { toCandidate } = await import("@/services/gitlab/client");
+    const { externalRef } = await import("@/services/gitlab/refs");
+    const raw = [
+      toCandidate("ISSUE", { iid: 1, project_id: 42, title: "one" }),
+      toCandidate("ISSUE", { iid: 2, project_id: 42, title: "two" }),
+    ];
+    const imported = new Set([externalRef("gitlab.com", 42, "ISSUE", 1)]);
+
+    const hiddenDefault = partitionCandidates(raw, "gitlab.com", imported, false);
+    expect(hiddenDefault.visible.map((c) => c.iid)).toEqual([2]);
+    expect(hiddenDefault.hidden).toBe(1);
+
+    const revealed = partitionCandidates(raw, "gitlab.com", imported, true);
+    expect(revealed.visible.length).toBe(2);
+    expect(revealed.hidden).toBe(0);
+    expect(revealed.visible.find((c) => c.iid === 1)?.alreadyImported).toBe(true);
+    expect(revealed.visible.find((c) => c.iid === 2)?.alreadyImported).toBe(false);
+  });
+});
