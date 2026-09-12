@@ -23,6 +23,8 @@ model User {
   auditEvents     AuditEvent[]
   orgSeats        OrgSeat[]
   roleGrants      RoleGrant[]
+  gitlabConnections   GitLabConnection[]
+  importRunsTriggered ImportRun[] @relation("TriggeredBy")
 }
 
 // A role a user may hold and switch into. `isPrimary` is the login/default role.
@@ -216,6 +218,11 @@ model Estimate {
   configurationVersionId String
   rateVersionId          String
   pinnedInputsJson       String    @default("")
+  // GitLab agentic intake (feature-flagged). MANUAL for every existing/manual estimate.
+  origin                 String    @default("MANUAL")
+  externalRef            String?   @unique
+  externalUrl            String?
+  agentRunId             String?
   createdById            String
   createdBy              User      @relation("CreatedBy", fields: [createdById], references: [id])
   createdAt              DateTime  @default(now())
@@ -225,6 +232,8 @@ model Estimate {
   actuals                ActualDelivery?
   auditEvents            AuditEvent[]
   baselines              EstimateBaseline[]
+  fieldProvenance        EstimateFieldProvenance[]
+  importItem             ImportItem?
 }
 
 // DEC-008 L3 (D3/D5): immutable, versioned baseline. v1 committed at APPROVED; calibration
@@ -326,4 +335,99 @@ model AuditEvent {
   hash          String    @default("")
 
   @@index([createdAt, id])
+}
+
+// ─── GitLab Agentic Intake (feature-flagged: FEATURE_GITLAB_INTAKE) ──────────────────────────────
+// Additive only; no engine/config tables touched. See docs/gitlab-agentic-intake-prd.md §9.
+
+model GitLabConnection {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  host       String    @default("gitlab.com")
+  encToken   String // AES-256-GCM encrypted PAT; never logged, never sent to client
+  scopes     String    @default("read_api")
+  status     String    @default("ACTIVE") // ACTIVE | REVOKED | INVALID
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([userId, host])
+}
+
+model GitLabSourceMapping {
+  id                String      @id @default(cuid())
+  host              String      @default("gitlab.com")
+  projectOrGroupRef String // e.g. "group/subgroup/project" or numeric project id
+  crewId            String
+  defaultPodTeamId  String?
+  enabled           Boolean     @default(true)
+  configuredById    String
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  importRuns        ImportRun[]
+
+  @@unique([host, projectOrGroupRef])
+  @@index([crewId])
+}
+
+model ImportRun {
+  id                    String              @id @default(cuid())
+  sourceMappingId       String
+  sourceMapping         GitLabSourceMapping @relation(fields: [sourceMappingId], references: [id])
+  triggeredById         String
+  triggeredBy           User                @relation("TriggeredBy", fields: [triggeredById], references: [id])
+  crewId                String
+  podTeamId             String? // set for pod-level triggers (§5.2)
+  status                String              @default("QUEUED") // QUEUED | IN_PROGRESS | COMPLETED | PARTIAL | FAILED
+  total                 Int                 @default(0)
+  processed             Int                 @default(0)
+  batchSize             Int                 @default(5)
+  filtersJson           String              @default("{}")
+  selectedRefsJson      String              @default("[]") // the externalRefs the user ticked
+  defaultReleaseQuarter String?
+  error                 String?
+  startedAt             DateTime?
+  completedAt           DateTime?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  items                 ImportItem[]
+
+  @@index([crewId])
+  @@index([triggeredById])
+}
+
+model ImportItem {
+  id              String    @id @default(cuid())
+  importRunId     String
+  importRun       ImportRun @relation(fields: [importRunId], references: [id], onDelete: Cascade)
+  gitlabType      String // ISSUE | EPIC
+  gitlabIid       String
+  externalRef     String // {projectId, iid, type} composite, stringified — idempotency key
+  estimateId      String?   @unique
+  estimate        Estimate? @relation(fields: [estimateId], references: [id])
+  status          String    @default("PENDING") // PENDING | DRAFTED | SKIPPED | DUPLICATE | ERROR
+  agentConfidence Float?
+  evidenceJson    String    @default("{}")
+  error           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([importRunId])
+  @@index([externalRef])
+}
+
+model EstimateFieldProvenance {
+  id          String   @id @default(cuid())
+  estimateId  String
+  estimate    Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  field       String
+  source      String   @default("AGENT") // AGENT | HUMAN
+  confidence  Float?
+  evidence    String?
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([estimateId, field])
 }

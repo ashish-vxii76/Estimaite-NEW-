@@ -49,6 +49,10 @@ export const FEATURES = [
   { id: "config.rbac", group: "Configuration", label: "RBAC matrix" },
   { id: "org.setup", group: "Organisation", label: "Organisation setup (tree & seats)" },
   { id: "org.budget", group: "Organisation", label: "Crew yearly budgets" },
+  // GitLab Agentic Intake (feature-flagged). integration.gitlab = configure (Crew Admin+, CREW-level);
+  // estimates.import = trigger a pull / manual "Draft with AI" (Crew-leadership + pod-level, seat-scoped).
+  { id: "integration.gitlab", group: "Integrations", label: "GitLab — connection & source mapping" },
+  { id: "estimates.import", group: "Integrations", label: "GitLab — trigger import / Draft with AI" },
   {
     id: "scope.allTeams",
     group: "Record scope",
@@ -248,6 +252,19 @@ export const DEFAULT_RBAC: Record<FeatureId, Record<AppRole, Access>> = {
     ADMINISTRATOR: RW,
     DELIVERY_LEAD: RW,
   }),
+  // Configure the integration (connection + source mapping): Crew Admin+ (level-gated to CREW via
+  // PATH_MIN_LEVEL). Deny-by-default for others; an admin can widen in the matrix.
+  "integration.gitlab": cell({
+    ADMINISTRATOR: RW,
+    DELIVERY_LEAD: RW,
+  }),
+  // Trigger a pull / manual "Draft with AI": crew-leadership + pod-level (Estimator), seat-scoped.
+  // No min-level — a pod trigger is bounded to the actor's pod at the service layer.
+  "estimates.import": cell({
+    ADMINISTRATOR: RW,
+    ESTIMATOR: RW,
+    DELIVERY_LEAD: RW,
+  }),
   /** Cross-team visibility. Blank = own team only (via user.teamId). */
   "scope.allTeams": cell({
     ADMINISTRATOR: R,
@@ -372,7 +389,11 @@ export const PATH_FEATURES: { prefix: string; feature: FeatureId; mode: "R" | "R
   { prefix: "/admin/users", feature: "config.users", mode: "R" },
   { prefix: "/admin/rbac", feature: "config.rbac", mode: "R" },
   { prefix: "/admin/organisation", feature: "org.setup", mode: "R" },
+  { prefix: "/admin/integrations", feature: "integration.gitlab", mode: "R" },
   { prefix: "/crew-budgets", feature: "org.budget", mode: "R" },
+  // Intake: /intake/new triggers a run (RW); the section itself is R. More specific prefix first.
+  { prefix: "/intake/new", feature: "estimates.import", mode: "RW" },
+  { prefix: "/intake", feature: "estimates.import", mode: "R" },
   { prefix: "/admin/team-composition", feature: "config.teams", mode: "R" },
   { prefix: "/teams", feature: "config.teams", mode: "R" },
   { prefix: "/admin/cost-mapping", feature: "config.rates", mode: "R" },
@@ -410,6 +431,9 @@ export const PATH_MIN_LEVEL: { prefix: string; minLevel: string }[] = [
   { prefix: "/portfolio", minLevel: "CREW" },
   { prefix: "/calibration", minLevel: "CREW" },
   { prefix: "/crew-budgets", minLevel: "CREW" },
+  // Configuring the integration is Crew Admin+. Triggering (/intake) is NOT level-gated — pod-level
+  // users may trigger, bounded to their pod at the service layer (PRD §5.2).
+  { prefix: "/admin/integrations", minLevel: "CREW" },
 ];
 
 export function minLevelForPath(pathname: string): string | null {
